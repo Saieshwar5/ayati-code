@@ -1,0 +1,23 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Built artifacts and test output
+/ayati-micro
+/bin/
+/dist/
+*.test
+coverage.out
+*.log
+
+# Local runtime and agent state
+/.nca/
+/.agents/
+/.codex/
+/project-details/
+
+# Editor and operating-system files
+.DS_Store
+*.swp
+*~
