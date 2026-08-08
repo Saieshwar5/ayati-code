@@ -4,6 +4,7 @@
 !.env.example
 
 # Built artifacts and test output
+/ayati-code
 /ayati-micro
 /bin/
 /dist/

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/config"
+	"github.com/Saieshwar5/ayati-code/internal/config"
 )
 
 func TestSetupSavesKeyAndDefaultModel(t *testing.T) {
@@ -63,5 +63,18 @@ func TestConfigShowMasksKey(t *testing.T) {
 	}
 	if strings.Contains(output.String(), "fw_super_secret_value") {
 		t.Fatal("config show exposed the API key")
+	}
+}
+
+func TestHelpUsesAyatiCodeName(t *testing.T) {
+	path := filepath.Join(t.TempDir(), ".env")
+	t.Setenv(config.EnvPath, path)
+	var output bytes.Buffer
+	app := App{Input: strings.NewReader(""), Output: &output, Error: &bytes.Buffer{}}
+	if err := app.Run(context.Background(), []string{"help"}); err != nil {
+		t.Fatalf("help: %v", err)
+	}
+	if !strings.Contains(output.String(), "Ayati Code") || !strings.Contains(output.String(), "usage: ayati-code") {
+		t.Fatalf("help does not use Ayati Code identity: %q", output.String())
 	}
 }

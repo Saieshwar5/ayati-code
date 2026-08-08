@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/chat"
+	"github.com/Saieshwar5/ayati-code/internal/chat"
 )
 
 const DefaultFireworksURL = "https://api.fireworks.ai/inference/v1/chat/completions"

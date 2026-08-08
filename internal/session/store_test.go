@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/chat"
+	"github.com/Saieshwar5/ayati-code/internal/chat"
 )
 
 func TestCreateAppendOpenAndContinue(t *testing.T) {

@@ -7,10 +7,10 @@ import (
 	"io"
 	"strings"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/chat"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/provider"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/session"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/shell"
+	"github.com/Saieshwar5/ayati-code/internal/chat"
+	"github.com/Saieshwar5/ayati-code/internal/provider"
+	"github.com/Saieshwar5/ayati-code/internal/session"
+	"github.com/Saieshwar5/ayati-code/internal/shell"
 )
 
 type Shell interface {

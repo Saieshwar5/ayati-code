@@ -10,7 +10,10 @@ import (
 	"strings"
 )
 
-const EnvPath = "AYATI_MICRO_ENV"
+const (
+	EnvPath       = "AYATI_CODE_ENV"
+	LegacyEnvPath = "AYATI_MICRO_ENV"
+)
 
 var KnownKeys = []string{
 	"FIREWORKS_API_KEY",
@@ -31,13 +34,16 @@ func Path() (string, error) {
 	if path := os.Getenv(EnvPath); path != "" {
 		return filepath.Abs(path)
 	}
+	if path := os.Getenv(LegacyEnvPath); path != "" {
+		return filepath.Abs(path)
+	}
 	executable, err := os.Executable()
 	if err != nil {
-		return "", fmt.Errorf("find ayati-micro executable: %w", err)
+		return "", fmt.Errorf("find ayati-code executable: %w", err)
 	}
 	resolved, err := filepath.EvalSymlinks(executable)
 	if err != nil {
-		return "", fmt.Errorf("resolve ayati-micro executable: %w", err)
+		return "", fmt.Errorf("resolve ayati-code executable: %w", err)
 	}
 	return filepath.Join(filepath.Dir(resolved), ".env"), nil
 }

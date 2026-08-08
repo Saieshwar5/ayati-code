@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func TestLinkCreatesAyatiMicroSymlink(t *testing.T) {
+func TestLinkCreatesAyatiCodeSymlink(t *testing.T) {
 	root := t.TempDir()
-	executable := filepath.Join(root, "source", "ayati-micro")
+	executable := filepath.Join(root, "source", "ayati-code")
 	if err := os.MkdirAll(filepath.Dir(executable), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestLinkCreatesAyatiMicroSymlink(t *testing.T) {
 
 func TestLinkRefusesToReplaceRegularFile(t *testing.T) {
 	binDir := t.TempDir()
-	target := filepath.Join(binDir, "ayati-micro")
+	target := filepath.Join(binDir, "ayati-code")
 	if err := os.WriteFile(target, []byte("keep"), 0o755); err != nil {
 		t.Fatal(err)
 	}

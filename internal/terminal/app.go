@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/agent"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/config"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/install"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/provider"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/session"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/shell"
+	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/ayati-code/internal/config"
+	"github.com/Saieshwar5/ayati-code/internal/install"
+	"github.com/Saieshwar5/ayati-code/internal/provider"
+	"github.com/Saieshwar5/ayati-code/internal/session"
+	"github.com/Saieshwar5/ayati-code/internal/shell"
 )
 
 const defaultModel = "accounts/fireworks/models/deepseek-v4-flash-0731"
@@ -39,7 +39,7 @@ func (a App) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	flags := flag.NewFlagSet("ayati-micro", flag.ContinueOnError)
+	flags := flag.NewFlagSet("ayati-code", flag.ContinueOnError)
 	flags.SetOutput(a.Error)
 	cwd := flags.String("cwd", "", "project working directory")
 	model := flags.String("model", config.Effective(values, "NCA_MODEL", defaultModel), "Fireworks model ID")
@@ -98,11 +98,11 @@ func (a App) Run(ctx context.Context, args []string) error {
 		current, err = store.ContinueRecent(absCWD)
 	case "open":
 		if len(remaining) < 2 {
-			return fmt.Errorf("usage: ayati-micro [flags] open <session-id>")
+			return fmt.Errorf("usage: ayati-code [flags] open <session-id>")
 		}
 		current, err = store.Open(remaining[1])
 	default:
-		return fmt.Errorf("unknown command %q; use ayati-micro help", command)
+		return fmt.Errorf("unknown command %q; use ayati-code help", command)
 	}
 	if err != nil {
 		return err
@@ -133,7 +133,7 @@ func (a App) interact(ctx context.Context, store session.Store, current *session
 		FallbackContextTokens: intValue(config.Effective(values, "NCA_MODEL_CONTEXT_TOKENS", strconv.Itoa(fallbackContextTokens(model))), fallbackContextTokens(model)),
 	}
 
-	fmt.Fprintf(a.Output, "No-Nonsense Coding AI\nsession: %s\nproject: %s\nmodel: %s\nType /help for commands.\n\n", current.Header.ID, current.Header.CWD, model)
+	fmt.Fprintf(a.Output, "Ayati Code\nsession: %s\nproject: %s\nmodel: %s\nType /help for commands.\n\n", current.Header.ID, current.Header.CWD, model)
 	scanner := bufio.NewScanner(a.Input)
 	scanner.Buffer(make([]byte, 64<<10), 1<<20)
 	for {
@@ -302,7 +302,7 @@ func (a App) configCommand(path string, values config.Values, args []string) err
 		fmt.Fprintf(a.Output, "API key saved to %s\n", path)
 		return nil
 	}
-	return fmt.Errorf("usage: ayati-micro config [show|key]")
+	return fmt.Errorf("usage: ayati-code config [show|key]")
 }
 
 func (a App) modelCommand(path string, values config.Values, args []string) error {
@@ -311,7 +311,7 @@ func (a App) modelCommand(path string, values config.Values, args []string) erro
 		return nil
 	}
 	if len(args) != 1 {
-		return fmt.Errorf("usage: ayati-micro model [MODEL_ID]")
+		return fmt.Errorf("usage: ayati-code model [MODEL_ID]")
 	}
 	values["NCA_MODEL"] = args[0]
 	if err := config.Save(path, values); err != nil {
@@ -349,9 +349,9 @@ func (a App) printSessions(store session.Store) error {
 }
 
 func (a App) printHelp() {
-	fmt.Fprintln(a.Output, "No-Nonsense Coding AI")
-	fmt.Fprintln(a.Output, "usage: ayati-micro [flags] [continue|new|sessions|open ID]")
-	fmt.Fprintln(a.Output, "       ayati-micro setup|config|model|install")
+	fmt.Fprintln(a.Output, "Ayati Code")
+	fmt.Fprintln(a.Output, "usage: ayati-code [flags] [continue|new|sessions|open ID]")
+	fmt.Fprintln(a.Output, "       ayati-code setup|config|model|install")
 	fmt.Fprintln(a.Output, "flags: -cwd PATH  -model MODEL_ID")
 }
 

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ledgerly — Personal Finance Dashboard</title>
+  <meta name="description" content="Ledgerly is a private, browser-based personal finance dashboard for tracking income, expenses, and monthly budgets. Data never leaves your device.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%236366f1'/%3E%3Ctext%20x='32'%20y='44'%20font-size='34'%20text-anchor='middle'%20fill='white'%20font-family='Arial,sans-serif'%20font-weight='bold'%3EL%3C/text%3E%3C/svg%3E">
+  <script>
+    /* Apply the saved theme before first paint to avoid a flash of the wrong theme. */
+    (function () {
+      'use strict';
+      var theme = null;
+      try { theme = localStorage.getItem('ledgerly-theme'); } catch (e) { /* storage unavailable */ }
+      if (theme !== 'dark' && theme !== 'light') {
+        theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/core.js" defer></script>
+  <script src="js/storage.js" defer></script>
+  <script src="js/ui.js" defer></script>
+  <script src="js/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="site-header__inner">
+      <a class="brand" href="#main-content">
+        <svg class="brand__mark" viewBox="0 0 48 48" width="34" height="34" aria-hidden="true" focusable="false">
+          <rect x="4" y="4" width="40" height="40" rx="11" class="brand__mark-bg"/>
+          <path class="brand__mark-line" d="M13 17h22v15a2 2 0 0 1-2 2H15a2 2 0 0 1-2-2V17z" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <path class="brand__mark-line" d="M15 19l9 6 9-6" fill="none" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="30" cy="30" r="2.2" fill="none" stroke-width="2" class="brand__mark-line"/>
+        </svg>
+        <span class="brand__text">
+          <h1 class="brand__name">Ledgerly</h1>
+          <span class="brand__tag">Personal finance dashboard</span>
+        </span>
+      </a>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark theme" title="Switch to dark theme">
+        <svg class="icon icon--sun" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg class="icon icon--moon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="main-content" class="main">
+
+    <noscript>
+      <p class="noscript">Ledgerly needs JavaScript to run. Please enable it and reload the page.</p>
+    </noscript>
+
+    <section class="summary" aria-label="Financial summary">
+      <h2 class="sr-only">Financial summary</h2>
+      <article class="summary-card panel summary-card--balance" id="balance-card">
+        <div class="summary-card__top">
+          <h3 class="summary-card__label">Current balance</h3>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <rect x="3" y="6" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/>
+            <circle cx="12" cy="12.5" r="2.6" fill="none" stroke="currentColor" stroke-width="2"/>
+          </svg>
+        </div>
+        <p class="summary-card__value" id="summary-balance">$0.00</p>
+        <p class="summary-card__note">Income minus expenses</p>
+      </article>
+
+      <article class="summary-card panel summary-card--income">
+        <div class="summary-card__top">
+          <h3 class="summary-card__label">Total income</h3>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="summary-card__value" id="summary-income">$0.00</p>
+        <p class="summary-card__note" id="summary-income-count">0 transactions</p>
+      </article>
+
+      <article class="summary-card panel summary-card--expense">
+        <div class="summary-card__top">
+          <h3 class="summary-card__label">Total expenses</h3>
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+            <path d="M12 5v14M5 12l7 7 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <p class="summary-card__value" id="summary-expense">$0.00</p>
+        <p class="summary-card__note" id="summary-expense-count">0 transactions</p>
+      </article>
+    </section>
+
+    <section class="dashboard" aria-label="Transaction tools">
+
+      <aside class="panel form-panel" aria-labelledby="form-heading">
+        <h2 id="form-heading" class="panel__title">Add a transaction</h2>
+        <form id="transaction-form" novalidate autocomplete="off">
+          <div class="field">
+            <label for="description">Description</label>
+            <input id="description" name="description" type="text" placeholder="e.g. Grocery run" maxlength="80" autocomplete="off" aria-describedby="form-error" required>
+          </div>
+          <div class="field-row">
+            <div class="field">
+              <label for="amount">Amount ($)</label>
+              <input id="amount" name="amount" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" aria-describedby="form-error" required>
+            </div>
+            <div class="field">
+              <label for="type">Type</label>
+              <select id="type" name="type" aria-describedby="form-error">
+                <option value="expense" selected>Expense</option>
+                <option value="income">Income</option>
+              </select>
+            </div>
+          </div>
+          <div class="field">
+            <label for="category">Category</label>
+            <select id="category" name="category" aria-describedby="form-error"></select>
+          </div>
+          <div class="field">
+            <label for="date">Date</label>
+            <input id="date" name="date" type="date" aria-describedby="form-error" required>
+          </div>
+          <p id="form-error" class="form-error" role="alert" hidden></p>
+          <button type="submit" class="btn btn--primary btn--block">Add transaction</button>
+        </form>
+      </aside>
+
+      <aside class="panel budget-panel" aria-labelledby="budget-heading">
+        <h2 id="budget-heading" class="panel__title">Monthly budget</h2>
+        <div class="budget-controls">
+          <div class="field field--grow">
+            <label for="budget-input">Budget amount ($)</label>
+            <input id="budget-input" type="number" min="0" step="0.01" inputmode="decimal" placeholder="e.g. 3000">
+          </div>
+          <button id="save-budget" type="button" class="btn btn--secondary">Save budget</button>
+        </div>
+        <p id="budget-message" class="budget-message" aria-live="polite"></p>
+        <div class="budget-track">
+          <div class="budget-progress budget-progress--idle" id="budget-progress" role="progressbar" aria-label="Monthly budget usage" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="budget-progress__bar" id="budget-bar"></div>
+          </div>
+          <p class="budget-progress__label" id="budget-status">No budget set yet</p>
+          <p class="budget-progress__note">Tracked against expenses in the current month</p>
+        </div>
+      </aside>
+
+      <section class="panel transactions-panel" aria-labelledby="transactions-heading">
+        <div class="transactions-panel__head">
+          <h2 id="transactions-heading" class="panel__title">Transactions</h2>
+          <p class="results-meta" id="results-meta" aria-live="polite"></p>
+        </div>
+
+        <div class="filters" role="group" aria-label="Filter and sort transactions">
+          <div class="field field--grow">
+            <label class="sr-only" for="search">Search transactions</label>
+            <input id="search" type="search" placeholder="Search description or category…" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="type-filter">Type</label>
+            <select id="type-filter">
+              <option value="all">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expenses</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="category-filter">Category</label>
+            <select id="category-filter"></select>
+          </div>
+          <div class="field">
+            <label for="sort-by">Sort by</label>
+            <select id="sort-by">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+              <option value="amount-desc">Amount: high to low</option>
+              <option value="amount-asc">Amount: low to high</option>
+              <option value="category-az">Category A–Z</option>
+            </select>
+          </div>
+          <button id="reset-filters" type="button" class="btn btn--ghost">Reset filters</button>
+        </div>
+
+        <div class="table-wrap" id="table-wrap">
+          <table class="transactions-table">
+            <caption class="sr-only">Recorded transactions</caption>
+            <thead>
+              <tr>
+                <th scope="col">Description</th>
+                <th scope="col">Category</th>
+                <th scope="col">Date</th>
+                <th scope="col">Type</th>
+                <th scope="col" class="align-right">Amount</th>
+                <th scope="col" class="align-right"><span class="sr-only">Actions</span></th>
+              </tr>
+            </thead>
+            <tbody id="transaction-list"></tbody>
+          </table>
+        </div>
+
+        <div id="empty-state" class="empty-state" hidden>
+          <svg class="empty-state__icon" viewBox="0 0 24 24" width="44" height="44" aria-hidden="true" focusable="false">
+            <path d="M6 3h12l2 4v14H4V7l2-4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M4 7h16M9 11h6M9 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <h3 id="empty-state-title" class="empty-state__title">No transactions yet</h3>
+          <p id="empty-state-text" class="empty-state__text">Add your first income or expense using the form to get started.</p>
+          <button id="empty-state-reset" type="button" class="btn btn--ghost" hidden>Reset filters</button>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p>Ledgerly keeps your data in this browser's local storage — nothing is uploaded anywhere.</p>
+  </footer>
+
+  <div id="announcer" class="sr-only" aria-live="polite"></div>
+</body>
+</html>

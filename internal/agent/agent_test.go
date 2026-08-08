@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/chat"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/session"
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/shell"
+	"github.com/Saieshwar5/ayati-code/internal/chat"
+	"github.com/Saieshwar5/ayati-code/internal/session"
+	"github.com/Saieshwar5/ayati-code/internal/shell"
 )
 
 type scriptedProvider struct {

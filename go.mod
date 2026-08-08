@@ -1,3 +1,3 @@
-module github.com/sai-eshwar/no-nonsense-coding-ai
+module github.com/Saieshwar5/ayati-code
 
 go 1.22

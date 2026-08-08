@@ -26,7 +26,7 @@ func Link(executable, binDir string) (string, error) {
 	if err := os.MkdirAll(binDir, 0o755); err != nil {
 		return "", fmt.Errorf("create install directory: %w", err)
 	}
-	target := filepath.Join(binDir, "ayati-micro")
+	target := filepath.Join(binDir, "ayati-code")
 	if info, err := os.Lstat(target); err == nil {
 		if info.Mode()&os.ModeSymlink == 0 {
 			return "", fmt.Errorf("refusing to replace non-symlink %s", target)

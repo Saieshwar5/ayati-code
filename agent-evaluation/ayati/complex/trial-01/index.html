@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Ledgerly - a personal finance dashboard to track income, expenses, and budgets.">
+  <title>Ledgerly · Personal Finance Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">L</span>
+        <span class="brand-name">Ledgerly</span>
+      </div>
+      <div class="header-actions">
+        <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark theme">
+          <span class="theme-icon theme-icon-light" aria-hidden="true">☀</span>
+          <span class="theme-icon theme-icon-dark" aria-hidden="true">☾</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="container">
+    <section class="hero" aria-labelledby="hero-title">
+      <h1 id="hero-title">Your money, clearly.</h1>
+      <p class="hero-sub">Track income, expenses, and stay on budget — all in one place.</p>
+    </section>
+
+    <!-- Summary cards -->
+    <section class="summary" aria-label="Financial summary">
+      <article class="card summary-card" id="card-balance">
+        <h2 class="summary-label">Current Balance</h2>
+        <p class="summary-value" id="summary-balance">$0.00</p>
+      </article>
+      <article class="card summary-card" id="card-income">
+        <h2 class="summary-label">Total Income</h2>
+        <p class="summary-value summary-income" id="summary-income">$0.00</p>
+      </article>
+      <article class="card summary-card" id="card-expenses">
+        <h2 class="summary-label">Total Expenses</h2>
+        <p class="summary-value summary-expense" id="summary-expenses">$0.00</p>
+      </article>
+    </section>
+
+    <!-- Budget -->
+    <section class="card budget-card" aria-labelledby="budget-title">
+      <div class="budget-head">
+        <h2 id="budget-title">Monthly Budget</h2>
+        <div class="budget-controls">
+          <label class="sr-only" for="budget-input">Monthly budget amount</label>
+          <div class="budget-input-wrap">
+            <span class="currency-prefix" aria-hidden="true">$</span>
+            <input id="budget-input" type="number" min="0" step="0.01" placeholder="0.00" inputmode="decimal">
+          </div>
+          <button id="save-budget" type="button" class="btn btn-primary">Save Budget</button>
+        </div>
+      </div>
+      <div class="budget-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Budget used">
+        <div class="budget-progress-fill" id="budget-progress-fill"></div>
+      </div>
+      <p class="budget-status" id="budget-status" aria-live="polite">No budget set yet.</p>
+    </section>
+
+    <!-- Transaction form -->
+    <section class="card form-card" aria-labelledby="form-title">
+      <h2 id="form-title">Add Transaction</h2>
+      <form id="transaction-form" novalidate>
+        <div class="form-grid">
+          <div class="field">
+            <label for="description">Description</label>
+            <input id="description" name="description" type="text" placeholder="e.g. Groceries" autocomplete="off" required>
+          </div>
+          <div class="field">
+            <label for="amount">Amount</label>
+            <input id="amount" name="amount" type="number" min="0.01" step="0.01" placeholder="0.00" inputmode="decimal" required>
+          </div>
+          <div class="field">
+            <label for="type">Type</label>
+            <select id="type" name="type" required>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="category">Category</label>
+            <select id="category" name="category" required>
+              <option value="Food & Dining">Food & Dining</option>
+              <option value="Transport">Transport</option>
+              <option value="Housing">Housing</option>
+              <option value="Utilities">Utilities</option>
+              <option value="Entertainment">Entertainment</option>
+              <option value="Shopping">Shopping</option>
+              <option value="Health">Health</option>
+              <option value="Salary">Salary</option>
+              <option value="Freelance">Freelance</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="date">Date</label>
+            <input id="date" name="date" type="date" required>
+          </div>
+          <div class="field field-submit">
+            <button type="submit" class="btn btn-primary btn-block">Add Transaction</button>
+          </div>
+        </div>
+        <p id="form-error" class="form-error" role="alert" aria-live="assertive"></p>
+      </form>
+    </section>
+
+    <!-- Transactions -->
+    <section class="card transactions-card" aria-labelledby="transactions-title">
+      <div class="transactions-head">
+        <h2 id="transactions-title">Transactions</h2>
+        <button id="reset-filters" type="button" class="btn btn-ghost">Reset Filters</button>
+      </div>
+
+      <div class="filters" role="group" aria-label="Transaction filters">
+        <div class="field">
+          <label for="search">Search</label>
+          <input id="search" type="search" placeholder="Search descriptions…" autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="type-filter">Type</label>
+          <select id="type-filter">
+            <option value="all">All types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="category-filter">Category</label>
+          <select id="category-filter">
+            <option value="all">All categories</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="sort-by">Sort by</label>
+          <select id="sort-by">
+            <option value="date-desc">Date (newest)</option>
+            <option value="date-asc">Date (oldest)</option>
+            <option value="amount-desc">Amount (high → low)</option>
+            <option value="amount-asc">Amount (low → high)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="transactions-table">
+          <thead>
+            <tr>
+              <th scope="col">Description</th>
+              <th scope="col">Category</th>
+              <th scope="col">Date</th>
+              <th scope="col" class="col-amount">Amount</th>
+              <th scope="col" class="col-actions"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody id="transactions-body"></tbody>
+        </table>
+      </div>
+
+      <div id="empty-state" class="empty-state" hidden>
+        <p class="empty-title">No transactions found</p>
+        <p class="empty-text" id="empty-text">Add your first transaction to get started.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>Ledgerly · Your data stays in your browser via localStorage.</p>
+    </div>
+  </footer>
+
+  <script src="js/storage.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/transactions.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

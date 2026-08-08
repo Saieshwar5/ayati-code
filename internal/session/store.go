@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/chat"
+	"github.com/Saieshwar5/ayati-code/internal/chat"
 )
 
 type Header struct {

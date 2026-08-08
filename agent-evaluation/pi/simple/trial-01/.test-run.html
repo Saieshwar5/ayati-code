@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Orbit 2026 — the technology conference where builders, researchers, and dreamers lift big ideas off the ground. May 18–20, 2026, San Francisco.">
+  <meta name="theme-color" content="#0c1120" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0c1120" media="(prefers-color-scheme: dark)">
+  <title>Orbit 2026 · Technology Conference · May 18–20, San Francisco</title>
+  <script>
+    // Apply saved (or system) theme before first paint to avoid flashing.
+    (function () {
+      try {
+        var saved = localStorage.getItem("orbit-theme");
+        var theme = saved === "light" || saved === "dark"
+          ? saved
+          : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+      } catch (e) {
+        document.documentElement.setAttribute("data-theme", "light");
+      }
+    })();
+  </script>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/main.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <!-- ============ Sticky navigation ============ -->
+  <header class="site-header" id="site-header">
+    <div class="container header-inner">
+      <a href="#home" class="brand" aria-label="Orbit 2026 — home">
+        <svg class="brand-mark" width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+          <circle cx="24" cy="24" r="9" fill="currentColor"/>
+          <ellipse cx="24" cy="24" rx="22" ry="9" stroke="currentColor" stroke-width="2.5" transform="rotate(-24 24 24)"/>
+          <circle cx="5" cy="14" r="3" fill="currentColor"/>
+        </svg>
+        <span class="brand-name">Orbit<em>2026</em></span>
+      </a>
+
+      <button id="nav-toggle" class="nav-toggle" type="button" aria-controls="primary-menu" aria-expanded="false">
+        <span class="nav-toggle-label">Menu</span>
+        <span class="nav-toggle-icon" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+      </button>
+
+      <nav class="site-nav" id="primary-menu" aria-label="Primary">
+        <ul class="nav-list">
+          <li><a class="nav-link" href="#home">Home</a></li>
+          <li><a class="nav-link" href="#about">About</a></li>
+          <li><a class="nav-link" href="#speakers">Speakers</a></li>
+          <li><a class="nav-link" href="#schedule">Schedule</a></li>
+          <li><a class="nav-link" href="#tickets">Tickets</a></li>
+          <li><a class="nav-link nav-link-cta" href="#newsletter">Updates</a></li>
+        </ul>
+        <div class="nav-actions">
+          <button id="theme-toggle" class="theme-toggle" type="button" aria-pressed="false" aria-label="Switch to dark theme">
+            <svg class="icon-sun" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M2 12h2m16 0h2M4.9 19.1l1.4-1.4m11.4-11.4 1.4-1.4"/></svg>
+            <svg class="icon-moon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>
+          </button>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- ============ Hero ============ -->
+    <section class="hero" id="home" aria-labelledby="hero-title">
+      <div class="hero-bg" aria-hidden="true">
+        <span class="orbit orbit-1"></span>
+        <span class="orbit orbit-2"></span>
+        <span class="orbit orbit-3"></span>
+        <span class="dot dot-1"></span>
+        <span class="dot dot-2"></span>
+        <span class="dot dot-3"></span>
+      </div>
+      <div class="container hero-inner">
+        <p class="eyebrow">May 18–20, 2026 · San Francisco, CA</p>
+        <h1 id="hero-title">Where big ideas <span class="gradient-text">leave the ground.</span></h1>
+        <p class="hero-lede">
+          Orbit brings 3,000 builders, researchers, and dreamers together for three days of keynotes,
+          deep-dive workshops, and the conversations that shape the decade ahead.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#tickets">Get tickets</a>
+          <a class="btn btn-secondary" href="#schedule">View schedule</a>
+        </div>
+        <ul class="hero-meta" aria-label="Event highlights">
+          <li><strong>48</strong> sessions</li>
+          <li><strong>120+</strong> speakers</li>
+          <li><strong>40</strong> workshops</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ About / Statistics ============ -->
+    <section class="about" id="about" aria-labelledby="about-title">
+      <div class="container about-inner">
+        <div class="about-copy">
+          <p class="eyebrow">About the conference</p>
+          <h2 id="about-title">Three days. One mission: future-proof ideas.</h2>
+          <p>
+            Orbit isn’t another tech expo. It is a tightly curated gathering focused on what actually
+            matters: AI systems people can trust, computing that scales sustainably, and open standards
+            that outlast hype cycles.
+          </p>
+          <p>
+            Every session is chosen by peer review. Every talk is designed to be actionable — you leave
+            with code, frameworks, or a concrete plan, not just swag.
+          </p>
+        </div>
+        <dl class="stats" id="stats">
+          <div class="stat">
+            <dt class="stat-number" data-count="3000">0</dt>
+            <dd class="stat-label">Attendees in person</dd>
+          </div>
+          <div class="stat">
+            <dt class="stat-number" data-count="120">0</dt>
+            <dd class="stat-label">Speakers</dd>
+          </div>
+          <div class="stat">
+            <dt class="stat-number" data-count="40">0</dt>
+            <dd class="stat-label">Hands-on workshops</dd>
+          </div>
+          <div class="stat">
+            <dt class="stat-number" data-count="25">0</dt>
+            <dd class="stat-label">Countries represented</dd>
+          </div>
+        </dl>
+      </div>
+    </section>
+
+    <!-- ============ Speakers ============ -->
+    <section class="speakers" id="speakers" aria-labelledby="speakers-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Speakers</p>
+          <h2 id="speakers-title">Voices that move the field forward</h2>
+          <p class="section-sub">
+            Keynotes, fireside chats, and technical deep dives from the people building the systems
+            everyone will be talking about next year.
+          </p>
+        </div>
+
+        <ul class="speaker-grid">
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-a" aria-hidden="true">MK</div>
+            <h3 class="speaker-name">Maya Krishnan</h3>
+            <p class="speaker-role">Chief AI Officer · Northwind Labs</p>
+            <p class="speaker-topic">Grounding LLMs in trustworthy agents</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-b" aria-hidden="true">DO</div>
+            <h3 class="speaker-name">Diego Ortega</h3>
+            <p class="speaker-role">Principal Engineer · Latticeworks</p>
+            <p class="speaker-topic">Scaling edge compute at planetary scale</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-c" aria-hidden="true">AC</div>
+            <h3 class="speaker-name">Amara Chen</h3>
+            <p class="speaker-role">Research Director · Kepler Institute</p>
+            <p class="speaker-topic">Open weight models: safety through transparency</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-d" aria-hidden="true">SO</div>
+            <h3 class="speaker-name">Samuel Okafor</h3>
+            <p class="speaker-role">Founder · Parallax Systems</p>
+            <p class="speaker-topic">Chips designed for the post-Moore era</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-e" aria-hidden="true">LF</div>
+            <h3 class="speaker-name">Lucía Ferreira</h3>
+            <p class="speaker-role">Staff Designer · Aperture</p>
+            <p class="speaker-topic">Interfaces that explain their own reasoning</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-f" aria-hidden="true">JW</div>
+            <h3 class="speaker-name">Jonah Winters</h3>
+            <p class="speaker-role">CTO · Common Thread</p>
+            <p class="speaker-topic">Interoperability as a product strategy</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-g" aria-hidden="true">PN</div>
+            <h3 class="speaker-name">Priya Natarajan</h3>
+            <p class="speaker-role">Professor · UC Meridian</p>
+            <p class="speaker-topic">Responsible evaluation for deployed AI</p>
+          </li>
+          <li class="speaker-card">
+            <div class="speaker-avatar avatar-h" aria-hidden="true">RT</div>
+            <h3 class="speaker-name">Ravi Tambe</h3>
+            <p class="speaker-role">Staff Engineer · Ironclad Data</p>
+            <p class="speaker-topic">Databases that survive the datacenter</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ Schedule ============ -->
+    <section class="schedule" id="schedule" aria-labelledby="schedule-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Schedule</p>
+          <h2 id="schedule-title">Three days, zero filler</h2>
+          <p class="section-sub">
+            Pick a day to explore the program. Full calendar is published January 2026.
+          </p>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Conference days">
+          <button class="tab" id="tab-day-1" role="tab" aria-selected="true" aria-controls="panel-day-1" data-day="1" type="button">Day 1 · May 18</button>
+          <button class="tab" id="tab-day-2" role="tab" aria-selected="false" aria-controls="panel-day-2" data-day="2" type="button">Day 2 · May 19</button>
+          <button class="tab" id="tab-day-3" role="tab" aria-selected="false" aria-controls="panel-day-3" data-day="3" type="button">Day 3 · May 20</button>
+        </div>
+
+        <div class="tab-panel is-active" id="panel-day-1" role="tabpanel" aria-labelledby="tab-day-1">
+          <ol class="agenda">
+            <li class="agenda-item">
+              <p class="agenda-time">09:00</p>
+              <div class="agenda-body">
+                <h3>Opening keynote — The next operating system is plural</h3>
+                <p>Maya Krishnan · <span class="agenda-tag">Keynote · Main stage</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">11:00</p>
+              <div class="agenda-body">
+                <h3>Post-Moore computing: what chips look like now</h3>
+                <p>Samuel Okafor · <span class="agenda-tag">Talk · Hall A</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">14:00</p>
+              <div class="agenda-body">
+                <h3>Workshop: shipping your first evaluated agent</h3>
+                <p>Priya Natarajan · <span class="agenda-tag">Workshop · Studio 2</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">16:30</p>
+              <div class="agenda-body">
+                <h3>Fireside: open models and the public interest</h3>
+                <p>Amara Chen · <span class="agenda-tag">Fireside · Main stage</span></p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="tab-panel" id="panel-day-2" role="tabpanel" aria-labelledby="tab-day-2" hidden>
+          <ol class="agenda">
+            <li class="agenda-item">
+              <p class="agenda-time">09:30</p>
+              <div class="agenda-body">
+                <h3>Keynote — Why edge computing came home</h3>
+                <p>Diego Ortega · <span class="agenda-tag">Keynote · Main stage</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">11:30</p>
+              <div class="agenda-body">
+                <h3>Designing interfaces that show their reasoning</h3>
+                <p>Lucía Ferreira · <span class="agenda-tag">Talk · Hall B</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">14:00</p>
+              <div class="agenda-body">
+                <h3>Workshop: benchmarking beyond the benchmark</h3>
+                <p>Priya Natarajan &amp; Amara Chen · <span class="agenda-tag">Workshop · Studio 1</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">17:00</p>
+              <div class="agenda-body">
+                <h3>Lightning talks: ten ideas worth stealing</h3>
+                <p>Community curators · <span class="agenda-tag">Talks · Hall C</span></p>
+              </div>
+            </li>
+          </ol>
+        </div>
+
+        <div class="tab-panel" id="panel-day-3" role="tabpanel" aria-labelledby="tab-day-3" hidden>
+          <ol class="agenda">
+            <li class="agenda-item">
+              <p class="agenda-time">09:00</p>
+              <div class="agenda-body">
+                <h3>Keynote — Interoperability is the moat</h3>
+                <p>Jonah Winters · <span class="agenda-tag">Keynote · Main stage</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">11:00</p>
+              <div class="agenda-body">
+                <h3>Cold storage, warm access: databases that survive</h3>
+                <p>Ravi Tambe · <span class="agenda-tag">Talk · Hall A</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">14:30</p>
+              <div class="agenda-body">
+                <h3>Closing panel — What we owe the next generation of builders</h3>
+                <p>All featured speakers · <span class="agenda-tag">Panel · Main stage</span></p>
+              </div>
+            </li>
+            <li class="agenda-item">
+              <p class="agenda-time">18:00</p>
+              <div class="agenda-body">
+                <h3>Closing party — Orbit Off-Nominal</h3>
+                <p>Everywhere on site · <span class="agenda-tag">Social</span></p>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Tickets ============ -->
+    <section class="tickets" id="tickets" aria-labelledby="tickets-title">
+      <div class="container">
+        <div class="section-head">
+          <p class="eyebrow">Tickets</p>
+          <h2 id="tickets-title">Choose your altitude</h2>
+          <p class="section-sub">
+            Early-bird pricing ends December 15, 2025. All tickets include meals,
+            session recordings, and the closing party.
+          </p>
+        </div>
+
+        <div class="ticket-grid">
+          <article class="ticket-card">
+            <h3 class="ticket-name">Explorer</h3>
+            <p class="ticket-price"><span class="currency">$</span>199</p>
+            <p class="ticket-note">For the curious</p>
+            <ul class="ticket-features">
+              <li>All keynotes &amp; talks</li>
+              <li>Exhibition floor access</li>
+              <li>Session recordings</li>
+              <li>Closing party</li>
+            </ul>
+            <a class="btn btn-outline" href="#newsletter">Reserve a seat</a>
+          </article>
+
+          <article class="ticket-card ticket-featured">
+            <p class="ticket-badge">Most popular</p>
+            <h3 class="ticket-name">Voyager</h3>
+            <p class="ticket-price"><span class="currency">$</span>399</p>
+            <p class="ticket-note">Best value for builders</p>
+            <ul class="ticket-features">
+              <li>Everything in Explorer</li>
+              <li>All hands-on workshops</li>
+              <li>Priority seating in Hall A &amp; B</li>
+              <li>Networking lunch with speakers</li>
+            </ul>
+            <a class="btn btn-primary" href="#newsletter">Reserve a seat</a>
+          </article>
+
+          <article class="ticket-card">
+            <h3 class="ticket-name">Commander</h3>
+            <p class="ticket-price"><span class="currency">$</span>699</p>
+            <p class="ticket-note">For teams &amp; VIPs</p>
+            <ul class="ticket-features">
+              <li>Everything in Voyager</li>
+              <li>Private lab tours</li>
+              <li>One 1:1 advisory session</li>
+              <li>Airport transfers &amp; lounge access</li>
+            </ul>
+            <a class="btn btn-outline" href="#newsletter">Reserve a seat</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Newsletter ============ -->
+    <section class="newsletter" id="newsletter" aria-labelledby="newsletter-title">
+      <div class="container newsletter-inner">
+        <div class="newsletter-copy">
+          <p class="eyebrow">Stay in the loop</p>
+          <h2 id="newsletter-title">Launch updates, straight to your inbox</h2>
+          <p>
+            One email a month: speaker announcements, ticket release dates, and the program drop.
+            No noise, no spam — unsubscribe anytime.
+          </p>
+        </div>
+
+        <form id="newsletter-form" novalidate>
+          <label for="email">Email address</label>
+          <div class="form-row">
+            <input
+              type="email"
+              id="email"
+              name="email"
+              autocomplete="email"
+              placeholder="you@example.com"
+              required
+              aria-describedby="form-status"
+            >
+            <button type="submit" class="btn btn-primary">Sign up</button>
+          </div>
+          <p id="form-status" class="form-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ Footer ============ -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div class="footer-brand">
+        <a href="#home" class="brand" aria-label="Orbit 2026 — back to top">
+          <svg class="brand-mark" width="26" height="26" viewBox="0 0 48 48" fill="none" aria-hidden="true" focusable="false">
+            <circle cx="24" cy="24" r="9" fill="currentColor"/>
+            <ellipse cx="24" cy="24" rx="22" ry="9" stroke="currentColor" stroke-width="2.5" transform="rotate(-24 24 24)"/>
+            <circle cx="5" cy="14" r="3" fill="currentColor"/>
+          </svg>
+          <span class="brand-name">Orbit<em>2026</em></span>
+        </a>
+        <p class="footer-tagline">A technology conference for the people building what comes next.</p>
+      </div>
+
+      <nav class="footer-nav" aria-label="Footer">
+        <div class="footer-col">
+          <h3>Conference</h3>
+          <ul>
+            <li><a href="#about">About</a></li>
+            <li><a href="#speakers">Speakers</a></li>
+            <li><a href="#schedule">Schedule</a></li>
+            <li><a href="#tickets">Tickets</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3>Venue</h3>
+          <ul>
+            <li>Moscone North</li>
+            <li>747 Howard St</li>
+            <li>San Francisco, CA</li>
+            <li><a href="mailto:hello@orbit2026.dev">hello@orbit2026.dev</a></li>
+          </ul>
+        </div>
+        <div class="footer-col">
+          <h3>Follow</h3>
+          <ul class="social-list">
+            <li><a class="social-link" href="#"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13.18 10.72 19.04 4h-1.39l-5.1 5.84L8.36 4H4.2l6.16 8.97L4.2 20h1.39l5.39-6.17 4.3 6.17h4.16l-6.26-9.28Zm-1.9 2.18-.63-.9L6.1 5.04h2.13l4.03 5.77.62.9 5.24 7.5h-2.13l-4.71-6.31Z"/></svg><span class="social-label">X / Twitter</span></a></li>
+            <li><a class="social-link" href="#"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12.04 2c-2.74 0-3.09.01-4.17.06-1.07.05-1.8.22-2.44.47-.66.25-1.22.6-1.78 1.15-.55.56-.9 1.12-1.15 1.78-.25.64-.42 1.37-.47 2.44C2.01 8.95 2 9.3 2 12.04s.01 3.09.06 4.17c.05 1.07.22 1.8.47 2.44.25.66.6 1.22 1.15 1.78.56.55 1.12.9 1.78 1.15.64.25 1.37.42 2.44.47 1.08.05 1.43.06 4.17.06s3.09-.01 4.17-.06c1.07-.05 1.8-.22 2.44-.47a3.6 3.6 0 0 0 1.78-1.15c.55-.56.9-1.12 1.15-1.78.25-.64.42-1.37.47-2.44.05-1.08.06-1.43.06-4.17s-.01-3.09-.06-4.17c-.05-1.07-.22-1.8-.47-2.44a3.6 3.6 0 0 0-1.15-1.78 3.6 3.6 0 0 0-1.78-1.15c-.64-.25-1.37-.42-2.44-.47C15.13 2.01 14.78 2 12.04 2Zm0 1.8c2.7 0 3.02.01 4.09.06.99.05 1.52.21 1.88.35.47.18.8.4 1.15.75.35.35.57.68.75 1.15.14.36.3.89.35 1.88.05 1.07.06 1.39.06 4.09s-.01 3.02-.06 4.09c-.05.99-.21 1.52-.35 1.88a3.1 3.1 0 0 1-.75 1.15c-.35.35-.68.57-1.15.75-.36.14-.89.3-1.88.35-1.07.05-1.39.06-4.09.06s-3.02-.01-4.09-.06c-.99-.05-1.52-.21-1.88-.35a3.1 3.1 0 0 1-1.15-.75 3.1 3.1 0 0 1-.75-1.15c-.14-.36-.3-.89-.35-1.88-.05-1.07-.06-1.39-.06-4.09s.01-3.02.06-4.09c.05-.99.21-1.52.35-1.88.18-.47.4-.8.75-1.15.35-.35.68-.57 1.15-.75.36-.14.89-.3 1.88-.35 1.07-.05 1.39-.06 4.09-.06Zm0 3.06a5.18 5.18 0 1 0 0 10.36 5.18 5.18 0 0 0 0-10.36Zm0 8.55a3.37 3.37 0 1 1 0-6.73 3.37 3.37 0 0 1 0 6.73Zm6.63-8.76a1.21 1.21 0 1 1-2.42 0 1.21 1.21 0 0 1 2.42 0Z"/></svg><span class="social-label">Instagram</span></a></li>
+            <li><a class="social-link" href="#"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 2.04c-5.5 0-9.96 4.46-9.96 9.96 0 4.4 2.85 8.13 6.81 9.45.5.09.68-.21.68-.48 0-.24-.01-1.04-.01-1.89-2.77.6-3.36-1.18-3.36-1.18-.45-1.16-1.1-1.47-1.1-1.47-.9-.62.07-.6.07-.6 1 .07 1.52 1.02 1.52 1.02.88 1.51 2.31 1.08 2.88.82.09-.64.35-1.08.63-1.33-2.2-.25-4.52-1.1-4.52-4.9 0-1.08.39-1.97 1.02-2.66-.1-.25-.44-1.26.1-2.63 0 0 .83-.27 2.73 1.02a9.5 9.5 0 0 1 4.97 0c1.9-1.28 2.73-1.02 2.73-1.02.54 1.37.2 2.38.1 2.63.63.7 1.02 1.58 1.02 2.66 0 3.81-2.32 4.65-4.53 4.9.36.31.68.91.68 1.84 0 1.33-.01 2.39-.01 2.72 0 .27.18.58.69.48a10.02 10.02 0 0 0 6.79-9.45c0-5.5-4.46-9.96-9.96-9.96Z"/></svg><span class="social-label">GitHub</span></a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div class="footer-bottom">
+      <div class="container footer-bottom-inner">
+        <p>© 2026 Orbit Conference Inc. Built for the future.</p>
+        <p><a href="#home">Back to top ↑</a></p>
+      </div>
+    </div>
+  </footer>
+
+<script>
+/* TEMPORARY verification block - appended by test harness generator */
+(function () {
+  "use strict";
+  var results = {};
+  var record = function (k, v) { results[k] = v; };
+
+  function luminance(hex) {
+    var m = hex.match(/^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+    if (!m) return null;
+    var c = m.slice(1).map(function (h) { return parseInt(h, 16) / 255; })
+      .map(function (v) { return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function contrast(a, b) {
+    var la = luminance(a), lb = luminance(b);
+    if (la === null || lb === null) return null;
+    var hi = Math.max(la, lb), lo = Math.min(la, lb);
+    return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100;
+  }
+  function hexOf(color) {
+    var m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+    if (!m) return null;
+    var n = function (x) { return ("0" + Number(x).toString(16)).slice(-2); };
+    return "#" + n(m[1]) + n(m[2]) + n(m[3]);
+  }
+  function cs(el, prop) { return getComputedStyle(el)[prop]; }
+
+  function run() {
+    var doc = document, win = window;
+    record("viewportWidth", win.innerWidth);
+    record("themeInitial", doc.documentElement.getAttribute("data-theme"));
+
+    var navToggle = doc.getElementById("nav-toggle");
+    var themeToggle = doc.getElementById("theme-toggle");
+    var siteNav = doc.getElementById("primary-menu");
+    var header = doc.getElementById("site-header");
+
+    record("navToggleDisplay", cs(navToggle, "display"));
+    record("menuVisibilityWhenClosed", cs(siteNav, "visibility"));
+    var de = doc.scrollingElement || doc.documentElement;
+    record("horizontalOverflow", de.scrollWidth - de.clientWidth);
+    record("speakerCols", cs(document.querySelector(".speaker-grid"), "gridTemplateColumns").split(" ").length);
+    record("ticketCols", cs(document.querySelector(".ticket-grid"), "gridTemplateColumns").split(" ").length);
+    record("aboutCols", cs(document.querySelector(".about-inner"), "gridTemplateColumns").split(" ").length);
+    record("headerPosition", cs(header, "position"));
+
+    record("navExpandedInitial", navToggle.getAttribute("aria-expanded"));
+    if (cs(navToggle, "display") !== "none") {
+      navToggle.click();
+      record("navExpandedAfterClick", navToggle.getAttribute("aria-expanded"));
+      record("headerNavOpenClass", header.classList.contains("nav-open"));
+      record("menuVisibilityWhenOpen", cs(siteNav, "visibility"));
+      navToggle.click();
+      record("navExpandedAfterSecondClick", navToggle.getAttribute("aria-expanded"));
+      record("headerNavOpenAfterClose", header.classList.contains("nav-open"));
+    }
+
+    themeToggle.click();
+    record("themeAfterClick", doc.documentElement.getAttribute("data-theme"));
+    record("themeChanged", results.themeInitial !== results.themeAfterClick);
+    record("themeStored", localStorage.getItem("orbit-theme"));
+    record("themeAriaPressed", themeToggle.getAttribute("aria-pressed"));
+    record("themeAriaLabel", themeToggle.getAttribute("aria-label"));
+
+    var tab2 = doc.getElementById("tab-day-2");
+    var panel2 = doc.getElementById("panel-day-2");
+    var panel1 = doc.getElementById("panel-day-1");
+    tab2.click();
+    record("tab2Selected", tab2.getAttribute("aria-selected"));
+    record("panel2Visible", !panel2.hidden);
+    record("panel1Hidden", panel1.hidden);
+    var kb = new win.KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true });
+    tab2.dispatchEvent(kb);
+    record("tabAfterArrowRight", tab2.getAttribute("aria-selected"));
+
+    var form = doc.getElementById("newsletter-form");
+    var email = doc.getElementById("email");
+    var status = doc.getElementById("form-status");
+    var submit = function (val) {
+      email.value = val;
+      form.dispatchEvent(new win.Event("submit", { cancelable: true }));
+    };
+    submit("");
+    record("emptyErrShown", status.textContent.trim().length > 0);
+    record("emptyAriaInvalid", email.getAttribute("aria-invalid"));
+    record("emptyStatusState", status.getAttribute("data-state"));
+    submit("not-an-email");
+    record("badErrShown", status.textContent.trim().length > 0);
+    submit("ada@lovelace.dev");
+    record("successShown", status.textContent.indexOf("list") !== -1);
+    record("successStatusState", status.getAttribute("data-state"));
+    record("emailClearedAfterSuccess", email.value === "");
+    record("successAriaInvalidCleared", email.hasAttribute("aria-invalid") === false);
+
+    var statEls = doc.querySelectorAll(".stat-number[data-count]");
+    record("statText0", statEls[0] ? statEls[0].textContent : null);
+
+    // Sample colors AFTER the theme transition has settled (160ms).
+    setTimeout(function () {
+      var rootCS = getComputedStyle(document.documentElement);
+      record("dataThemeAtSample", document.documentElement.getAttribute("data-theme"));
+      record("cssVarBg", rootCS.getPropertyValue("--bg").trim());
+      record("cssVarTextFaint", rootCS.getPropertyValue("--text-faint").trim());
+      record("cardRadius", getComputedStyle(document.querySelector(".speaker-card")).borderRadius);
+      var bodyBg = hexOf(cs(doc.body, "backgroundColor"));
+      var bodyFg = cs(doc.body, "color");
+      var mutedFg = cs(document.querySelector(".hero-meta"), "color");
+      record("bodyTextContrast", contrast(bodyFg, bodyBg));
+      record("mutedTextContrast", contrast(mutedFg, bodyBg));
+      record("mutedFg", mutedFg);
+      record("bodyFg", bodyFg);
+      record("bodyBg", bodyBg);
+
+      var pre = document.createElement("pre");
+      pre.id = "test-results";
+      pre.textContent = "RESULTS:" + JSON.stringify(results);
+      document.body.appendChild(pre);
+    }, 600);
+    // record placeholder so JSON has the key even if pre was placed earlier
+    var pre2 = document.createElement("pre");
+    pre2.id = "test-results-pre";
+    document.body.appendChild(pre2);
+  }
+  // wait a beat for deferred modules (they run before DOMContentLoaded handlers anyway)
+  setTimeout(run, 300);
+})();
+</script>
+</body>
+</html>

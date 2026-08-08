@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/sai-eshwar/no-nonsense-coding-ai/internal/terminal"
+	"github.com/Saieshwar5/ayati-code/internal/terminal"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 	defer cancel()
 	app := terminal.App{Input: os.Stdin, Output: os.Stdout, Error: os.Stderr}
 	if err := app.Run(ctx, os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "ayati-micro: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ayati-code: %v\n", err)
 		os.Exit(1)
 	}
 }

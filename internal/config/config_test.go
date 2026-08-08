@@ -36,6 +36,34 @@ func TestEffectiveEnvironmentOverridesFile(t *testing.T) {
 	}
 }
 
+func TestPathPrefersAyatiCodeEnvironment(t *testing.T) {
+	want := filepath.Join(t.TempDir(), "ayati-code.env")
+	t.Setenv(EnvPath, want)
+	t.Setenv(LegacyEnvPath, filepath.Join(t.TempDir(), "ayati-micro.env"))
+
+	got, err := Path()
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if got != want {
+		t.Fatalf("Path = %q, want %q", got, want)
+	}
+}
+
+func TestPathFallsBackToAyatiMicroEnvironment(t *testing.T) {
+	want := filepath.Join(t.TempDir(), "ayati-micro.env")
+	t.Setenv(EnvPath, "")
+	t.Setenv(LegacyEnvPath, want)
+
+	got, err := Path()
+	if err != nil {
+		t.Fatalf("Path: %v", err)
+	}
+	if got != want {
+		t.Fatalf("Path = %q, want %q", got, want)
+	}
+}
+
 func TestLoadRejectsUnknownKey(t *testing.T) {
 	path := filepath.Join(t.TempDir(), ".env")
 	if err := os.WriteFile(path, []byte("UNKNOWN=value\n"), 0o600); err != nil {

@@ -1,6 +1,6 @@
-# No-Nonsense Coding AI
+# Ayati Code
 
-`ayati-micro` is a tiny terminal coding agent written in Go. It has one
+`ayati-code` is a tiny terminal coding agent written in Go. It has one
 provider (Fireworks), one model-visible tool (`shell`), and persistent JSONL
 sessions. The implementation uses only the Go standard library.
 
@@ -9,13 +9,13 @@ sessions. The implementation uses only the Go standard library.
 Requirements: Go 1.22 or newer, `/bin/sh`, and a Fireworks API key.
 
 ```sh
-cd /home/sai-eshwar/my_folder/ayati-micro
-go build -o ayati-micro ./cmd/ayati-micro
-./ayati-micro setup
+cd /home/sai-eshwar/my_folder/ayati-code
+go build -o ayati-code ./cmd/ayati-code
+./ayati-code setup
 ```
 
 `setup` securely prompts for the API key and model. It saves them in the
-`.env` beside the real `ayati-micro` executable:
+`.env` beside the real `ayati-code` executable:
 
 ```dotenv
 FIREWORKS_API_KEY="your-key"
@@ -29,10 +29,10 @@ Exported environment variables override values from `.env`.
 ## Install the command
 
 ```sh
-./ayati-micro install
+./ayati-code install
 ```
 
-This creates the symlink `~/.local/bin/ayati-micro` pointing to the built
+This creates the symlink `~/.local/bin/ayati-code` pointing to the built
 binary. If necessary, add the directory to your shell PATH:
 
 ```sh
@@ -43,27 +43,32 @@ You can then open the agent from any coding project:
 
 ```sh
 cd /path/to/project
-ayati-micro
+ayati-code
 ```
 
 The directory where you launch it is the coding workspace. Configuration is
 still loaded from the agent installation directory.
 
+Existing `.env` files and sessions under `~/.nca/sessions` continue to work.
+`AYATI_MICRO_ENV` is accepted as a deprecated fallback when `AYATI_CODE_ENV`
+is unset. Installing `ayati-code` does not remove an existing `ayati-micro`
+symlink; remove that old symlink manually after confirming the new command.
+
 ## Usage
 
 ```sh
-ayati-micro                         # continue this project's latest session
-ayati-micro new                     # create a new session
-ayati-micro continue                # continue the latest project session
-ayati-micro sessions                # list sessions
-ayati-micro open <session-id>       # open a saved session
-ayati-micro -cwd /path/to/project   # use a specific coding directory
-ayati-micro setup                   # configure key and model
-ayati-micro config show             # show masked configuration
-ayati-micro config key              # replace the saved API key
-ayati-micro model                   # show the default model
-ayati-micro model <model-id>        # save another default model
-ayati-micro install                 # install the user-local command
+ayati-code                         # continue this project's latest session
+ayati-code new                     # create a new session
+ayati-code continue                # continue the latest project session
+ayati-code sessions                # list sessions
+ayati-code open <session-id>       # open a saved session
+ayati-code -cwd /path/to/project   # use a specific coding directory
+ayati-code setup                   # configure key and model
+ayati-code config show             # show masked configuration
+ayati-code config key              # replace the saved API key
+ayati-code model                   # show the default model
+ayati-code model <model-id>        # save another default model
+ayati-code install                 # install the user-local command
 ```
 
 Flags must appear before commands. `-model MODEL_ID` overrides the model for
@@ -95,13 +100,13 @@ accounts/fireworks/models/deepseek-v4-flash-0731
 Change it permanently:
 
 ```sh
-ayati-micro model accounts/fireworks/models/kimi-k2p6
+ayati-code model accounts/fireworks/models/kimi-k2p6
 ```
 
 Or temporarily:
 
 ```sh
-ayati-micro -model accounts/fireworks/models/kimi-k2p6
+ayati-code -model accounts/fireworks/models/kimi-k2p6
 ```
 
 ## Sessions and context
@@ -149,7 +154,8 @@ tool is added.
 | `NCA_SHELL_TIMEOUT` | `2m` | Timeout for each shell call |
 | `NCA_MAX_OUTPUT` | `32768` | Maximum stdout/stderr characters each |
 | `NCA_FIREWORKS_URL` | Fireworks chat completions URL | Endpoint override |
-| `AYATI_MICRO_ENV` | executable-adjacent `.env` | Config path override |
+| `AYATI_CODE_ENV` | executable-adjacent `.env` | Config path override |
+| `AYATI_MICRO_ENV` | unset | Deprecated fallback for `AYATI_CODE_ENV` |
 
 ## Security
 
@@ -166,5 +172,5 @@ and invoke Git. Run it only where that authority is acceptable.
 ```sh
 go test ./...
 go vet ./...
-go build -o ayati-micro ./cmd/ayati-micro
+go build -o ayati-code ./cmd/ayati-code
 ```
