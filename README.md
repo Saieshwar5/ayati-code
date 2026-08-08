@@ -1,176 +1,274 @@
-# Ayati Code
+# Ayati Runtime
 
-`ayati-code` is a tiny terminal coding agent written in Go. It has one
-provider (Fireworks), one model-visible tool (`shell`), and persistent JSONL
-sessions. The implementation uses only the Go standard library.
+Ayati is a small, one-shot coding-agent runtime for disposable Linux virtual
+machines. Each process accepts one JSON request, runs one bounded model/shell
+loop, emits JSONL events, returns one terminal outcome, and exits.
 
-## Build and configure
-
-Requirements: Go 1.22 or newer, `/bin/sh`, and a Fireworks API key.
-
-```sh
-cd /home/sai-eshwar/my_folder/ayati-code
-go build -o ayati-code ./cmd/ayati-code
-./ayati-code setup
-```
-
-`setup` securely prompts for the API key and model. It saves them in the
-`.env` beside the real `ayati-code` executable:
-
-```dotenv
-FIREWORKS_API_KEY="your-key"
-NCA_MODEL="accounts/fireworks/models/deepseek-v4-flash-0731"
-```
-
-The file is created with owner-only `0600` permissions and is ignored by Git.
-`.env.example` documents the supported format without containing a secret.
-Exported environment variables override values from `.env`.
-
-## Install the command
-
-```sh
-./ayati-code install
-```
-
-This creates the symlink `~/.local/bin/ayati-code` pointing to the built
-binary. If necessary, add the directory to your shell PATH:
-
-```sh
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-You can then open the agent from any coding project:
-
-```sh
-cd /path/to/project
-ayati-code
-```
-
-The directory where you launch it is the coding workspace. Configuration is
-still loaded from the agent installation directory.
-
-Existing `.env` files and sessions under `~/.nca/sessions` continue to work.
-`AYATI_MICRO_ENV` is accepted as a deprecated fallback when `AYATI_CODE_ENV`
-is unset. Installing `ayati-code` does not remove an existing `ayati-micro`
-symlink; remove that old symlink manually after confirming the new command.
-
-## Usage
-
-```sh
-ayati-code                         # continue this project's latest session
-ayati-code new                     # create a new session
-ayati-code continue                # continue the latest project session
-ayati-code sessions                # list sessions
-ayati-code open <session-id>       # open a saved session
-ayati-code -cwd /path/to/project   # use a specific coding directory
-ayati-code setup                   # configure key and model
-ayati-code config show             # show masked configuration
-ayati-code config key              # replace the saved API key
-ayati-code model                   # show the default model
-ayati-code model <model-id>        # save another default model
-ayati-code install                 # install the user-local command
-```
-
-Flags must appear before commands. `-model MODEL_ID` overrides the model for
-one invocation without changing `.env`.
-
-Interactive commands:
+The model sees exactly one tool:
 
 ```text
-/new                 create a new session
-/sessions            list sessions
-/open ID             open a session
-/session             show current session details
-/model               show the active model
-/model MODEL         change model for this process
-/model save MODEL    change and persist the default model
-/compact             summarize older context now
-/help                show commands
-/quit                exit
+shell(command)
 ```
 
-## Default model
+There is no interactive UI, session discovery, installer, database, plugin
+system, planner, reviewer, sub-agent, or automatic provider fallback. The Go
+implementation uses only the standard library.
 
-The default is:
+## Runtime contract
 
 ```text
-accounts/fireworks/models/deepseek-v4-flash-0731
+validate request
+      |
+      v
+ask model ---- final text ----> completed
+      |
+      v
+validate one shell call
+      |
+      v
+execute with time/output bounds
+      |
+      v
+record result and ask model again
+      |
+      +---- context pressure ----> checkpoint, fresh context, continue
+      |
+      +---- work limit ---------> tool-disabled final handoff, exhausted
 ```
 
-Change it permanently:
+One work decision can contain at most one shell call. `max_steps` bounds these
+tool-enabled decisions and therefore also bounds shell calls. If the last step
+uses the shell, Ayati first records the result, then reserves one tool-disabled
+model call for a truthful final handoff. The outcome remains `exhausted`, so a
+useful final response never falsely means that the task completed.
+
+## Build
+
+Requirements are Go 1.22+, Linux, and `/bin/bash` in the target VM.
 
 ```sh
-ayati-code model accounts/fireworks/models/kimi-k2p6
+go test ./...
+CGO_ENABLED=0 go build -trimpath -o ayati-runtime ./cmd/ayati-runtime
 ```
 
-Or temporarily:
+The binary has no database, home-directory, or configuration-writing
+dependency. Copy it and a JSON configuration file into the VM.
+
+## Run
+
+Set the API key named by `provider.api_key_env`, then pass one request on
+standard input:
 
 ```sh
-ayati-code -model accounts/fireworks/models/kimi-k2p6
+export AYATI_API_KEY="your-short-lived-key"
+./ayati-runtime run --config examples/fireworks.json < examples/request.json
 ```
 
-## Sessions and context
+A request contains only run identity, the task, and the prepared workspace:
 
-Sessions are append-only JSONL files under `~/.nca/sessions`. Every user
-message, assistant response, shell call, and shell result is persisted
-immediately. Sessions are scoped by their absolute coding directory.
-
-The full exact history always remains on disk. The active provider context is:
-
-```text
-system prompt
-+ latest rolling summary, when one exists
-+ recent exact conversation and shell activity
-+ exact current user request
+```json
+{
+  "version": 1,
+  "run_id": "job-123",
+  "prompt": "Fix the failing tests and verify the result.",
+  "workspace": "/workspace"
+}
 ```
 
-The agent asks Fireworks for the selected model's `contextLength` and uses 70%
-as its safe input budget. If metadata is unavailable, DeepSeek V4 uses a
-1,048,576-token fallback and unknown models use 128,000 tokens. Token usage is
-estimated conservatively from the serialized request.
-
-Up to 100 recent shell call/result pairs remain exact. When the safe token
-budget or that count is reached, the agent asks the same Fireworks model for
-one tool-free summary, appends the summary checkpoint to the JSONL file, and
-continues with the summary plus recent exact activity. `/compact` invokes the
-same mechanism manually.
-
-The current user request is never removed. If a summarized historical detail
-is needed, the model is told the exact session path and can use its existing
-`shell` tool to search a bounded part of the JSONL file. No history-reading
-tool is added.
+`run_id` may be omitted; the command generates one. `workspace` must be an
+existing absolute directory.
 
 ## Configuration
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `FIREWORKS_API_KEY` | required | Fireworks authentication |
-| `NCA_MODEL` | DeepSeek V4 Flash 0731 | Model ID |
-| `NCA_SESSION_DIR` | `~/.nca/sessions` | Session storage |
-| `NCA_CONTEXT_PERCENT` | `70` | Percentage of provider context allowed for input |
-| `NCA_MODEL_CONTEXT_TOKENS` | model-aware fallback | Fallback if metadata lookup fails |
-| `NCA_MAX_CONTEXT_TOOL_PAIRS` | `100` | Recent exact shell call/result pairs |
-| `NCA_MAX_TOOL_CALLS` | `30` | Shell calls allowed per user input |
-| `NCA_SHELL_TIMEOUT` | `2m` | Timeout for each shell call |
-| `NCA_MAX_OUTPUT` | `32768` | Maximum stdout/stderr characters each |
-| `NCA_FIREWORKS_URL` | Fireworks chat completions URL | Endpoint override |
-| `AYATI_CODE_ENV` | executable-adjacent `.env` | Config path override |
-| `AYATI_MICRO_ENV` | unset | Deprecated fallback for `AYATI_CODE_ENV` |
+```json
+{
+  "version": 1,
+  "provider": {
+    "kind": "openai-chat",
+    "model": "accounts/fireworks/models/deepseek-v4-flash-0731",
+    "endpoint": "https://api.fireworks.ai/inference/v1/chat/completions",
+    "api_key_env": "AYATI_API_KEY",
+    "max_output_tokens": 8192,
+    "context_window_tokens": 1048576
+  },
+  "limits": {
+    "max_steps": 30,
+    "max_context_rollovers": 2,
+    "run_timeout_seconds": 1800,
+    "model_timeout_seconds": 300,
+    "shell_timeout_seconds": 120,
+    "max_tool_output_bytes": 16384
+  },
+  "shell": {
+    "path": "/bin/bash"
+  }
+}
+```
 
-## Security
+Defaults:
 
-The API key is used by the Fireworks provider but is removed from the
-environment passed to model-issued shell commands. Configuration displays mask
-the key, and session records do not intentionally contain it.
+| Setting | Default |
+| --- | ---: |
+| `provider.api_key_env` | `AYATI_API_KEY` |
+| `provider.max_output_tokens` | `8192` |
+| `provider.context_window_tokens` | disabled when omitted |
+| `limits.max_steps` | `30` |
+| `limits.max_context_rollovers` | `2` |
+| `limits.run_timeout_seconds` | `1800` |
+| `limits.model_timeout_seconds` | `300` |
+| `limits.shell_timeout_seconds` | `120` |
+| `limits.max_tool_output_bytes` | `16384` for each stdout/stderr stream |
+| `shell.path` | `/bin/bash` |
 
-The model still has shell authority in the selected coding directory. It can
-modify files, run programs, access other credentials available to the process,
-and invoke Git. Run it only where that authority is acceptable.
+Omitted versions currently default to `1`. Unknown fields, unsupported
+versions, and negative limits are rejected rather than ignored.
+
+Set `provider.context_window_tokens` to the documented window for the selected
+model to enable in-run context rollover. Ayati checkpoints after a shell result
+when estimated pressure reaches 70% of the usable window (the configured window
+minus output-token and safety reserves). It prefers provider-reported input
+usage and also maintains a conservative local estimate. The checkpoint call has
+no tools. Ayati then starts a fresh provider conversation containing the exact
+original request plus the factual checkpoint and continues with the remaining
+work steps.
+
+Checkpoint and finalization calls do not consume `max_steps`; they are counted
+in `model_calls`. `max_context_rollovers` prevents endless summarization. If it
+is reached, the runtime emits a final handoff and exits `exhausted`.
+
+This rollover policy intentionally does not preflight or rewrite the initial
+user request. If the initial prompt itself exceeds the provider limit, the
+provider error is returned through the normal failed-run path.
+
+Context-window values are model-specific deployment inputs; the runtime does
+not discover them. Verify each example value against the selected model's
+documentation before deployment and update it whenever the model changes.
+
+### Providers
+
+`openai-chat` uses the Chat Completions tool-call protocol. Its endpoint is
+required and configurable, so it supports Fireworks and tested compatible
+endpoints without making the runtime Fireworks-specific.
+
+`openai-responses` uses the native OpenAI Responses protocol. Its default
+endpoint is:
+
+```text
+https://api.openai.com/v1/responses
+```
+
+`anthropic` uses the native Anthropic Messages content-block protocol. Its
+default endpoint is:
+
+```text
+https://api.anthropic.com/v1/messages
+```
+
+Each run fixes one provider and model. Ayati never changes providers or models
+halfway through a tool history.
+
+## Events and outcomes
+
+Standard output contains only JSONL events. A normal tool round resembles:
+
+```json
+{"version":1,"seq":1,"type":"run.started","run_id":"job-123","provider":"openai-chat","model":"...","prompt":"...","workspace":"/workspace","limits":{"max_steps":30}}
+{"version":1,"seq":2,"type":"model.decision","run_id":"job-123","phase":"work","step":1,"decision":{"shell_call":{"command":"go test ./..."}}}
+{"version":1,"seq":3,"type":"tool.started","run_id":"job-123","phase":"work","step":1,"command":"go test ./..."}
+{"version":1,"seq":4,"type":"tool.completed","run_id":"job-123","phase":"work","step":1,"tool_result":{"stdout":"ok\n","exit_code":0,"duration_ms":734}}
+```
+
+Exactly one terminal event is emitted:
+
+- `run.completed`
+- `run.exhausted`
+- `run.failed`
+- `run.cancelled`
+
+The terminal event contains step count, shell-call count, elapsed time, final
+text or failure reason, provider/model call counts, context-rollover count, and
+provider token usage when reported. `finalized: true` means a special
+tool-disabled final handoff succeeded. A nonzero shell exit is an observation
+returned to the model, not a runtime failure.
+
+`context.checkpoint` records each generated checkpoint. `run.finalizing`
+records the reserved handoff attempt. If that provider call fails or returns no
+text, Ayati still emits a deterministic fallback explaining the stop reason and
+points to the exact shell output already preserved in JSONL.
+
+Provider or startup diagnostics use standard error. The process exits zero only
+for `completed`.
+
+## Shell execution
+
+The shell executes `/bin/bash -lc` in the request workspace. Standard output
+and error are bounded while the process is running; Ayati retains the head and
+tail and reports original byte counts and truncation flags. The command is not
+duplicated in the tool result sent back to the model.
+
+Timeout or cancellation kills the Linux process group rather than only the
+immediate Bash process.
+
+By default, the child receives a small environment containing common runtime
+variables such as `PATH`, `HOME`, locale, and language cache paths. It does not
+inherit arbitrary parent variables. `shell.pass_env` can replace this default
+with an explicit list, but it cannot include the configured provider-key
+variable.
+
+## VM deployment
+
+Use one process for one task:
+
+1. Create a disposable VM from a prepared image.
+2. Mount or clone the repository at `/workspace`.
+3. Inject a short-lived provider credential.
+4. Start `ayati-runtime run` with JSON on stdin.
+5. collect stdout JSONL and workspace artifacts.
+6. Destroy the VM.
+
+A practical base image needs the runtime plus Bash, Git, ripgrep, coreutils,
+and CA certificates. Add Node, Go, Python, or Java in separate language images;
+the runtime itself does not install development environments.
+
+Do not give the worker VM host home directories, container sockets, cloud
+metadata credentials, or long-lived provider keys. An unrestricted shell and a
+same-identity in-process secret are not a strong security boundary. For
+stronger deployments, use short-lived credentials or an external inference
+gateway and enforce network policy outside Ayati.
+
+## Repository layout
+
+```text
+cmd/ayati-runtime/       process entrypoint and dependency wiring
+internal/runtime/        bounded state machine and semantic contracts
+internal/provider/       native provider protocol adapters
+internal/shell/          Linux process execution and bounded capture
+internal/protocol/       strict JSON input/config and JSONL events
+agent-evaluation/        preserved Ayati-versus-Pi evaluation evidence
+```
+
+The runtime package is intentionally divided by lifecycle responsibility:
+
+```text
+loop.go       tool-enabled work loop
+context.go    context policy, pressure, checkpoint, and rollover
+outcome.go    finalization, terminal results, and event sequencing
+limits.go     runtime limit defaults and event snapshots
+request.go    runtime request validation
+events.go     event and terminal-result contracts
+types.go      model, conversation, shell, and usage contracts
+prompt.go     system, checkpoint, continuation, and final prompts
+```
+
+The previous interactive Ayati Code implementation remains available on the
+`stabilize/ayati-code` branch. This runtime branch intentionally removes its
+REPL, persistent latest-session selection, setup wizard, installer, model
+metadata lookup, and model-generated compaction.
 
 ## Verify
 
 ```sh
 go test ./...
 go vet ./...
-go build -o ayati-code ./cmd/ayati-code
+CGO_ENABLED=0 go build -trimpath -o /tmp/ayati-runtime ./cmd/ayati-runtime
 ```

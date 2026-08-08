@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "run_id": "example-run",
+  "prompt": "Inspect this project, make the requested change, and verify it.",
+  "workspace": "/workspace"
+}

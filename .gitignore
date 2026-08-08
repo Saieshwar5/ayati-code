@@ -1,11 +1,11 @@
 # Secrets and local configuration
 .env
 .env.*
-!.env.example
 
 # Built artifacts and test output
 /ayati-code
 /ayati-micro
+/ayati-runtime
 /bin/
 /dist/
 *.test

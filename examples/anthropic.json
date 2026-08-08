@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "provider": {
+    "kind": "anthropic",
+    "model": "YOUR_ANTHROPIC_MODEL",
+    "api_key_env": "AYATI_API_KEY",
+    "max_output_tokens": 8192,
+    "context_window_tokens": 200000
+  },
+  "limits": {
+    "max_steps": 30,
+    "max_context_rollovers": 2,
+    "run_timeout_seconds": 1800,
+    "model_timeout_seconds": 300,
+    "shell_timeout_seconds": 120,
+    "max_tool_output_bytes": 16384
+  },
+  "shell": {
+    "path": "/bin/bash"
+  }
+}
