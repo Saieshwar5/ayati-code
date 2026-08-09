@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
 )
 
 type Anthropic struct {

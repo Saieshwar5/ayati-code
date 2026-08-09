@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
 )
 
 type Executor struct {

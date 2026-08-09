@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
 )
 
 const maxResponseBytes = 8 << 20

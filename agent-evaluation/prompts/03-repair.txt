@@ -1,2 +1,0 @@
-Audit the website you just created. Do not redesign it or replace the architecture. Exercise its important interactions, identify functional, accessibility, responsive-layout, or data-persistence defects, fix every defect you can verify, and then report the checks you performed. Keep changes inside this project directory.
-

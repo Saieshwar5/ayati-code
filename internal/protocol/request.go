@@ -7,7 +7,7 @@ import (
 	"io"
 	"strings"
 
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
 )
 
 const maxRequestBytes = 4 << 20

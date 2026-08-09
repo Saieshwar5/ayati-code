@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

@@ -244,7 +244,6 @@ internal/runtime/        bounded state machine and semantic contracts
 internal/provider/       native provider protocol adapters
 internal/shell/          Linux process execution and bounded capture
 internal/protocol/       strict JSON input/config and JSONL events
-agent-evaluation/        preserved Ayati-versus-Pi evaluation evidence
 ```
 
 The runtime package is intentionally divided by lifecycle responsibility:
@@ -259,11 +258,6 @@ events.go     event and terminal-result contracts
 types.go      model, conversation, shell, and usage contracts
 prompt.go     system, checkpoint, continuation, and final prompts
 ```
-
-The previous interactive Ayati Code implementation remains available on the
-`stabilize/ayati-code` branch. This runtime branch intentionally removes its
-REPL, persistent latest-session selection, setup wizard, installer, model
-metadata lookup, and model-generated compaction.
 
 ## Verify
 

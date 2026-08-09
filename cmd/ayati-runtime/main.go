@@ -11,10 +11,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/Saieshwar5/ayati-code/internal/protocol"
-	"github.com/Saieshwar5/ayati-code/internal/provider"
-	agentruntime "github.com/Saieshwar5/ayati-code/internal/runtime"
-	"github.com/Saieshwar5/ayati-code/internal/shell"
+	"github.com/Saieshwar5/ayati-runtime/internal/protocol"
+	"github.com/Saieshwar5/ayati-runtime/internal/provider"
+	agentruntime "github.com/Saieshwar5/ayati-runtime/internal/runtime"
+	"github.com/Saieshwar5/ayati-runtime/internal/shell"
 )
 
 func main() {
