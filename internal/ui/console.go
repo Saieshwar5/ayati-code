@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
@@ -19,12 +21,14 @@ var ErrInputTooLarge = errors.New("input exceeds 1 MiB")
 
 type Console struct {
 	reader *bufio.Reader
+	input  *os.File
 	out    io.Writer
 	err    io.Writer
 }
 
 func New(input io.Reader, output, errorOutput io.Writer) *Console {
-	return &Console{reader: bufio.NewReader(input), out: output, err: errorOutput}
+	file, _ := input.(*os.File)
+	return &Console{reader: bufio.NewReader(input), input: file, out: output, err: errorOutput}
 }
 
 func (c *Console) Header(info session.Info) {
@@ -35,7 +39,54 @@ func (c *Console) Header(info session.Info) {
 }
 
 func (c *Console) Prompt(ctx context.Context) (string, error) {
-	fmt.Fprint(c.out, "\nyou> ")
+	return c.readContext(ctx, "\nyou> ")
+}
+
+func (c *Console) Setup(path string, hasExisting bool) {
+	if hasExisting {
+		fmt.Fprintln(c.out, "Ayati configuration")
+	} else {
+		fmt.Fprintln(c.out, "Ayati first-time setup")
+	}
+	fmt.Fprintf(c.out, "Configuration: %s\n\n", path)
+}
+
+func (c *Console) Value(ctx context.Context, label string) (string, error) {
+	return c.readContext(ctx, label)
+}
+
+func (c *Console) Secret(ctx context.Context, label string) (string, error) {
+	fmt.Fprint(c.out, label)
+	restore := func() error { return nil }
+	if c.input != nil {
+		restored, err := disableEcho(c.input)
+		if err != nil && !errors.Is(err, syscall.ENOTTY) {
+			fmt.Fprintln(c.out)
+			return "", fmt.Errorf("hide secret input: %w", err)
+		}
+		if err == nil {
+			restore = restored
+		}
+	}
+	text, err := c.waitForLine(ctx)
+	restoreErr := restore()
+	fmt.Fprintln(c.out)
+	if err == nil && restoreErr != nil {
+		return "", fmt.Errorf("restore terminal input: %w", restoreErr)
+	}
+	return text, err
+}
+
+func (c *Console) ConfigurationSaved(path string) {
+	fmt.Fprintf(c.out, "Configuration saved to %s\n", path)
+}
+
+func (c *Console) readContext(ctx context.Context, label string) (string, error) {
+	fmt.Fprint(c.out, label)
+	return c.waitForLine(ctx)
+}
+
+func (c *Console) waitForLine(ctx context.Context) (string, error) {
 	if err := ctx.Err(); err != nil {
 		return "", err
 	}

@@ -11,11 +11,27 @@ Ayati is a deliberately small Linux coding-agent harness. It uses one Fireworks 
 - A Fireworks API key
 - A Fireworks model identifier
 
-## Run
+## Configure
+
+The first run asks for the Fireworks API key and model, then saves them for future runs:
 
 ```bash
-export FIREWORKS_API_KEY="..."
-export AYATI_MODEL="accounts/fireworks/models/your-model"
+go run -buildvcs=false ./cmd/ayati
+```
+
+The API key is hidden while typing. To update either saved value later:
+
+```bash
+go run -buildvcs=false ./cmd/ayati config
+```
+
+Configuration is stored with private file permissions at `$XDG_CONFIG_HOME/ayati/config.json` or `~/.config/ayati/config.json`.
+
+## Run
+
+After configuration, start Ayati without exporting credentials:
+
+```bash
 go run -buildvcs=false ./cmd/ayati
 ```
 
@@ -31,7 +47,7 @@ Resume a session:
 go run -buildvcs=false ./cmd/ayati --workspace /path/to/project --session 1a2b3c4d
 ```
 
-`--model` overrides `AYATI_MODEL` for a new session. Resumed sessions always use their stored model.
+`--model` temporarily overrides the saved model for a new session. Resumed sessions always use their stored model.
 
 ## Terminal commands
 

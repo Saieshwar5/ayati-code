@@ -21,6 +21,7 @@ The twentieth shell result is recorded before the loop stops. The harness does n
 
 - `internal/app` owns flags, startup, commands, and the active session.
 - `internal/agent` owns the prompt, message types, and 20-step loop.
+- `internal/config` owns the private Fireworks API key and default model file.
 - `internal/fireworks` owns the single non-streaming Chat Completions request.
 - `internal/shell` runs `/bin/sh -lc` in the workspace with fixed reliability bounds.
 - `internal/session` stores one append-only JSONL file per session.
@@ -31,6 +32,8 @@ The module uses only the Go standard library.
 ## Sessions
 
 The first JSONL record contains session ID, canonical workspace, model, and creation time. Remaining records are exact user, assistant, and tool messages. Resume loads and replays the complete file. There is no database, migration, snapshot, compaction, recovery state machine, or context accounting.
+
+Configuration is separate from sessions. Ayati reads the API key and default model from `$XDG_CONFIG_HOME/ayati/config.json` or `~/.config/ayati/config.json`. The directory uses mode `0700` and the file uses `0600`. Existing sessions continue using their stored model after the configured default changes.
 
 ## Shell and trust
 

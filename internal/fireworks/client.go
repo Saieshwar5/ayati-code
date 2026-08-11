@@ -27,7 +27,7 @@ type Client struct {
 
 func New(apiKey string) (*Client, error) {
 	if strings.TrimSpace(apiKey) == "" {
-		return nil, fmt.Errorf("FIREWORKS_API_KEY is not set")
+		return nil, fmt.Errorf("Fireworks API key is required")
 	}
 	return &Client{
 		apiKey: apiKey, endpoint: endpoint,

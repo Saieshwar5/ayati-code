@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/ayati-code/internal/config"
 	"github.com/Saieshwar5/ayati-code/internal/fireworks"
 	"github.com/Saieshwar5/ayati-code/internal/session"
 	"github.com/Saieshwar5/ayati-code/internal/shell"
@@ -20,11 +21,15 @@ import (
 const version = "dev"
 
 func Run(ctx context.Context, args []string, input io.Reader, output, errorOutput io.Writer) int {
+	configureOnly := len(args) == 1 && args[0] == "config"
+	if configureOnly {
+		args = nil
+	}
 	flags := flag.NewFlagSet("ayati", flag.ContinueOnError)
 	flags.SetOutput(errorOutput)
 	showVersion := flags.Bool("version", false, "print the Ayati version")
 	workspaceFlag := flags.String("workspace", ".", "project directory available to shell")
-	modelFlag := flags.String("model", strings.TrimSpace(os.Getenv("AYATI_MODEL")), "Fireworks model id")
+	modelFlag := flags.String("model", "", "override the saved model for a new session")
 	sessionFlag := flags.String("session", "", "resume a session by id or unique prefix")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -40,10 +45,23 @@ func Run(ctx context.Context, args []string, input io.Reader, output, errorOutpu
 		fmt.Fprintf(output, "ayati %s\n", version)
 		return 0
 	}
-	apiKey := strings.TrimSpace(os.Getenv("FIREWORKS_API_KEY"))
-	if apiKey == "" {
-		fmt.Fprintln(errorOutput, "ayati: FIREWORKS_API_KEY is not set")
-		return 2
+	console := ui.New(input, output, errorOutput)
+	configPath, err := config.DefaultPath()
+	if err != nil {
+		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		return 1
+	}
+	configuration, err := ensureConfiguration(ctx, configPath, configureOnly, console)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			console.Newline()
+			return 130
+		}
+		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		return 1
+	}
+	if configureOnly {
+		return 0
 	}
 	workspace, err := canonicalWorkspace(*workspaceFlag)
 	if err != nil {
@@ -60,12 +78,16 @@ func Run(ctx context.Context, args []string, input io.Reader, output, errorOutpu
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
-	active, err := initialSession(store, workspace, *modelFlag, *sessionFlag)
+	model := strings.TrimSpace(*modelFlag)
+	if model == "" {
+		model = configuration.Model
+	}
+	active, err := initialSession(store, workspace, model, *sessionFlag)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
-	provider, err := fireworks.New(apiKey)
+	provider, err := fireworks.New(configuration.FireworksAPIKey)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
@@ -75,7 +97,6 @@ func Run(ctx context.Context, args []string, input io.Reader, output, errorOutpu
 		fmt.Fprintf(errorOutput, "ayati: initialize shell: %v\n", err)
 		return 1
 	}
-	console := ui.New(input, output, errorOutput)
 	console.Header(active.Info)
 	for {
 		if ctx.Err() != nil {
@@ -130,7 +151,7 @@ func initialSession(store *session.Store, workspace, model, reference string) (*
 		return loaded, nil
 	}
 	if strings.TrimSpace(model) == "" {
-		return nil, fmt.Errorf("--model or AYATI_MODEL is required for a new session")
+		return nil, fmt.Errorf("a configured model or --model is required for a new session")
 	}
 	return store.New(workspace, model)
 }
