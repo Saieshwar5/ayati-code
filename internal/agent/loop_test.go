@@ -56,7 +56,7 @@ func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	for index := range messages {
 		messages[index] = Message{Role: "assistant", ToolCalls: []ToolCall{{
 			ID: fmt.Sprintf("call-%d", index), Type: "function",
-			Function: FunctionCall{Name: "shell", Arguments: `{"command":"true"}`},
+			Function: FunctionCall{Name: "shell", Arguments: `{"command":"true","purpose":"Verify the change"}`},
 		}}}
 	}
 	provider := &scriptedProvider{messages: messages}
@@ -70,5 +70,15 @@ func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	}
 	if provider.calls != MaxSteps || shell.calls != MaxSteps {
 		t.Fatalf("provider calls = %d, shell calls = %d", provider.calls, shell.calls)
+	}
+}
+
+func TestParseShellCallRequiresPurpose(t *testing.T) {
+	_, err := parseShellCall(ToolCall{
+		ID: "call-1", Type: "function",
+		Function: FunctionCall{Name: "shell", Arguments: `{"command":"pwd"}`},
+	})
+	if err == nil || err.Error() != "shell purpose is empty" {
+		t.Fatalf("error = %v", err)
 	}
 }

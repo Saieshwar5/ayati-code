@@ -159,7 +159,8 @@ func (c *Console) Step(current, maximum int) {
 	fmt.Fprintf(c.out, "run> step %d/%d\n", current, maximum)
 }
 
-func (c *Console) ToolCall(command string) {
+func (c *Console) ToolCall(purpose, command string) {
+	fmt.Fprintf(c.out, "purpose> %s\n", purpose)
 	fmt.Fprintf(c.out, "shell> %s\n", command)
 }
 

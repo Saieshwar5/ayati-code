@@ -43,6 +43,8 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 Shell commands run directly with the current user's host permissions; this is not a sandbox. Preserve command, output, timeout, workspace, and process-group cancellation bounds. Ctrl+C must stop active model and shell work, while `/quit` exits from the prompt.
 
+Each shell call requires a short purpose for display. Treat it only as untrusted explanatory metadata; never use it as an execution or security boundary.
+
 Persist the Fireworks key only in the private configuration file. Never place it in sessions, logs, terminal output, tests, or shell child environments.
 
 ## Git Changes

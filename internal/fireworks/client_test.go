@@ -36,10 +36,23 @@ func TestClientSendsOneShellToolAndDecodesToolCall(t *testing.T) {
 			if body.Stream || body.ParallelToolCalls || len(body.Tools) != 1 || body.Tools[0].Function.Name != "shell" {
 				t.Errorf("request = %#v", body)
 			}
+			properties, _ := body.Tools[0].Function.Parameters["properties"].(map[string]any)
+			if _, ok := properties["purpose"]; !ok {
+				t.Errorf("shell schema has no purpose: %#v", body.Tools[0])
+			}
+			required, _ := body.Tools[0].Function.Parameters["required"].([]any)
+			requiredNames := make(map[string]bool, len(required))
+			for _, value := range required {
+				name, _ := value.(string)
+				requiredNames[name] = true
+			}
+			if !requiredNames["command"] || !requiredNames["purpose"] {
+				t.Errorf("shell required fields = %#v", required)
+			}
 			if len(body.Messages) != 2 || body.Messages[0].Role != "system" || body.Messages[1].Role != "user" {
 				t.Errorf("messages = %#v", body.Messages)
 			}
-			response := `{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"shell","arguments":"{\"command\":\"pwd\"}"}}]}}]}`
+			response := `{"choices":[{"message":{"role":"assistant","content":null,"tool_calls":[{"id":"call-1","type":"function","function":{"name":"shell","arguments":"{\"command\":\"pwd\",\"purpose\":\"Inspect the current directory\"}"}}]}}]}`
 			return &http.Response{
 				StatusCode: http.StatusOK, Status: "200 OK", Body: io.NopCloser(strings.NewReader(response)),
 			}, nil

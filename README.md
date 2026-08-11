@@ -61,6 +61,7 @@ go run -buildvcs=false ./cmd/ayati --workspace /path/to/project --session 1a2b3c
 ## Behavior
 
 - The model receives exactly one function tool: `shell`.
+- Every shell call includes a short purpose that is shown before the command.
 - A request may use at most 20 model decisions.
 - Each decision may contain at most one shell call.
 - Shell commands start in the selected workspace.

@@ -5,7 +5,10 @@ import (
 	"time"
 )
 
-const MaxSteps = 20
+const (
+	MaxSteps              = 20
+	MaxShellPurposeLength = 240
+)
 
 type FunctionCall struct {
 	Name      string `json:"name"`
@@ -56,7 +59,7 @@ type Recorder interface {
 
 type Observer interface {
 	Step(current, maximum int)
-	ToolCall(command string)
+	ToolCall(purpose, command string)
 	ToolResult(ShellResult)
 	Assistant(text string)
 }

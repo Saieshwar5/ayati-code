@@ -39,6 +39,8 @@ Configuration is separate from sessions. Ayati reads the API key and default mod
 
 Commands run with the current user's host permissions. Ayati removes `FIREWORKS_API_KEY` from the child environment and enforces command size, output size, timeout, process-group cancellation, and workspace working directory. These are reliability controls, not a security boundary; a same-user process may still access host files and processes.
 
+Each shell call includes a short model-provided purpose for terminal clarity and session history. The purpose is display metadata only; execution and security decisions must use the command itself.
+
 ## Deferred work
 
 Additional providers, model discovery, credential storage, TUI, attachments, network policy, sandboxing, context compaction, and richer session lifecycle remain outside this micro-harness.

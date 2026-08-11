@@ -126,8 +126,12 @@ func shellTool() chatTool {
 			"type": "object", "additionalProperties": false,
 			"properties": map[string]any{
 				"command": map[string]any{"type": "string", "description": "Shell command to run."},
+				"purpose": map[string]any{
+					"type": "string", "maxLength": agent.MaxShellPurposeLength,
+					"description": "Briefly describe what this command is intended to accomplish.",
+				},
 			},
-			"required": []string{"command"},
+			"required": []string{"command", "purpose"},
 		},
 	}}
 }
