@@ -1,0 +1,7 @@
+/ayati
+/dist/
+/coverage.out
+
+.env
+.env.*
+!.env.example
