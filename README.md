@@ -39,7 +39,8 @@ go run -buildvcs=false ./cmd/ayati --workspace /path/to/project --session 1a2b3c
 - `/sessions` lists sessions for the current workspace.
 - `/resume <id>` resumes by full ID or unique prefix.
 - `/help` shows commands.
-- `/exit` quits.
+- `/quit` quits.
+- `Ctrl+C` cancels an active model request or shell command and quits.
 
 ## Behavior
 

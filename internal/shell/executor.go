@@ -68,6 +68,7 @@ func (e *Executor) Run(ctx context.Context, command string) agent.ShellResult {
 	result.Truncated = stdout.truncated || stderr.truncated
 	result.Duration = time.Since(started)
 	result.TimedOut = errors.Is(callContext.Err(), context.DeadlineExceeded)
+	canceled := errors.Is(callContext.Err(), context.Canceled)
 	if err == nil {
 		result.ExitCode = 0
 		return result
@@ -77,7 +78,13 @@ func (e *Executor) Run(ctx context.Context, command string) agent.ShellResult {
 		result.ExitCode = exitError.ExitCode()
 		if result.TimedOut {
 			result.Error = "shell command timed out"
+		} else if canceled {
+			result.Error = "shell command canceled"
 		}
+		return result
+	}
+	if canceled {
+		result.Error = "shell command canceled"
 		return result
 	}
 	result.Error = err.Error()

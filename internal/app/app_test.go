@@ -25,3 +25,10 @@ func TestRunRequiresFireworksKey(t *testing.T) {
 		t.Fatalf("code = %d, error = %q", code, errorOutput.String())
 	}
 }
+
+func TestQuitCommandExits(t *testing.T) {
+	handled, exit := handleCommand("/quit", nil, "", nil, nil)
+	if !handled || !exit {
+		t.Fatalf("handled = %t, exit = %t", handled, exit)
+	}
+}

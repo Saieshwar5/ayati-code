@@ -2,9 +2,13 @@ package shell
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/Saieshwar5/ayati-code/internal/agent"
 )
 
 func TestExecutorRunsInWorkspaceAndStripsProviderKey(t *testing.T) {
@@ -38,6 +42,35 @@ func TestExecutorTimesOutProcessGroup(t *testing.T) {
 	executor.timeout = 30 * time.Millisecond
 	result := executor.Run(context.Background(), `sleep 10`)
 	if !result.TimedOut || result.ExitCode == 0 {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestExecutorStopsWhenContextIsCanceled(t *testing.T) {
+	workspace := t.TempDir()
+	executor, err := New(workspace)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	resultChannel := make(chan agent.ShellResult, 1)
+	go func() {
+		resultChannel <- executor.Run(ctx, `touch started; sleep 10`)
+	}()
+	marker := filepath.Join(workspace, "started")
+	deadline := time.Now().Add(time.Second)
+	for {
+		if _, err := os.Stat(marker); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("shell command did not start")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	result := <-resultChannel
+	if result.ExitCode == 0 || result.Error != "shell command canceled" {
 		t.Fatalf("result = %#v", result)
 	}
 }

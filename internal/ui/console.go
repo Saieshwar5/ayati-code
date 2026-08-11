@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -30,11 +31,32 @@ func (c *Console) Header(info session.Info) {
 	fmt.Fprintf(c.out, "Ayati | fireworks/%s | session %s\n", info.Model, shortID(info.ID))
 	fmt.Fprintf(c.out, "workspace: %s\n", info.Workspace)
 	fmt.Fprintln(c.out, "Trusted-local mode: shell commands run with your user permissions.")
-	fmt.Fprintln(c.out, "Type /help for commands or /exit to quit.")
+	fmt.Fprintln(c.out, "Type /help for commands or /quit to quit. Ctrl+C stops Ayati immediately.")
 }
 
-func (c *Console) Prompt() (string, error) {
+func (c *Console) Prompt(ctx context.Context) (string, error) {
 	fmt.Fprint(c.out, "\nyou> ")
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	type promptResult struct {
+		text string
+		err  error
+	}
+	result := make(chan promptResult, 1)
+	go func() {
+		text, err := c.readLine()
+		result <- promptResult{text: text, err: err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case completed := <-result:
+		return completed.text, completed.err
+	}
+}
+
+func (c *Console) readLine() (string, error) {
 	var value strings.Builder
 	for {
 		part, prefix, err := c.reader.ReadLine()
@@ -60,7 +82,8 @@ func (c *Console) Help() {
 	fmt.Fprintln(c.out, "  /sessions     list sessions for this workspace")
 	fmt.Fprintln(c.out, "  /resume <id>  resume a session by id or unique prefix")
 	fmt.Fprintln(c.out, "  /help         show this help")
-	fmt.Fprintln(c.out, "  /exit         quit")
+	fmt.Fprintln(c.out, "  /quit         quit")
+	fmt.Fprintln(c.out, "  Ctrl+C        stop the current run and quit")
 }
 
 func (c *Console) Sessions(infos []session.Info, activeID string) {

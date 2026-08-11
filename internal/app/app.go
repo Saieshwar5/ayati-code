@@ -81,7 +81,11 @@ func Run(ctx context.Context, args []string, input io.Reader, output, errorOutpu
 		if ctx.Err() != nil {
 			return 130
 		}
-		text, err := console.Prompt()
+		text, err := console.Prompt(ctx)
+		if errors.Is(err, context.Canceled) {
+			console.Newline()
+			return 130
+		}
 		if errors.Is(err, io.EOF) {
 			console.Newline()
 			return 0
@@ -105,6 +109,10 @@ func Run(ctx context.Context, args []string, input io.Reader, output, errorOutpu
 			Provider: provider, Shell: executor, Recorder: active, Observer: console, Model: active.Info.Model,
 		}
 		if _, err := loop.Run(ctx, &active.Messages, text); err != nil {
+			if errors.Is(err, context.Canceled) {
+				console.Newline()
+				return 130
+			}
 			console.Error(err)
 		}
 	}
@@ -135,7 +143,7 @@ func handleCommand(
 	console *ui.Console,
 ) (bool, bool) {
 	switch command {
-	case "/exit":
+	case "/quit":
 		return true, true
 	case "/help":
 		console.Help()

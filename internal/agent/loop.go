@@ -25,11 +25,17 @@ func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Com
 	if strings.TrimSpace(l.Model) == "" || strings.TrimSpace(userText) == "" {
 		return Completion{}, fmt.Errorf("model and user request are required")
 	}
+	if err := ctx.Err(); err != nil {
+		return Completion{}, err
+	}
 	user := Message{Role: "user", Content: userText}
 	if err := l.record(history, user); err != nil {
 		return Completion{}, err
 	}
 	for step := 1; step <= MaxSteps; step++ {
+		if err := ctx.Err(); err != nil {
+			return Completion{Steps: step - 1}, err
+		}
 		if l.Observer != nil {
 			l.Observer.Step(step, MaxSteps)
 		}
@@ -82,6 +88,9 @@ func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Com
 		}
 		if l.Observer != nil {
 			l.Observer.ToolResult(result)
+		}
+		if err := ctx.Err(); err != nil {
+			return Completion{Steps: step}, err
 		}
 	}
 	return Completion{Steps: MaxSteps, Exhausted: true}, ErrStepLimit
