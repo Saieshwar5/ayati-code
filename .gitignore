@@ -1,11 +1,9 @@
 # Secrets and local configuration
 .env
 .env.*
-!.env.example
 
 # Built artifacts and test output
-/ayati-code
-/ayati-micro
+/ayati-runtime
 /bin/
 /dist/
 *.test
@@ -16,7 +14,6 @@ coverage.out
 /.nca/
 /.agents/
 /.codex/
-/project-details/
 
 # Editor and operating-system files
 .DS_Store
