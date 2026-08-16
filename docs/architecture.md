@@ -17,7 +17,7 @@ Existing or newly created GitHub repository + base/working branch
   -> user stops sandbox
 ```
 
-The repository and SQLite record survive a normal Stop. A ready workspace restores its named container if the controller process or container was restarted. Delete is a separate confirmed action that removes the managed container, local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
+The repository and SQLite record survive a normal Stop. Resume recreates the named sandbox at the stored authority without rerunning preparation, so Develop changes remain intact. A ready workspace restores its named container if the controller process or container was restarted. Delete is a separate confirmed action that removes the managed container, local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
 
 ## Component ownership
 
@@ -58,6 +58,8 @@ Sessions share one workspace clone, branch, sandbox, environment, and diff. They
 Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Fixed rules inspect regular metadata files, resolve the repository root or one nested project, and derive Go, Node, and Python setup and verification commands. Multiple nested roots require a later user selection rather than an AI guess. The controller records the current commit and requires a clean Git status before setup.
 
 Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, environment metadata, and sessions.
+
+On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller removes its named preparation sandbox before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Active sessions interrupted by restart are similarly marked failed. Ready, stopped, failed, and configuration-waiting workspaces remain unchanged.
 
 Ayati then creates `ayati-workspace-<id>` with a writable preparation mount and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller removes that writable container, recreates `/workspace` read-only, verifies Docker's effective mount metadata, and records it. Develop remains read-write. The ready container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
 

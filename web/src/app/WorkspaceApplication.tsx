@@ -57,6 +57,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               workspace={selectedWorkspace}
               onConfigure={(root) => controller.configureProjectRoot(selectedWorkspace.id, root)}
               onRetry={() => controller.workspaceAction(selectedWorkspace.id, "initialize")}
+              onResume={() => controller.workspaceAction(selectedWorkspace.id, "resume")}
               onDelete={() => controller.deleteWorkspace(selectedWorkspace)}
             />
           ) : controller.loading ? (

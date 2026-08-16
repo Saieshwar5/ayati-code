@@ -6,6 +6,7 @@ interface WorkspaceReadinessProps {
   workspace: Workspace;
   onConfigure: (projectRoot: string) => Promise<void>;
   onRetry: () => Promise<void>;
+  onResume: () => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
@@ -74,7 +75,7 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
           <p className="eyebrow">Environment stopped</p>
           <h2>Your project and sessions are preserved</h2>
           <p className="muted">Resume to recreate the sandbox with the same workspace authority.</p>
-          <button className="primary" type="button" disabled={busy} onClick={() => run(props.onRetry)}>
+          <button className="primary" type="button" disabled={busy} onClick={() => run(props.onResume)}>
             {busy ? "Resuming…" : "Resume environment"}
           </button>
         </section>

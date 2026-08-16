@@ -79,6 +79,10 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
+	if err := workspaces.Recover(ctx); err != nil {
+		fmt.Fprintf(errorOutput, "ayati: recover workspaces: %v\n", err)
+		return 1
+	}
 	github, err := optionalGitHub(*clientID, *clientSecret, *callback, *address)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)

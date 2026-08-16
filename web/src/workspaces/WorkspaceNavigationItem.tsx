@@ -12,7 +12,7 @@ interface WorkspaceNavigationItemProps {
   onCreateSession: () => void;
   onRenameSession: (session: WorkspaceSession) => void;
   onDeleteSession: (session: WorkspaceSession) => void;
-  onAction: (action: "initialize" | "stop") => void;
+  onAction: (action: "initialize" | "resume" | "stop") => void;
   onDelete: () => void;
 }
 
@@ -59,12 +59,17 @@ export function WorkspaceNavigationItem(props: WorkspaceNavigationItemProps) {
                 New session
               </button>
             )}
-            {(["initialization_failed", "stopped"] as const).includes(workspace.status as never) && (
+            {workspace.status === "initialization_failed" && (
               <button type="button" onClick={() => props.onAction("initialize")}>
+                Retry preparation
+              </button>
+            )}
+            {workspace.status === "stopped" && (
+              <button type="button" onClick={() => props.onAction("resume")}>
                 Resume environment
               </button>
             )}
-            {(["ready", "initialization_failed"] as const).includes(workspace.status as never) && (
+            {workspace.status === "ready" && (
               <button type="button" onClick={() => props.onAction("stop")}>
                 Stop environment
               </button>
