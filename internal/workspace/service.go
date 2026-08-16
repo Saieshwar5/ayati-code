@@ -13,7 +13,7 @@ import (
 )
 
 type environment interface {
-	Ensure(context.Context, sandbox.Spec) error
+	Ensure(context.Context, sandbox.Spec) (sandbox.MountMode, error)
 	Open(string, map[string]string) (agent.Shell, error)
 	Remove(context.Context, string) error
 }
@@ -60,7 +60,10 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.prepareRepository(ctx, value); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	if err := s.environment.Ensure(ctx, sandbox.Spec{Name: value.SandboxName, Path: value.Path}); err != nil {
+	preparation := sandbox.Spec{
+		Name: value.SandboxName, Path: value.Path, MountMode: sandbox.MountReadWrite,
+	}
+	if _, err := s.environment.Ensure(ctx, preparation); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("start sandbox: %w", err))
 	}
 	setup := value.Setup
@@ -84,6 +87,19 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 			message := strings.TrimSpace(strings.Join([]string{result.Error, result.Stderr, result.Stdout}, "\n"))
 			return s.fail(ctx, id, fmt.Errorf("setup failed: %s", boundedMessage(message)))
 		}
+	}
+	ready := sandbox.Spec{Name: value.SandboxName, Path: value.Path, MountMode: value.Authority.MountMode()}
+	if ready.MountMode == sandbox.MountReadOnly {
+		if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
+			return s.fail(ctx, id, fmt.Errorf("seal sandbox: %w", err))
+		}
+	}
+	mode, err := s.environment.Ensure(ctx, ready)
+	if err != nil {
+		return s.fail(ctx, id, fmt.Errorf("start protected sandbox: %w", err))
+	}
+	if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
+		return s.fail(ctx, id, err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
@@ -131,72 +147,6 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-type Changes struct {
-	Status string `json:"status"`
-	Diff   string `json:"diff"`
-}
-
-func (s *Service) Changes(ctx context.Context, id string) (Changes, error) {
-	shell, _, err := s.Shell(ctx, id)
-	if err != nil {
-		return Changes{}, err
-	}
-	status := shell.Execute(ctx, agent.ShellRequest{Command: "git status --short"})
-	if status.ExitCode != 0 || status.Error != "" {
-		return Changes{}, fmt.Errorf("inspect Git status: %s", shellError(status))
-	}
-	diffCommand := `git diff --no-ext-diff --stat && git diff --no-ext-diff && ` +
-		`git ls-files --others --exclude-standard -z | ` +
-		`xargs -0 -r -n1 sh -c 'git diff --no-index -- /dev/null "$1"; code=$?; test "$code" -eq 0 -o "$code" -eq 1' sh`
-	diff := shell.Execute(ctx, agent.ShellRequest{Command: diffCommand})
-	if diff.ExitCode != 0 || diff.Error != "" {
-		return Changes{}, fmt.Errorf("inspect Git diff: %s", shellError(diff))
-	}
-	return Changes{Status: status.Stdout, Diff: diff.Stdout}, nil
-}
-
-func (s *Service) Publish(ctx context.Context, id, message, authorName, authorEmail string) error {
-	shell, value, err := s.Shell(ctx, id)
-	if err != nil {
-		return err
-	}
-	working, err := s.store.HasWorkingSession(ctx, id)
-	if err != nil {
-		return fmt.Errorf("inspect running sessions: %w", err)
-	}
-	if working {
-		return errors.New("a session is still running; wait for the agent before publishing")
-	}
-	message = strings.TrimSpace(message)
-	if message == "" {
-		return errors.New("commit message is required")
-	}
-	status := shell.Execute(ctx, agent.ShellRequest{Command: "git status --porcelain"})
-	if status.ExitCode != 0 || status.Error != "" {
-		return fmt.Errorf("inspect changes: %s", shellError(status))
-	}
-	if strings.TrimSpace(status.Stdout) != "" {
-		arguments := []string{"git", "-c", shellQuote("core.hooksPath=/dev/null")}
-		arguments = append(arguments, "add", "--all", "&&", "git", "-c", shellQuote("core.hooksPath=/dev/null"))
-		if strings.TrimSpace(authorName) != "" {
-			arguments = append(arguments, "-c", shellQuote("user.name="+strings.TrimSpace(authorName)))
-		}
-		if strings.TrimSpace(authorEmail) != "" {
-			arguments = append(arguments, "-c", shellQuote("user.email="+strings.TrimSpace(authorEmail)))
-		}
-		arguments = append(arguments, "commit", "--no-verify", "-m", shellQuote(message))
-		commit := shell.Execute(ctx, agent.ShellRequest{Command: strings.Join(arguments, " ")})
-		if commit.ExitCode != 0 || commit.Error != "" {
-			return fmt.Errorf("commit changes: %s", shellError(commit))
-		}
-	}
-	refspec := "refs/heads/" + value.Branch + ":refs/heads/" + value.Branch
-	if err := s.git.AuthenticatedRun(ctx, "-C", value.Path, "push", "--no-verify", "--", value.CloneURL, refspec); err != nil {
-		return fmt.Errorf("push branch: %w", err)
-	}
-	return nil
-}
-
 func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace, error) {
 	value, err := s.store.Get(ctx, id)
 	if err != nil {
@@ -205,8 +155,17 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if value.Status != StatusReady {
 		return nil, Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	if err := s.environment.Ensure(ctx, sandbox.Spec{Name: value.SandboxName, Path: value.Path}); err != nil {
+	mode, err := s.environment.Ensure(ctx, sandbox.Spec{
+		Name: value.SandboxName, Path: value.Path, MountMode: value.Authority.MountMode(),
+	})
+	if err != nil {
 		return nil, Workspace{}, fmt.Errorf("restore sandbox: %w", err)
+	}
+	if value.EffectiveMountMode != string(mode) {
+		if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
+			return nil, Workspace{}, err
+		}
+		value.EffectiveMountMode = string(mode)
 	}
 	variables, err := s.store.EnvironmentValues(ctx, id, false)
 	if err != nil {

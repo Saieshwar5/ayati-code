@@ -5,6 +5,7 @@ import type {
   CreateWorkspaceInput,
   EnvironmentInput,
   Repository,
+  WorkspaceAuthority,
 } from "../api/contracts";
 import { api } from "../api/client";
 import { CreationEnvironment } from "./CreationEnvironment";
@@ -45,6 +46,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
   const [branch, setBranch] = useState("");
   const [existingBranch, setExistingBranch] = useState("");
   const [createBranch, setCreateBranch] = useState(true);
+  const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
   const [setup, setSetup] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -90,8 +92,9 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
       await props.onCreate({
         repository,
         base_branch: baseBranch,
-        branch: createBranch ? branch : existingBranch,
-        create_branch: createBranch,
+        branch: authority === "explore" ? baseBranch : createBranch ? branch : existingBranch,
+        create_branch: authority === "develop" && createBranch,
+        authority,
         setup_command: setup,
         environment,
       });
@@ -133,9 +136,41 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
             ))}
           </select>
         </label>
-        <div className="form-grid">
+        <fieldset className="authority-options">
+          <legend>Authority</legend>
+          <label className={`authority-option${authority === "explore" ? " selected" : ""}`}>
+            <input
+              type="radio"
+              name="authority"
+              value="explore"
+              aria-label="Explore authority"
+              checked={authority === "explore"}
+              onChange={() => setAuthority("explore")}
+            />
+            <span>
+              <strong>Explore</strong>
+              <small>Inspect, test and understand. Project files are protected.</small>
+            </span>
+            <em>Recommended</em>
+          </label>
+          <label className={`authority-option${authority === "develop" ? " selected" : ""}`}>
+            <input
+              type="radio"
+              name="authority"
+              value="develop"
+              aria-label="Develop authority"
+              checked={authority === "develop"}
+              onChange={() => setAuthority("develop")}
+            />
+            <span>
+              <strong>Develop</strong>
+              <small>Everything in Explore, plus permission to change project files.</small>
+            </span>
+          </label>
+        </fieldset>
+        <div className={authority === "develop" ? "form-grid" : ""}>
           <label>
-            Base branch
+            Starting branch
             <select
               value={baseBranch}
               required
@@ -150,42 +185,45 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
               ))}
             </select>
           </label>
-          {createBranch ? (
-            <label>
-              New working branch
-              <input
-                value={branch}
-                placeholder="ayati/my-change"
-                required
-                onChange={(event) => setBranch(event.target.value)}
-              />
-            </label>
-          ) : (
-            <label>
-              Working branch
-              <select
-                value={existingBranch}
-                required
-                onChange={(event) => setExistingBranch(event.target.value)}
-              >
-                <option value="">Select a branch</option>
-                {branches.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
+          {authority === "develop" &&
+            (createBranch ? (
+              <label>
+                New working branch
+                <input
+                  value={branch}
+                  placeholder="ayati/my-change"
+                  required
+                  onChange={(event) => setBranch(event.target.value)}
+                />
+              </label>
+            ) : (
+              <label>
+                Working branch
+                <select
+                  value={existingBranch}
+                  required
+                  onChange={(event) => setExistingBranch(event.target.value)}
+                >
+                  <option value="">Select a branch</option>
+                  {branches.map((item) => (
+                    <option key={item.name} value={item.name}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
         </div>
-        <label className="check-row">
-          <input
-            type="checkbox"
-            checked={createBranch}
-            onChange={(event) => setCreateBranch(event.target.checked)}
-          />
-          Create a new branch from the selected base
-        </label>
+        {authority === "develop" && (
+          <label className="check-row">
+            <input
+              type="checkbox"
+              checked={createBranch}
+              onChange={(event) => setCreateBranch(event.target.checked)}
+            />
+            Create a new branch from the selected base
+          </label>
+        )}
         <label>
           Setup command <span className="optional">optional, detected automatically</span>
           <input value={setup} placeholder="go mod download" onChange={(event) => setSetup(event.target.value)} />

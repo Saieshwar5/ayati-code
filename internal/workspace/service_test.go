@@ -22,9 +22,9 @@ type fakeEnvironment struct {
 	err       error
 }
 
-func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) error {
+func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) (sandbox.MountMode, error) {
 	f.ensured = append(f.ensured, spec)
-	return f.err
+	return spec.MountMode, f.err
 }
 
 func (f *fakeEnvironment) Open(_ string, variables map[string]string) (agent.Shell, error) {
@@ -74,7 +74,8 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "ayati/change", CreateBranch: true,
-		Setup: "go mod download", Path: path,
+		Authority: AuthorityDevelop,
+		Setup:     "go mod download", Path: path,
 		Environment: []EnvironmentInput{
 			{Name: "SETUP_TOKEN", Value: "setup-secret", ExposeDuringSetup: true},
 			{Name: "RUNTIME_TOKEN", Value: "runtime-secret"},
@@ -97,7 +98,8 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
 	}
-	if len(environment.ensured) != 1 || shell.commands[0] != "go mod download" {
+	if len(environment.ensured) != 2 || environment.ensured[0].MountMode != sandbox.MountReadWrite ||
+		environment.ensured[1].MountMode != sandbox.MountReadWrite || shell.commands[0] != "go mod download" {
 		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
 	}
 	if !reflect.DeepEqual(environment.variables, []map[string]string{{"SETUP_TOKEN": "setup-secret"}}) {
@@ -268,7 +270,8 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "ayati/change", Authority: AuthorityDevelop,
+		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)

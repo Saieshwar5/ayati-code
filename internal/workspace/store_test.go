@@ -30,7 +30,8 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if created.Status != StatusCreating || !created.CreateBranch || created.SandboxName != "ayati-workspace-"+created.ID {
+	if created.Status != StatusCreating || !created.CreateBranch || created.Authority != AuthorityExplore ||
+		created.SandboxName != "ayati-workspace-"+created.ID {
 		t.Fatalf("workspace = %#v", created)
 	}
 	if err := store.UpdateStatus(context.Background(), created.ID, StatusReady, ""); err != nil {
@@ -86,6 +87,12 @@ func TestStoreRejectsInvalidWorkspaceAndStatus(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	if _, err := store.Create(context.Background(), Create{}); err == nil {
 		t.Fatal("Create accepted empty workspace")
+	}
+	if _, err := store.Create(context.Background(), Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: "main", Authority: "owner", Path: t.TempDir(),
+	}); err == nil {
+		t.Fatal("Create accepted invalid authority")
 	}
 	if err := store.UpdateStatus(context.Background(), "missing", "unknown", ""); err == nil {
 		t.Fatal("UpdateStatus accepted unknown status")

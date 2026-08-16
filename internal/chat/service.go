@@ -62,7 +62,7 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		cancel()
 		s.clearRun(workspaceID)
 	}()
-	shell, _, err := s.runtime.Shell(runCtx, workspaceID)
+	shell, currentWorkspace, err := s.runtime.Shell(runCtx, workspaceID)
 	if err != nil {
 		return agent.Completion{}, err
 	}
@@ -81,6 +81,11 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		Provider: s.provider, Shell: shell,
 		Recorder: recorder{ctx: runCtx, store: s.store, sessionID: sessionID},
 		Observer: observer, Model: s.model,
+		Prompt: agent.WorkspacePrompt(agent.WorkspaceContext{
+			Repository: currentWorkspace.Repository,
+			Branch:     currentWorkspace.Branch,
+			Authority:  string(currentWorkspace.Authority),
+		}),
 	}
 	completion, err := loop.Run(runCtx, &history, text)
 	if err != nil {

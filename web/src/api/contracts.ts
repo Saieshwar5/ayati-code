@@ -6,6 +6,7 @@ export type WorkspaceStatus =
   | "stopped";
 
 export type SessionStatus = "idle" | "working" | "review" | "failed";
+export type WorkspaceAuthority = "explore" | "develop";
 
 export interface User {
   id: number;
@@ -39,6 +40,8 @@ export interface Workspace {
   base_branch: string;
   branch: string;
   create_branch: boolean;
+  authority: WorkspaceAuthority;
+  effective_mount_mode?: "ro" | "rw";
   setup_command: string;
   path: string;
   sandbox_name: string;
@@ -96,6 +99,7 @@ export interface CreateWorkspaceInput {
   base_branch: string;
   branch: string;
   create_branch: boolean;
+  authority: WorkspaceAuthority;
   setup_command: string;
   environment: EnvironmentInput[];
 }

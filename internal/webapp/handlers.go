@@ -32,6 +32,7 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		BaseBranch   string                       `json:"base_branch"`
 		Branch       string                       `json:"branch"`
 		CreateBranch bool                         `json:"create_branch"`
+		Authority    string                       `json:"authority"`
 		Setup        string                       `json:"setup_command"`
 		Environment  []workspace.EnvironmentInput `json:"environment"`
 	}
@@ -45,31 +46,31 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 	}
 	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
 	input.Branch = strings.TrimSpace(input.Branch)
-	if input.BaseBranch == "" || input.Branch == "" {
-		s.writeError(writer, http.StatusBadRequest, "base branch and working branch are required")
+	authority, err := workspace.ParseAuthority(input.Authority)
+	if err != nil {
+		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	if input.BaseBranch == input.Branch {
-		s.writeError(writer, http.StatusBadRequest, "working branch must differ from the pull request base")
+	if input.BaseBranch == "" {
+		s.writeError(writer, http.StatusBadRequest, "starting branch is required")
+		return
+	}
+	if authority == workspace.AuthorityExplore {
+		input.Branch = input.BaseBranch
+		input.CreateBranch = false
+	} else if input.Branch == "" || input.BaseBranch == input.Branch {
+		s.writeError(writer, http.StatusBadRequest,
+			"Develop authority requires a working branch different from the starting branch")
 		return
 	}
 	if err := workspace.ValidateEnvironment(input.Environment); err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	createLocally := input.CreateBranch
-	if input.CreateBranch {
-		if err := s.github.CreateBranch(request.Context(), credentials.AccessToken,
-			repository.FullName, input.BaseBranch, input.Branch); err != nil {
-			s.writeError(writer, http.StatusBadGateway, "create GitHub branch")
-			return
-		}
-		createLocally = false
-	}
 	value, err := s.store.Create(request.Context(), workspace.Create{
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
-		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: createLocally,
-		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
+		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: input.CreateBranch,
+		Authority: authority, Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
 	})
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, "create workspace")
@@ -176,6 +177,10 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		}
 		if strings.TrimSpace(input.CommitMessage) == "" {
 			s.writeError(writer, http.StatusBadRequest, "commit message is required")
+			return
+		}
+		if value.Authority != workspace.AuthorityDevelop {
+			s.writeError(writer, http.StatusConflict, "publishing requires Develop authority")
 			return
 		}
 		if value.PullRequestNumber == 0 && strings.TrimSpace(input.Title) == "" {

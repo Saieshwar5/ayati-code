@@ -39,13 +39,16 @@ type Manager struct {
 }
 
 type Spec struct {
-	Name string
-	Path string
+	Name      string
+	Path      string
+	MountMode MountMode
 }
 
 type containerInfo struct {
-	running bool
-	path    string
+	running   bool
+	path      string
+	mountMode MountMode
+	image     string
 }
 
 func New(image string) (*Manager, error) {
@@ -59,29 +62,36 @@ func New(image string) (*Manager, error) {
 	return &Manager{docker: docker, image: image, runner: osRunner{docker: docker}}, nil
 }
 
-func (m *Manager) Ensure(ctx context.Context, spec Spec) error {
+func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
 	path, err := validateSpec(spec)
 	if err != nil {
-		return err
+		return "", err
 	}
 	container, exists, err := m.inspect(ctx, spec.Name)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if exists {
 		if filepath.Clean(container.path) != filepath.Clean(path) {
-			return fmt.Errorf("sandbox %s is mounted from a different workspace", spec.Name)
+			return "", fmt.Errorf("sandbox %s is mounted from a different workspace", spec.Name)
 		}
-		if container.running {
-			return nil
+		if container.mountMode != spec.MountMode || container.image != m.image {
+			if _, err := m.run(ctx, "rm", "--force", "--volumes", spec.Name); err != nil {
+				return "", fmt.Errorf("replace sandbox: %w", err)
+			}
+		} else if container.running {
+			return container.mountMode, nil
+		} else {
+			if _, err := m.run(ctx, "start", spec.Name); err != nil {
+				return "", err
+			}
+			return container.mountMode, nil
 		}
-		_, err := m.run(ctx, "start", spec.Name)
-		return err
 	}
 	if err := os.MkdirAll(path, 0o700); err != nil {
-		return fmt.Errorf("create workspace directory: %w", err)
+		return "", fmt.Errorf("create workspace directory: %w", err)
 	}
-	volume := path + ":/workspace:rw"
+	mount := "type=bind,src=" + path + ",dst=/workspace" + spec.MountMode.DockerOption()
 	_, err = m.run(ctx,
 		"create", "--name", spec.Name,
 		"--label", "ayati.workspace="+strings.TrimPrefix(spec.Name, "ayati-workspace-"),
@@ -89,16 +99,27 @@ func (m *Manager) Ensure(ctx context.Context, spec Spec) error {
 		"--pids-limit", "256", "--memory", "2g", "--cpus", "2",
 		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m",
 		"--tmpfs", "/home/ayati:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--mount", "type=bind,src="+path+",dst=/workspace",
+		"--tmpfs", "/cache:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
+		"--mount", mount,
 		"--workdir", "/workspace", m.image,
 	)
 	if err != nil {
-		return fmt.Errorf("create sandbox with %s: %w", volume, err)
+		return "", fmt.Errorf("create sandbox with %s mount: %w", spec.MountMode, err)
 	}
 	if _, err := m.run(ctx, "start", spec.Name); err != nil {
-		return fmt.Errorf("start sandbox: %w", err)
+		return "", fmt.Errorf("start sandbox: %w", err)
 	}
-	return nil
+	container, exists, err = m.inspect(ctx, spec.Name)
+	if err != nil {
+		return "", fmt.Errorf("verify sandbox mount: %w", err)
+	}
+	if !exists {
+		return "", errors.New("verify sandbox mount: container is missing")
+	}
+	if container.mountMode != spec.MountMode {
+		return "", fmt.Errorf("sandbox mount is %s, expected %s", container.mountMode, spec.MountMode)
+	}
+	return container.mountMode, nil
 }
 
 func (m *Manager) Open(name string, variables map[string]string) (agent.Shell, error) {
@@ -139,18 +160,24 @@ func (m *Manager) inspect(ctx context.Context, name string) (containerInfo, bool
 	if err := validateName(name); err != nil {
 		return containerInfo{}, false, err
 	}
-	format := `{{.State.Running}}|{{index .Config.Labels "ayati.workspace"}}|{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}{{end}}{{end}}`
+	format := `{{.State.Running}}|{{index .Config.Labels "ayati.workspace"}}|{{.Config.Image}}|{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}|{{.RW}}{{end}}{{end}}`
 	result, err := m.runner.Run(ctx, "container", "inspect", "--format", format, name)
 	if err == nil {
-		parts := strings.SplitN(strings.TrimSpace(result.stdout), "|", 3)
-		if len(parts) != 3 {
+		parts := strings.SplitN(strings.TrimSpace(result.stdout), "|", 5)
+		if len(parts) != 5 {
 			return containerInfo{}, false, errors.New("inspect sandbox: invalid Docker metadata")
 		}
 		wantLabel := strings.TrimPrefix(name, "ayati-workspace-")
-		if parts[1] != wantLabel || strings.TrimSpace(parts[2]) == "" {
+		if parts[1] != wantLabel || strings.TrimSpace(parts[3]) == "" {
 			return containerInfo{}, false, fmt.Errorf("container %s is not owned by Ayati", name)
 		}
-		return containerInfo{running: parts[0] == "true", path: parts[2]}, true, nil
+		mountMode, err := parseMountMode(parts[4])
+		if err != nil {
+			return containerInfo{}, false, err
+		}
+		return containerInfo{
+			running: parts[0] == "true", image: parts[2], path: parts[3], mountMode: mountMode,
+		}, true, nil
 	}
 	if strings.Contains(result.stderr, "No such container") || strings.Contains(result.stderr, "No such object") {
 		return containerInfo{}, false, nil
@@ -227,6 +254,9 @@ func validateSpec(spec Spec) (string, error) {
 	path, err := filepath.Abs(strings.TrimSpace(spec.Path))
 	if err != nil || strings.TrimSpace(spec.Path) == "" {
 		return "", errors.New("workspace path is required")
+	}
+	if !spec.MountMode.Valid() {
+		return "", errors.New("workspace mount mode must be ro or rw")
 	}
 	return path, nil
 }

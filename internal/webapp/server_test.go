@@ -51,9 +51,8 @@ func (f *fakeWorkspaceService) Publish(_ context.Context, id, message, name, ema
 }
 
 type fakeGitHub struct {
-	repositories  []githubapp.Repository
-	createdBranch []string
-	pull          githubapp.PullRequest
+	repositories []githubapp.Repository
+	pull         githubapp.PullRequest
 }
 
 func (f *fakeGitHub) AuthorizeURL(state string) string {
@@ -68,10 +67,6 @@ func (f *fakeGitHub) Repositories(context.Context, string) ([]githubapp.Reposito
 }
 func (f *fakeGitHub) Branches(context.Context, string, string) ([]githubapp.Branch, error) {
 	return []githubapp.Branch{{Name: "main"}}, nil
-}
-func (f *fakeGitHub) CreateBranch(_ context.Context, _, repository, base, branch string) error {
-	f.createdBranch = []string{repository, base, branch}
-	return nil
 }
 func (f *fakeGitHub) CreatePullRequest(
 	_ context.Context, _, _, _, _, _, _ string,
@@ -111,8 +106,8 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 }
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
-	handler, store, workspaces, github := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
+	handler, store, workspaces, _ := testHandler(t)
+	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -139,8 +134,8 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("delete environment status = %d, body = %s", response.Code, response.Body.String())
 	}
-	if strings.Join(github.createdBranch, "/") != "owner/project/main/ayati/change" {
-		t.Fatalf("created branch = %#v", github.createdBranch)
+	if created.Authority != workspace.AuthorityDevelop || !created.CreateBranch {
+		t.Fatalf("workspace branch policy = %#v", created)
 	}
 	publish := `{"commit_message":"feat: change","title":"Change project","body":"Verified."}`
 	response = serve(handler, http.MethodPost, "/api/workspaces/"+created.ID+"/publish", publish, true)
@@ -153,6 +148,30 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	}
 	if workspaces.published[1] != "feat: change" || workspaces.published[2] != "octocat" {
 		t.Fatalf("publish arguments = %#v", workspaces.published)
+	}
+}
+
+func TestHandlerDefaultsWorkspaceToProtectedExplore(t *testing.T) {
+	handler, _, workspaces, _ := testHandler(t)
+	create := `{"repository":"owner/project","base_branch":"main","branch":"ignored","create_branch":true}`
+	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
+	if response.Code != http.StatusAccepted {
+		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
+	}
+	var value workspace.Workspace
+	if err := json.Unmarshal(response.Body.Bytes(), &value); err != nil {
+		t.Fatalf("decode workspace: %v", err)
+	}
+	if initialized := <-workspaces.initialized; initialized != value.ID {
+		t.Fatalf("initialized workspace = %q", initialized)
+	}
+	if value.Authority != workspace.AuthorityExplore || value.Branch != "main" || value.CreateBranch {
+		t.Fatalf("workspace = %#v", value)
+	}
+	publish := `{"commit_message":"feat: change","title":"Change project"}`
+	response = serve(handler, http.MethodPost, "/api/workspaces/"+value.ID+"/publish", publish, true)
+	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "Develop") {
+		t.Fatalf("publish status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 
