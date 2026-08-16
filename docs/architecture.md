@@ -7,7 +7,7 @@ Ayati is a single-user application running on one Linux machine. One Go process 
 The durable product object is a workspace containing one or more sessions:
 
 ```text
-GitHub repository + base/working branch
+Existing or newly created GitHub repository + base/working branch
   -> local clone + SQLite record
   -> one named Docker sandbox
   -> deterministic project analysis + dependency initialization
@@ -26,7 +26,7 @@ The repository and SQLite record survive a normal Stop. A ready workspace restor
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
-- `internal/githubapp` owns GitHub user authorization, installed-repository discovery, branch listing, draft pull requests, and the private credential file.
+- `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns the one-tool prompt, shared messages, and sequential 20-decision loop.
 - `internal/fireworks` owns the single Fireworks request format.
@@ -96,6 +96,8 @@ The composer has one Send action. Discussion, planning, and review requests do n
 ## GitHub and publish boundary
 
 GitHub OAuth state is kept in an HTTP-only, same-site callback cookie. The user access token is stored in a private local file. Repository selection is checked against repositories returned for the App installations before a workspace is created.
+
+New-project creation uses the authenticated user's GitHub App token and requires the App's `Administration: write` repository permission. The controller asks GitHub to initialize the repository with a README, then uses GitHub's returned full name, clone URL, and default branch when entering the normal workspace pipeline. Private is the product default. The remote operation cannot be atomic with the local SQLite write, so Ayati reports partial failure and intentionally leaves the GitHub repository recoverable instead of deleting it automatically. GitHub credentials remain controller-only throughout this flow.
 
 Authenticated clone and push use host Git with a short-lived private askpass script. The access token is passed only to that trusted Git child process and removed with the helper; it is never written into the remote URL or exposed to the model sandbox. Publishing stages all workspace changes, creates a focused user-supplied commit, pushes the working branch, and asks GitHub to open a draft pull request.
 

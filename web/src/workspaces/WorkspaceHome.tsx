@@ -1,14 +1,11 @@
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
-  Branch,
+  CreateNewProjectInput,
   CreateWorkspaceInput,
-  EnvironmentInput,
   Repository,
-  WorkspaceAuthority,
 } from "../api/contracts";
-import { api } from "../api/client";
-import { CreationEnvironment } from "./CreationEnvironment";
+import { ExistingProjectForm } from "./ExistingProjectForm";
+import { NewProjectForm } from "./NewProjectForm";
 
 interface WorkspaceHomeProps {
   view: "empty" | "create";
@@ -17,6 +14,7 @@ interface WorkspaceHomeProps {
   onShowCreate: () => void;
   onCancel: () => void;
   onCreate: (input: CreateWorkspaceInput) => Promise<void>;
+  onCreateProject: (input: CreateNewProjectInput) => Promise<void>;
 }
 
 export function WorkspaceHome(props: WorkspaceHomeProps) {
@@ -40,206 +38,53 @@ export function WorkspaceHome(props: WorkspaceHomeProps) {
 }
 
 function CreateWorkspaceForm(props: WorkspaceHomeProps) {
-  const [repository, setRepository] = useState("");
-  const [branches, setBranches] = useState<Branch[]>([]);
-  const [baseBranch, setBaseBranch] = useState("");
-  const [branch, setBranch] = useState("");
-  const [existingBranch, setExistingBranch] = useState("");
-  const [createBranch, setCreateBranch] = useState(true);
-  const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
-  const [setup, setSetup] = useState("");
-  const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
-  const [branchesLoading, setBranchesLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(props.repositoryError);
-
-  useEffect(() => {
-    if (!repository) {
-      setBranches([]);
-      setBaseBranch("");
-      setExistingBranch("");
-      return;
-    }
-    let current = true;
-    setBranchesLoading(true);
-    setError("");
-    api.branches(repository).then(
-      (values) => {
-        if (!current) return;
-        setBranches(values);
-        setBaseBranch(
-          props.repositories.find((item) => item.full_name === repository)?.default_branch || "",
-        );
-        setExistingBranch("");
-        setBranchesLoading(false);
-      },
-      (reason: Error) => {
-        if (!current) return;
-        setError(reason.message);
-        setBranchesLoading(false);
-      },
-    );
-    return () => {
-      current = false;
-    };
-  }, [props.repositories, repository]);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    setSubmitting(true);
-    try {
-      await props.onCreate({
-        repository,
-        base_branch: baseBranch,
-        branch: authority === "explore" ? baseBranch : createBranch ? branch : existingBranch,
-        create_branch: authority === "develop" && createBranch,
-        authority,
-        setup_command: setup,
-        environment,
-      });
-    } catch (reason) {
-      setError((reason as Error).message);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
+  const [source, setSource] = useState<"existing" | "new">("existing");
   return (
     <section className="workspace-home">
-      <form className="create-panel" onSubmit={(event) => void submit(event)}>
+      <div className="create-panel">
         <div className="pane-heading">
           <div>
             <p className="eyebrow">New workspace</p>
             <h1>Prepare a project</h1>
-            <p className="muted">Choose the repository and working branch Ayati should keep together.</p>
+            <p className="muted">Choose where the project comes from, then let Ayati prepare it.</p>
           </div>
           <button className="quiet" type="button" onClick={props.onCancel}>
             Cancel
           </button>
         </div>
-        <label>
-          Repository
-          <select
-            value={repository}
-            required
-            disabled={!props.repositories.length}
-            onChange={(event) => setRepository(event.target.value)}
-          >
-            <option value="">
-              {props.repositories.length ? "Select a repository" : "No installed repositories"}
-            </option>
-            {props.repositories.map((item) => (
-              <option key={item.id} value={item.full_name}>
-                {item.full_name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <fieldset className="authority-options">
-          <legend>Authority</legend>
-          <label className={`authority-option${authority === "explore" ? " selected" : ""}`}>
+        <fieldset className="source-options">
+          <legend>Source</legend>
+          <label className={source === "existing" ? "selected" : ""}>
             <input
               type="radio"
-              name="authority"
-              value="explore"
-              aria-label="Explore authority"
-              checked={authority === "explore"}
-              onChange={() => setAuthority("explore")}
+              name="project-source"
+              aria-label="Existing repository"
+              checked={source === "existing"}
+              onChange={() => setSource("existing")}
             />
-            <span>
-              <strong>Explore</strong>
-              <small>Inspect, test and understand. Project files are protected.</small>
-            </span>
-            <em>Recommended</em>
+            <span><strong>Existing repository</strong><small>Prepare a repository already connected to Ayati.</small></span>
           </label>
-          <label className={`authority-option${authority === "develop" ? " selected" : ""}`}>
+          <label className={source === "new" ? "selected" : ""}>
             <input
               type="radio"
-              name="authority"
-              value="develop"
-              aria-label="Develop authority"
-              checked={authority === "develop"}
-              onChange={() => setAuthority("develop")}
+              name="project-source"
+              aria-label="New project"
+              checked={source === "new"}
+              onChange={() => setSource("new")}
             />
-            <span>
-              <strong>Develop</strong>
-              <small>Everything in Explore, plus permission to change project files.</small>
-            </span>
+            <span><strong>New project</strong><small>Create a GitHub repository and prepare it here.</small></span>
           </label>
         </fieldset>
-        <div className={authority === "develop" ? "form-grid" : ""}>
-          <label>
-            Starting branch
-            <select
-              value={baseBranch}
-              required
-              disabled={!repository || branchesLoading}
-              onChange={(event) => setBaseBranch(event.target.value)}
-            >
-              <option value="">{branchesLoading ? "Loading branches…" : "Select a branch"}</option>
-              {branches.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {authority === "develop" &&
-            (createBranch ? (
-              <label>
-                New working branch
-                <input
-                  value={branch}
-                  placeholder="ayati/my-change"
-                  required
-                  onChange={(event) => setBranch(event.target.value)}
-                />
-              </label>
-            ) : (
-              <label>
-                Working branch
-                <select
-                  value={existingBranch}
-                  required
-                  onChange={(event) => setExistingBranch(event.target.value)}
-                >
-                  <option value="">Select a branch</option>
-                  {branches.map((item) => (
-                    <option key={item.name} value={item.name}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ))}
-        </div>
-        {authority === "develop" && (
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={createBranch}
-              onChange={(event) => setCreateBranch(event.target.checked)}
-            />
-            Create a new branch from the selected base
-          </label>
+        {source === "existing" ? (
+          <ExistingProjectForm
+            repositories={props.repositories}
+            repositoryError={props.repositoryError}
+            onCreate={props.onCreate}
+          />
+        ) : (
+          <NewProjectForm onCreate={props.onCreateProject} />
         )}
-        <label>
-          Setup command <span className="optional">optional, detected automatically</span>
-          <input value={setup} placeholder="go mod download" onChange={(event) => setSetup(event.target.value)} />
-        </label>
-        <CreationEnvironment values={environment} onChange={setEnvironment} />
-        {error && (
-          <div className="error" role="alert">
-            {error}
-          </div>
-        )}
-        <div className="form-actions">
-          <button className="primary" type="submit" disabled={submitting}>
-            Create and initialize
-          </button>
-        </div>
-      </form>
+      </div>
     </section>
   );
 }

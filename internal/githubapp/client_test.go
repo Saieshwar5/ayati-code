@@ -106,6 +106,45 @@ func TestClientCreatesDraftPullRequest(t *testing.T) {
 	}
 }
 
+func TestClientCreatesInitializedPrivateRepository(t *testing.T) {
+	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		assertBearer(t, request)
+		if request.Method != http.MethodPost || request.URL.Path != "/user/repos" {
+			t.Fatalf("unexpected request: %s %s", request.Method, request.URL.Path)
+		}
+		var input map[string]any
+		if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
+			t.Fatalf("decode repository: %v", err)
+		}
+		if input["name"] != "new-project" || input["private"] != true || input["auto_init"] != true {
+			t.Fatalf("repository input = %#v", input)
+		}
+		return &http.Response{
+			StatusCode: http.StatusCreated, Status: "201 Created", Header: make(http.Header),
+			Body: io.NopCloser(strings.NewReader(`{"id":4,"full_name":"octocat/new-project","clone_url":"https://github.com/octocat/new-project.git","default_branch":"trunk","private":true}`)),
+		}, nil
+	})
+	client, _ := New("client", "secret", "http://127.0.0.1/callback")
+	client.httpClient = &http.Client{Transport: transport}
+	repository, err := client.CreateRepository(context.Background(), "token", CreateRepositoryInput{
+		Name: "new-project", Description: "A new project", Private: true,
+	})
+	if err != nil || repository.FullName != "octocat/new-project" || repository.DefaultBranch != "trunk" {
+		t.Fatalf("repository = %#v, error = %v", repository, err)
+	}
+}
+
+func TestClientRejectsInvalidRepositoryNameBeforeRequest(t *testing.T) {
+	client, _ := New("client", "secret", "http://127.0.0.1/callback")
+	client.httpClient = &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+		t.Fatalf("unexpected request: %s", request.URL)
+		return nil, nil
+	})}
+	if _, err := client.CreateRepository(context.Background(), "token", CreateRepositoryInput{Name: "bad name"}); err == nil {
+		t.Fatal("CreateRepository accepted an invalid name")
+	}
+}
+
 func TestCredentialsUsePrivateFile(t *testing.T) {
 	path := t.TempDir() + "/config/github.json"
 	want := Credentials{AccessToken: "secret", User: User{ID: 7, Login: "octocat"}}

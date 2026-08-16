@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AuthorityChangeInput,
+  CreateNewProjectInput,
   CreateWorkspaceInput,
   Repository,
   User,
@@ -109,6 +110,15 @@ export function useWorkspaceController(user: User) {
   const createWorkspace = useCallback(
     async (input: CreateWorkspaceInput) => {
       const created = await api.createWorkspace(input);
+      const values = await refreshWorkspaces();
+      if (values.some((workspace) => workspace.id === created.id)) await openWorkspace(created.id);
+    },
+    [openWorkspace, refreshWorkspaces],
+  );
+
+  const createNewProject = useCallback(
+    async (input: CreateNewProjectInput) => {
+      const created = await api.createNewProject(input);
       const values = await refreshWorkspaces();
       if (values.some((workspace) => workspace.id === created.id)) await openWorkspace(created.id);
     },
@@ -261,6 +271,7 @@ export function useWorkspaceController(user: User) {
     showCreate,
     closeCreate,
     createWorkspace,
+    createNewProject,
     createSession,
     renameSession,
     deleteSession,

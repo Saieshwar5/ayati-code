@@ -135,6 +135,55 @@ describe("WorkspaceApplication", () => {
       create_branch: false,
     });
   });
+
+  it("creates a private GitHub project and prepares it in Explore", async () => {
+    const createdWorkspace: Workspace = {
+      ...workspace,
+      repository: "octocat/new-project",
+      clone_url: "https://github.com/octocat/new-project.git",
+      base_branch: "trunk",
+      branch: "trunk",
+      create_branch: false,
+      authority: "explore",
+    };
+    let created = false;
+    let createRequest: RequestInit | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path === "/api/repositories") return json([]);
+      if (path === "/api/workspaces/new-project" && init?.method === "POST") {
+        created = true;
+        createRequest = init;
+        return json(createdWorkspace, 202);
+      }
+      if (path === "/api/workspaces") return json(created ? [createdWorkspace] : []);
+      if (path === `/api/workspaces/${workspace.id}/sessions`) return json([session]);
+      if (path === `/api/workspaces/${workspace.id}/sessions/${session.id}/messages`) return json([]);
+      throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
+    });
+
+    const user = userEvent.setup();
+    render(
+      <WorkspaceApplication
+        user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
+      />,
+    );
+    await screen.findByRole("heading", { name: "Select a workspace" });
+    await user.click(screen.getByRole("button", { name: /new workspace/i }));
+    await user.click(screen.getByRole("radio", { name: "New project" }));
+    await user.type(screen.getByLabelText("Repository name"), "new-project");
+    expect((screen.getByRole("radio", { name: "Private" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
+    await user.click(screen.getByRole("button", { name: "Create and prepare" }));
+
+    expect(await screen.findByRole("heading", { name: "Preparing new-project" })).toBeTruthy();
+    expect(JSON.parse(String(createRequest?.body))).toMatchObject({
+      name: "new-project",
+      private: true,
+      authority: "explore",
+      branch: "",
+    });
+  });
 });
 
 function json(body: unknown, status = 200) {

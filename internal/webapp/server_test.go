@@ -75,6 +75,8 @@ func (f *fakeWorkspaceService) Publish(_ context.Context, id, message, name, ema
 type fakeGitHub struct {
 	repositories []githubapp.Repository
 	pull         githubapp.PullRequest
+	created      []githubapp.CreateRepositoryInput
+	createError  error
 }
 
 func (f *fakeGitHub) AuthorizeURL(state string) string {

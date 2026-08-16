@@ -25,6 +25,7 @@ type githubClient interface {
 	Exchange(context.Context, string) (string, error)
 	CurrentUser(context.Context, string) (githubapp.User, error)
 	Repositories(context.Context, string) ([]githubapp.Repository, error)
+	CreateRepository(context.Context, string, githubapp.CreateRepositoryInput) (githubapp.Repository, error)
 	Branches(context.Context, string, string) ([]githubapp.Branch, error)
 	CreatePullRequest(context.Context, string, string, string, string, string, string) (githubapp.PullRequest, error)
 }
@@ -106,6 +107,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/workspaces", s.listWorkspaces)
 	mux.HandleFunc("GET /api/workspaces/", s.workspaceRead)
 	mux.HandleFunc("POST /api/workspaces", s.mutate(s.createWorkspace))
+	mux.HandleFunc("POST /api/workspaces/new-project", s.mutate(s.createNewProjectWorkspace))
 	mux.HandleFunc("POST /api/workspaces/", s.mutate(s.workspaceAction))
 	mux.HandleFunc("PATCH /api/workspaces/", s.mutate(s.workspaceSessionMutation))
 	mux.HandleFunc("DELETE /api/workspaces/", s.mutate(s.workspaceSessionMutation))

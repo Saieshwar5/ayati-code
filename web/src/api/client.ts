@@ -2,6 +2,7 @@ import type {
   Branch,
   AuthorityChangeInput,
   Changes,
+  CreateNewProjectInput,
   CreateWorkspaceInput,
   EnvironmentInput,
   EnvironmentVariable,
@@ -42,6 +43,11 @@ export const api = {
   workspaces: () => request<Workspace[]>("/api/workspaces"),
   createWorkspace: (input: CreateWorkspaceInput) =>
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
+  createNewProject: (input: CreateNewProjectInput) =>
+    request<Workspace>("/api/workspaces/new-project", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
   initializeWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/initialize`, { method: "POST" }),
   configureWorkspace: (id: string, projectRoot: string) =>

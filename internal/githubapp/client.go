@@ -35,6 +35,19 @@ type Repository struct {
 	Private       bool   `json:"private"`
 }
 
+type CreateRepositoryInput struct {
+	Name        string
+	Description string
+	Private     bool
+}
+
+type APIError struct {
+	StatusCode int
+	Status     string
+}
+
+func (e APIError) Error() string { return "GitHub returned " + e.Status }
+
 type Branch struct {
 	Name   string `json:"name"`
 	Commit struct {
@@ -136,6 +149,32 @@ func (c *Client) Repositories(ctx context.Context, token string) ([]Repository, 
 	return values, nil
 }
 
+func (c *Client) CreateRepository(
+	ctx context.Context, token string, input CreateRepositoryInput,
+) (Repository, error) {
+	input.Name = strings.TrimSpace(input.Name)
+	input.Description = strings.TrimSpace(input.Description)
+	if err := validateRepositoryName(input.Name); err != nil {
+		return Repository{}, err
+	}
+	if len(input.Description) > 350 {
+		return Repository{}, errors.New("repository description must be 350 characters or fewer")
+	}
+	request := map[string]any{
+		"name": input.Name, "description": input.Description,
+		"private": input.Private, "auto_init": true,
+	}
+	var repository Repository
+	if err := c.api(ctx, token, http.MethodPost, "/user/repos", request, &repository); err != nil {
+		return Repository{}, fmt.Errorf("create GitHub repository: %w", err)
+	}
+	if strings.TrimSpace(repository.FullName) == "" || strings.TrimSpace(repository.CloneURL) == "" ||
+		strings.TrimSpace(repository.DefaultBranch) == "" {
+		return Repository{}, errors.New("GitHub created a repository without complete clone information")
+	}
+	return repository, nil
+}
+
 func (c *Client) Branches(ctx context.Context, token, repository string) ([]Branch, error) {
 	path, err := repositoryPath(repository)
 	if err != nil {
@@ -200,13 +239,30 @@ func (c *Client) do(request *http.Request, output any) error {
 		return errors.New("GitHub response is too large")
 	}
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("GitHub returned %s", response.Status)
+		return APIError{StatusCode: response.StatusCode, Status: response.Status}
 	}
 	if len(data) == 0 || output == nil {
 		return nil
 	}
 	if err := json.Unmarshal(data, output); err != nil {
 		return fmt.Errorf("decode GitHub response: %w", err)
+	}
+	return nil
+}
+
+func validateRepositoryName(value string) error {
+	if value == "" || len(value) > 100 {
+		return errors.New("repository name must be between 1 and 100 characters")
+	}
+	if value == "." || value == ".." {
+		return errors.New("repository name is invalid")
+	}
+	for _, character := range value {
+		if character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' ||
+			character >= '0' && character <= '9' || strings.ContainsRune("-_.", character) {
+			continue
+		}
+		return errors.New("repository name may contain only letters, numbers, periods, hyphens, and underscores")
 	}
 	return nil
 }
