@@ -1,6 +1,7 @@
 /ayati
 /dist/
 /coverage.out
+/web/node_modules/
 
 # Local agent metadata
 /.agents/

@@ -8,6 +8,7 @@ The controller is one Go process on your machine. Workspace metadata and complet
 
 - Linux
 - Go 1.25 or newer
+- Node.js 22.12 or newer and npm (for interface development and builds)
 - Git
 - Docker Engine
 - A GitHub App installed on the repositories Ayati may access
@@ -23,6 +24,12 @@ Configure the model provider. The key is read without terminal echo and saved wi
 
 ```bash
 go run -buildvcs=false ./cmd/ayati config
+```
+
+Install the locked React development dependencies once:
+
+```bash
+make web-install
 ```
 
 ## GitHub App
@@ -72,10 +79,17 @@ Workspace deletion is restricted to the managed data root. It removes the owned 
 
 ## Development
 
+The browser interface lives in `web/` and uses React, TypeScript, and Vite. Vite writes the
+production bundle to `internal/webapp/dist/`; that bundle is committed and embedded into the Go
+binary, so production still runs as one local process with no Node.js server.
+
 ```bash
+make web-check
 make test
 make build
 make check
 ```
 
-`make check` verifies formatting, tests, race behavior, vet, and a CGO-disabled build. See [docs/architecture.md](docs/architecture.md) for component ownership and lifecycle details.
+`make check` type-checks, tests, and builds the React interface, then verifies Go formatting,
+tests, race behavior, vet, and a CGO-disabled build. See
+[docs/architecture.md](docs/architecture.md) for component ownership and lifecycle details.

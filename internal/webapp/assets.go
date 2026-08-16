@@ -2,5 +2,5 @@ package webapp
 
 import "embed"
 
-//go:embed assets/*
+//go:embed dist
 var assets embed.FS

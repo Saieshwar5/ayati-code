@@ -22,7 +22,8 @@ The repository and SQLite record survive a normal Stop. A ready workspace restor
 ## Component ownership
 
 - `cmd/ayati` owns signal handling and selects the web server or the small `config` command.
-- `internal/webapp` owns HTTP routes, embedded browser assets, local server startup, and component wiring.
+- `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
+- `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, trusted host Git operations, setup detection, change inspection, and publish flow.
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, branches, branch creation, draft pull requests, and the private credential file.
@@ -32,6 +33,11 @@ The repository and SQLite record survive a normal Stop. A ready workspace restor
 - `internal/config` owns private Fireworks configuration and its terminal setup command.
 
 Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
+
+The React application calls the existing JSON endpoints and does not own durable state or runtime
+lifecycle. Its production build is written to `internal/webapp/dist` and embedded into the Go
+binary. Development may use Vite's local proxy, but deployment remains one Go process; there is no
+Node.js production server.
 
 ## SQLite state
 
