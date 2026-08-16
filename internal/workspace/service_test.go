@@ -15,10 +15,11 @@ import (
 )
 
 type fakeEnvironment struct {
-	ensured []sandbox.Spec
-	removed []string
-	shell   agent.Shell
-	err     error
+	ensured   []sandbox.Spec
+	removed   []string
+	variables []map[string]string
+	shell     agent.Shell
+	err       error
 }
 
 func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) error {
@@ -26,7 +27,10 @@ func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) error {
 	return f.err
 }
 
-func (f *fakeEnvironment) Open(string) (agent.Shell, error) { return f.shell, f.err }
+func (f *fakeEnvironment) Open(_ string, variables map[string]string) (agent.Shell, error) {
+	f.variables = append(f.variables, variables)
+	return f.shell, f.err
+}
 
 func (f *fakeEnvironment) Remove(_ context.Context, name string) error {
 	f.removed = append(f.removed, name)
@@ -71,6 +75,10 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "ayati/change", CreateBranch: true,
 		Setup: "go mod download", Path: path,
+		Environment: []EnvironmentInput{
+			{Name: "SETUP_TOKEN", Value: "setup-secret", ExposeDuringSetup: true},
+			{Name: "RUNTIME_TOKEN", Value: "runtime-secret"},
+		},
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -91,6 +99,9 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	}
 	if len(environment.ensured) != 1 || shell.commands[0] != "go mod download" {
 		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
+	}
+	if !reflect.DeepEqual(environment.variables, []map[string]string{{"SETUP_TOKEN": "setup-secret"}}) {
+		t.Fatalf("setup environment = %#v", environment.variables)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusReady {

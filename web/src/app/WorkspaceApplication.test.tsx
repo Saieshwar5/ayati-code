@@ -66,6 +66,10 @@ describe("WorkspaceApplication", () => {
       expect((screen.getByLabelText("Base branch") as HTMLSelectElement).value).toBe("main"),
     );
     await user.type(screen.getByLabelText("New working branch"), "ayati/react-ui");
+    await user.click(screen.getByRole("button", { name: "Add variable" }));
+    await user.type(screen.getByLabelText("Name"), "NPM_TOKEN");
+    await user.type(screen.getByLabelText("Value"), "private-token");
+    await user.click(screen.getByLabelText("During setup"));
     await user.click(screen.getByRole("button", { name: "Create and initialize" }));
 
     expect(await screen.findByRole("heading", { name: "Original session" })).toBeTruthy();
@@ -75,6 +79,9 @@ describe("WorkspaceApplication", () => {
       base_branch: "main",
       branch: "ayati/react-ui",
       create_branch: true,
+      environment: [
+        { name: "NPM_TOKEN", value: "private-token", expose_during_setup: true },
+      ],
     });
   });
 });

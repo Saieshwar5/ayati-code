@@ -2,6 +2,8 @@ import type {
   Branch,
   Changes,
   CreateWorkspaceInput,
+  EnvironmentInput,
+  EnvironmentVariable,
   Message,
   PublishInput,
   Repository,
@@ -70,6 +72,17 @@ export const api = {
     }),
   changes: (workspaceID: string) =>
     request<Changes>(`/api/workspaces/${workspaceID}/changes`),
+  environment: (workspaceID: string) =>
+    request<EnvironmentVariable[]>(`/api/workspaces/${workspaceID}/environment`),
+  upsertEnvironment: (workspaceID: string, input: EnvironmentInput) =>
+    request<EnvironmentVariable>(`/api/workspaces/${workspaceID}/environment`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deleteEnvironment: (workspaceID: string, name: string) =>
+    request<void>(`/api/workspaces/${workspaceID}/environment/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+    }),
   publish: (workspaceID: string, input: PublishInput) =>
     request<Workspace>(`/api/workspaces/${workspaceID}/publish`, {
       method: "POST",

@@ -112,7 +112,7 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	handler, store, workspaces, github := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"setup_command":"go mod download"}`
+	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -123,6 +123,21 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	}
 	if initialized := <-workspaces.initialized; initialized != created.ID {
 		t.Fatalf("initialized workspace = %q", initialized)
+	}
+	response = serve(handler, http.MethodGet, "/api/workspaces/"+created.ID+"/environment", "", false)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "private-token") ||
+		!strings.Contains(response.Body.String(), `"name":"NPM_TOKEN"`) {
+		t.Fatalf("environment response status = %d, body = %s", response.Code, response.Body.String())
+	}
+	update := `{"name":"DATABASE_URL","value":"sqlite://private","expose_during_setup":false}`
+	response = serve(handler, http.MethodPost, "/api/workspaces/"+created.ID+"/environment", update, true)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "sqlite://private") {
+		t.Fatalf("update environment status = %d, body = %s", response.Code, response.Body.String())
+	}
+	response = serve(handler, http.MethodDelete,
+		"/api/workspaces/"+created.ID+"/environment/NPM_TOKEN", "", true)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("delete environment status = %d, body = %s", response.Code, response.Body.String())
 	}
 	if strings.Join(github.createdBranch, "/") != "owner/project/main/ayati/change" {
 		t.Fatalf("created branch = %#v", github.createdBranch)
@@ -196,6 +211,22 @@ func TestHandlerDeletesWorkspace(t *testing.T) {
 	}
 	if _, err := store.Get(context.Background(), value.ID); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("deleted workspace error = %v", err)
+	}
+}
+
+func TestHandlerRejectsEnvironmentChangesDuringInitialization(t *testing.T) {
+	handler, store, _, _ := testHandler(t)
+	value, err := store.Create(context.Background(), workspace.Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: "ayati/initializing", Path: filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create workspace: %v", err)
+	}
+	response := serve(handler, http.MethodPost, "/api/workspaces/"+value.ID+"/environment",
+		`{"name":"TOKEN","value":"secret"}`, true)
+	if response.Code != http.StatusConflict {
+		t.Fatalf("environment mutation status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 

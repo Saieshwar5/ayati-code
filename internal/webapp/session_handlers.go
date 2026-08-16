@@ -17,6 +17,16 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	switch {
+	case len(parts) == 2 && parts[1] == "environment":
+		values, err := s.store.ListEnvironment(request.Context(), parts[0])
+		if err != nil {
+			s.writeError(writer, http.StatusInternalServerError, "list workspace environment")
+			return
+		}
+		if values == nil {
+			values = []workspace.EnvironmentVariable{}
+		}
+		s.writeJSON(writer, http.StatusOK, values)
 	case len(parts) == 2 && parts[1] == "changes":
 		changes, err := s.workspaces.Changes(request.Context(), parts[0])
 		if err != nil {
@@ -77,6 +87,17 @@ func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *h
 		writer.WriteHeader(http.StatusNoContent)
 		return
 	}
+	if request.Method == http.MethodDelete && len(parts) == 3 && parts[1] == "environment" {
+		if !s.requireMutableEnvironment(writer, request, parts[0]) {
+			return
+		}
+		if err := s.store.DeleteEnvironment(request.Context(), parts[0], parts[2]); err != nil {
+			s.writeError(writer, http.StatusNotFound, "environment variable not found")
+			return
+		}
+		writer.WriteHeader(http.StatusNoContent)
+		return
+	}
 	if len(parts) != 3 || parts[1] != "sessions" {
 		http.NotFound(writer, request)
 		return
@@ -104,6 +125,32 @@ func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *h
 	default:
 		http.NotFound(writer, request)
 	}
+}
+
+func (s *Server) requireMutableEnvironment(writer http.ResponseWriter, request *http.Request, id string) bool {
+	value, err := s.store.Get(request.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		s.writeError(writer, http.StatusNotFound, "workspace not found")
+		return false
+	}
+	if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "load workspace")
+		return false
+	}
+	if value.Status == workspace.StatusCreating || value.Status == workspace.StatusInitializing {
+		s.writeError(writer, http.StatusConflict, "environment cannot change during workspace initialization")
+		return false
+	}
+	working, err := s.store.HasWorkingSession(request.Context(), id)
+	if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "inspect workspace sessions")
+		return false
+	}
+	if working {
+		s.writeError(writer, http.StatusConflict, "environment cannot change while an agent is working")
+		return false
+	}
+	return true
 }
 
 func workspaceParts(request *http.Request) []string {

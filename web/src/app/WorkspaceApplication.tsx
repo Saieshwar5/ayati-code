@@ -78,6 +78,9 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           collapsed={inspectorCollapsed}
           workspace={showingWorkspace ? controller.activeWorkspace : undefined}
           session={showingWorkspace ? controller.activeSession : undefined}
+          workspaceSessions={
+            showingWorkspace ? controller.sessions[controller.activeWorkspace!.id] || [] : []
+          }
           messages={detail.messages}
           changes={detail.changes}
           publishing={detail.publishing}

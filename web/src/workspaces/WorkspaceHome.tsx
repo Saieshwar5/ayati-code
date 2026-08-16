@@ -1,7 +1,13 @@
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
-import type { Branch, CreateWorkspaceInput, Repository } from "../api/contracts";
+import type {
+  Branch,
+  CreateWorkspaceInput,
+  EnvironmentInput,
+  Repository,
+} from "../api/contracts";
 import { api } from "../api/client";
+import { CreationEnvironment } from "./CreationEnvironment";
 
 interface WorkspaceHomeProps {
   view: "empty" | "create";
@@ -40,6 +46,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
   const [existingBranch, setExistingBranch] = useState("");
   const [createBranch, setCreateBranch] = useState(true);
   const [setup, setSetup] = useState("");
+  const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(props.repositoryError);
@@ -86,6 +93,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
         branch: createBranch ? branch : existingBranch,
         create_branch: createBranch,
         setup_command: setup,
+        environment,
       });
     } catch (reason) {
       setError((reason as Error).message);
@@ -182,6 +190,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
           Setup command <span className="optional">optional, detected automatically</span>
           <input value={setup} placeholder="go mod download" onChange={(event) => setSetup(event.target.value)} />
         </label>
+        <CreationEnvironment values={environment} onChange={setEnvironment} />
         {error && (
           <div className="error" role="alert">
             {error}

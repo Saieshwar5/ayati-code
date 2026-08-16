@@ -1,5 +1,4 @@
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type {
   Message,
   PublishInput,
@@ -7,13 +6,16 @@ import type {
   Workspace,
   WorkspaceSession,
 } from "../api/contracts";
+import { EnvironmentPanel } from "./EnvironmentPanel";
+import { PublishPanel } from "./PublishPanel";
 
-type InspectorPanel = "activity" | "changes" | "publish";
+type InspectorPanel = "activity" | "changes" | "environment" | "publish";
 
 interface InspectorProps {
   collapsed: boolean;
   workspace?: Workspace;
   session?: WorkspaceSession;
+  workspaceSessions: WorkspaceSession[];
   messages: Message[];
   changes: string;
   publishing: boolean;
@@ -57,6 +59,7 @@ export function Inspector(props: InspectorProps) {
           <div className="inspector-tabs" role="tablist" aria-label="Workspace details">
             <InspectorTab name="activity" selected={panel} onSelect={selectPanel} subtitle="Session" />
             <InspectorTab name="changes" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
+            <InspectorTab name="environment" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
             <InspectorTab name="publish" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
           </div>
           {panel === "activity" && (
@@ -80,6 +83,9 @@ export function Inspector(props: InspectorProps) {
               <p className="scope-note">Changes are shared by every session in this workspace.</p>
               <pre className="changes-output">{props.changes}</pre>
             </section>
+          )}
+          {panel === "environment" && (
+            <EnvironmentPanel workspace={props.workspace} sessions={props.workspaceSessions} />
           )}
           {panel === "publish" && (
             <PublishPanel
@@ -207,76 +213,6 @@ function ToolResultEntry({ content }: { content: string }) {
       </summary>
       <pre>{output}</pre>
     </details>
-  );
-}
-
-interface PublishPanelProps {
-  workspace: Workspace;
-  publishing: boolean;
-  onPublish: (input: PublishInput) => Promise<boolean>;
-}
-
-function PublishPanel({ workspace, publishing, onPublish }: PublishPanelProps) {
-  const [commitMessage, setCommitMessage] = useState("feat: update project");
-  const [title, setTitle] = useState("");
-  const [body, setBody] = useState("");
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    setTitle(workspace.branch.replaceAll("-", " ").replace(/^ayati\//, ""));
-    setError("");
-  }, [workspace.id, workspace.branch]);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError("");
-    try {
-      await onPublish({ commit_message: commitMessage, title, body });
-    } catch (reason) {
-      setError((reason as Error).message);
-    }
-  }
-
-  return (
-    <section className="inspector-panel active" role="tabpanel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">GitHub</p>
-          <h3>Publish changes</h3>
-        </div>
-      </div>
-      <p className="scope-note">
-        Publishing includes all current workspace changes, including work from other sessions.
-      </p>
-      {workspace.pull_request_url && (
-        <a className="pull-link" href={workspace.pull_request_url} target="_blank" rel="noreferrer">
-          Open pull request #{workspace.pull_request_number}
-        </a>
-      )}
-      <form className="publish-form" onSubmit={(event) => void submit(event)}>
-        <label>
-          Commit message
-          <input value={commitMessage} required onChange={(event) => setCommitMessage(event.target.value)} />
-        </label>
-        <label>
-          Pull request title
-          <input value={title} required onChange={(event) => setTitle(event.target.value)} />
-        </label>
-        <label>
-          Pull request description
-          <textarea
-            value={body}
-            rows={6}
-            placeholder="What changed and how was it verified?"
-            onChange={(event) => setBody(event.target.value)}
-          />
-        </label>
-        {error && <div className="error">{error}</div>}
-        <button className="primary" type="submit" disabled={publishing}>
-          {workspace.pull_request_url ? "Push new changes" : "Create pull request"}
-        </button>
-      </form>
-    </section>
   );
 }
 

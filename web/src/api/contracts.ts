@@ -78,12 +78,26 @@ export interface Changes {
   diff: string;
 }
 
+export interface EnvironmentInput {
+  name: string;
+  value: string;
+  expose_during_setup: boolean;
+}
+
+export interface EnvironmentVariable {
+  name: string;
+  configured: boolean;
+  expose_during_setup: boolean;
+  updated_at: string;
+}
+
 export interface CreateWorkspaceInput {
   repository: string;
   base_branch: string;
   branch: string;
   create_branch: boolean;
   setup_command: string;
+  environment: EnvironmentInput[];
 }
 
 export interface PublishInput {
