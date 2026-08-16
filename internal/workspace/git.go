@@ -32,6 +32,10 @@ func (g osGit) AuthenticatedRun(ctx context.Context, arguments ...string) error 
 	return err
 }
 
+func (g osGit) Output(ctx context.Context, arguments ...string) (string, error) {
+	return g.execute(ctx, false, arguments...)
+}
+
 func (g osGit) execute(ctx context.Context, authenticated bool, arguments ...string) (string, error) {
 	settings := []string{
 		"-c", "core.hooksPath=/dev/null",

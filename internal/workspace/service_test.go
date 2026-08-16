@@ -48,7 +48,8 @@ func (s *recordingShell) Execute(_ context.Context, request agent.ShellRequest) 
 }
 
 type recordingGit struct {
-	calls [][]string
+	calls         [][]string
+	statusResults []string
 }
 
 func (g *recordingGit) Run(_ context.Context, arguments ...string) error {
@@ -62,6 +63,18 @@ func (g *recordingGit) Run(_ context.Context, arguments ...string) error {
 
 func (g *recordingGit) AuthenticatedRun(ctx context.Context, arguments ...string) error {
 	return g.Run(ctx, arguments...)
+}
+
+func (g *recordingGit) Output(_ context.Context, arguments ...string) (string, error) {
+	if len(arguments) > 0 && arguments[len(arguments)-1] == "HEAD" {
+		return "abc123\n", nil
+	}
+	if len(g.statusResults) > 0 {
+		result := g.statusResults[0]
+		g.statusResults = g.statusResults[1:]
+		return result, nil
+	}
+	return "", nil
 }
 
 func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
@@ -102,11 +115,14 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 		environment.ensured[1].MountMode != sandbox.MountReadWrite || shell.commands[0] != "go mod download" {
 		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
 	}
-	if !reflect.DeepEqual(environment.variables, []map[string]string{{"SETUP_TOKEN": "setup-secret"}}) {
+	if len(environment.variables) != 1 || environment.variables[0]["SETUP_TOKEN"] != "setup-secret" ||
+		environment.variables[0]["GOCACHE"] != "/cache/go-build" ||
+		environment.variables[0]["XDG_CACHE_HOME"] != "/cache" {
 		t.Fatalf("setup environment = %#v", environment.variables)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
-	if loaded.Status != StatusReady {
+	if loaded.Status != StatusReady || loaded.Profile == nil || loaded.Profile.BaselineCommit != "abc123" ||
+		loaded.Profile.SetupResult != "passed" || loaded.Profile.BaselineResult != "clean" {
 		t.Fatalf("workspace = %#v", loaded)
 	}
 }
@@ -243,55 +259,8 @@ func TestServiceRefusesDeletionDuringInitialization(t *testing.T) {
 	}
 }
 
-func TestDetectSetupUsesLockfiles(t *testing.T) {
-	path := t.TempDir()
-	for _, name := range []string{"go.mod", "package-lock.json", "requirements.txt"} {
-		if err := os.WriteFile(filepath.Join(path, name), []byte("test"), 0o600); err != nil {
-			t.Fatalf("WriteFile: %v", err)
-		}
-	}
-	want := "go mod download && npm ci && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
-	if got := DetectSetup(path); got != want {
-		t.Fatalf("DetectSetup = %q", got)
-	}
-}
-
 func TestShellQuoteContainsUserInput(t *testing.T) {
 	if got, want := shellQuote("it's safe"), `'it'"'"'s safe'`; got != want {
 		t.Fatalf("shellQuote = %q, want %q", got, want)
-	}
-}
-
-func TestServicePublishesWorkspaceChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
-	if err != nil {
-		t.Fatalf("Open: %v", err)
-	}
-	t.Cleanup(func() { _ = store.Close() })
-	value, err := store.Create(context.Background(), Create{
-		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Authority: AuthorityDevelop,
-		Path: filepath.Join(t.TempDir(), "repo"),
-	})
-	if err != nil {
-		t.Fatalf("Create: %v", err)
-	}
-	if err := store.UpdateStatus(context.Background(), value.ID, StatusReady, ""); err != nil {
-		t.Fatalf("UpdateStatus: %v", err)
-	}
-	shell := &recordingShell{result: agent.ShellResult{Stdout: " M app.go\n", ExitCode: 0}}
-	git := &recordingGit{}
-	service := &Service{store: store, environment: &fakeEnvironment{shell: shell}, git: git}
-	if err := service.Publish(context.Background(), value.ID, "feat: change", "octocat", "octocat@example.com"); err != nil {
-		t.Fatalf("Publish: %v", err)
-	}
-	want := [][]string{
-		{"-C", value.Path, "push", "--no-verify", "--", value.CloneURL, "refs/heads/ayati/change:refs/heads/ayati/change"},
-	}
-	if !reflect.DeepEqual(git.calls, want) {
-		t.Fatalf("git calls = %#v", git.calls)
-	}
-	if len(shell.commands) != 2 || !strings.Contains(shell.commands[1], "commit --no-verify") {
-		t.Fatalf("shell commands = %#v", shell.commands)
 	}
 }

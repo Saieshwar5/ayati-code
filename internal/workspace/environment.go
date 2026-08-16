@@ -27,6 +27,9 @@ var environmentName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var reservedEnvironment = map[string]bool{
 	"HOME": true, "PATH": true, "PWD": true, "OLDPWD": true, "SHELL": true,
 	"USER": true, "LOGNAME": true, "SHLVL": true, "GIT_ASKPASS": true,
+	"TMPDIR": true, "XDG_CACHE_HOME": true, "GOCACHE": true, "GOMODCACHE": true,
+	"COREPACK_HOME": true, "npm_config_cache": true, "PIP_CACHE_DIR": true, "CARGO_HOME": true,
+	"CARGO_TARGET_DIR": true, "PYTHONDONTWRITEBYTECODE": true,
 }
 
 type EnvironmentInput struct {
