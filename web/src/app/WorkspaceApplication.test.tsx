@@ -36,6 +36,27 @@ const session: WorkspaceSession = {
 afterEach(() => vi.restoreAllMocks());
 
 describe("WorkspaceApplication", () => {
+  it("offers GitHub reconnection when repository authorization expires", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/repositories") {
+        return json({ error: "GitHub authorization expired; reconnect GitHub" }, 401);
+      }
+      if (path === "/api/workspaces") return json([]);
+      throw new Error(`Unexpected request: GET ${path}`);
+    });
+
+    render(
+      <WorkspaceApplication
+        user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
+      />,
+    );
+
+    const link = await screen.findByRole("link", { name: "Reconnect GitHub" });
+    expect(link.getAttribute("href")).toBe("/auth/github");
+    expect(screen.getByText(/authorization expired/i)).toBeTruthy();
+  });
+
   it("creates a workspace from an installed repository", async () => {
     let created = false;
     let createRequest: RequestInit | undefined;

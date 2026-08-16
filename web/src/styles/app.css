@@ -198,6 +198,8 @@ input, select, textarea {
 .optional { color: #89867e; font-weight: 450; }
 .form-actions { display: flex; justify-content: flex-end; }
 .error { padding: 11px 12px; border-radius: 8px; background: #fff0ed; color: #9d2718; }
+.github-reconnect { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.github-reconnect .button { flex: none; border-color: #d7a69e; background: #fffaf8; color: #7c2418; }
 
 .workspace-detail { position: relative; height: 100%; min-height: 0; overflow: hidden; }
 .conversation-heading {

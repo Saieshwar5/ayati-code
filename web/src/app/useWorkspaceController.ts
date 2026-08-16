@@ -8,7 +8,7 @@ import type {
   Workspace,
   WorkspaceSession,
 } from "../api/contracts";
-import { api } from "../api/client";
+import { api, ApiError } from "../api/client";
 import { repositoryName } from "./format";
 
 const refreshingStatuses = new Set(["creating", "initializing"]);
@@ -17,6 +17,7 @@ export type MainView = "empty" | "create" | "workspace";
 export function useWorkspaceController(user: User) {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [repositoryError, setRepositoryError] = useState("");
+  const [repositoryReconnectRequired, setRepositoryReconnectRequired] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [sessions, setSessions] = useState<Record<string, WorkspaceSession[]>>({});
   const [activeWorkspaceID, setActiveWorkspaceID] = useState("");
@@ -49,7 +50,11 @@ export function useWorkspaceController(user: User) {
     Promise.allSettled([api.repositories(), api.workspaces()]).then(async ([repos, spaces]) => {
       if (!current) return;
       if (repos.status === "fulfilled") setRepositories(repos.value);
-      else setRepositoryError(repos.reason instanceof Error ? repos.reason.message : "Repositories unavailable");
+      else {
+        const reason = repos.reason;
+        setRepositoryError(reason instanceof Error ? reason.message : "Repositories unavailable");
+        setRepositoryReconnectRequired(reason instanceof ApiError && reason.status === 401);
+      }
       if (spaces.status === "rejected") {
         setLoadError(spaces.reason instanceof Error ? spaces.reason.message : "Workspaces unavailable");
         setLoading(false);
@@ -261,6 +266,7 @@ export function useWorkspaceController(user: User) {
     user,
     repositories,
     repositoryError,
+    repositoryReconnectRequired,
     workspaces,
     sessions,
     activeWorkspace,

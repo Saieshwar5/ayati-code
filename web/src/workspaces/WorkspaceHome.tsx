@@ -11,6 +11,7 @@ interface WorkspaceHomeProps {
   view: "empty" | "create";
   repositories: Repository[];
   repositoryError: string;
+  repositoryReconnectRequired: boolean;
   onShowCreate: () => void;
   onCancel: () => void;
   onCreate: (input: CreateWorkspaceInput) => Promise<void>;
@@ -25,13 +26,19 @@ export function WorkspaceHome(props: WorkspaceHomeProps) {
         <p className="eyebrow">Coding workspace</p>
         <h1>Select a workspace</h1>
         <p className="muted">
-          {props.repositoryError
+          {props.repositoryReconnectRequired
+            ? props.repositoryError
+            : props.repositoryError
             ? `${props.repositoryError}. Check the GitHub App installation, then reload Ayati.`
             : "Choose an existing project from the left, or create a workspace to prepare a repository and its sandbox."}
         </p>
-        <button className="primary" type="button" onClick={props.onShowCreate}>
-          Create workspace
-        </button>
+        {props.repositoryReconnectRequired ? (
+          <a className="primary button" href="/auth/github">Reconnect GitHub</a>
+        ) : (
+          <button className="primary" type="button" onClick={props.onShowCreate}>
+            Create workspace
+          </button>
+        )}
       </div>
     </section>
   );
@@ -79,6 +86,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
           <ExistingProjectForm
             repositories={props.repositories}
             repositoryError={props.repositoryError}
+            repositoryReconnectRequired={props.repositoryReconnectRequired}
             onCreate={props.onCreate}
           />
         ) : (

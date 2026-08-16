@@ -72,32 +72,6 @@ func (f *fakeWorkspaceService) Publish(_ context.Context, id, message, name, ema
 	return nil
 }
 
-type fakeGitHub struct {
-	repositories []githubapp.Repository
-	pull         githubapp.PullRequest
-	created      []githubapp.CreateRepositoryInput
-	createError  error
-}
-
-func (f *fakeGitHub) AuthorizeURL(state string) string {
-	return "https://github.test/authorize?state=" + state
-}
-func (f *fakeGitHub) Exchange(context.Context, string) (string, error) { return "token", nil }
-func (f *fakeGitHub) CurrentUser(context.Context, string) (githubapp.User, error) {
-	return githubapp.User{ID: 1, Login: "octocat"}, nil
-}
-func (f *fakeGitHub) Repositories(context.Context, string) ([]githubapp.Repository, error) {
-	return f.repositories, nil
-}
-func (f *fakeGitHub) Branches(context.Context, string, string) ([]githubapp.Branch, error) {
-	return []githubapp.Branch{{Name: "main"}}, nil
-}
-func (f *fakeGitHub) CreatePullRequest(
-	_ context.Context, _, _, _, _, _, _ string,
-) (githubapp.PullRequest, error) {
-	return f.pull, nil
-}
-
 func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 	handler, _, _, _ := testHandler(t)
 	for _, path := range []string{"/", "/api/health"} {

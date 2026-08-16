@@ -14,6 +14,7 @@ import { CreationEnvironment } from "./CreationEnvironment";
 interface ExistingProjectFormProps {
   repositories: Repository[];
   repositoryError: string;
+  repositoryReconnectRequired: boolean;
   onCreate: (input: CreateWorkspaceInput) => Promise<void>;
 }
 
@@ -30,6 +31,8 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
   const [branchesLoading, setBranchesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(props.repositoryError);
+
+  useEffect(() => setError(props.repositoryError), [props.repositoryError]);
 
   useEffect(() => {
     if (!repository) {
@@ -111,7 +114,14 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
       )}
       <label>Setup command <span className="optional">optional, detected automatically</span><input value={setup} placeholder="go mod download" onChange={(event) => setSetup(event.target.value)} /></label>
       <CreationEnvironment values={environment} onChange={setEnvironment} />
-      {error && <div className="error" role="alert">{error}</div>}
+      {error && (
+        <div className="error github-reconnect" role="alert">
+          <span>{error}</span>
+          {props.repositoryReconnectRequired && (
+            <a className="button" href="/auth/github">Reconnect GitHub</a>
+          )}
+        </div>
+      )}
       <div className="form-actions"><button className="primary" type="submit" disabled={submitting}>Create and initialize</button></div>
     </form>
   );

@@ -62,6 +62,9 @@ func (f roundTripFunc) RoundTrip(request *http.Request) (*http.Response, error) 
 
 func TestAuthorizeURLCarriesStateAndCallback(t *testing.T) {
 	client, _ := New("client", "secret", "http://127.0.0.1:8080/auth/github/callback")
+	if got := client.LoginURL(); got != "http://127.0.0.1:8080/auth/github" {
+		t.Fatalf("login URL = %q", got)
+	}
 	value, err := url.Parse(client.AuthorizeURL("state-value"))
 	if err != nil {
 		t.Fatalf("Parse: %v", err)
