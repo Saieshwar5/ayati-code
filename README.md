@@ -47,24 +47,30 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 
 1. Sign in through the GitHub App.
 2. Choose an installed repository and an existing branch, or create a working branch.
-3. Create the workspace. Ayati clones the branch, starts its named sandbox, detects the dependency setup command, and runs that command inside the sandbox.
-4. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, and uncommitted changes.
-5. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
-6. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
-7. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request.
-8. Stop the workspace when finished. This removes its container but preserves the cloned repository, sessions, conversations, and SQLite record.
-9. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
+3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
+4. Create the workspace. Ayati encrypts its environment, clones the branch, starts its named sandbox, detects the dependency setup command, and runs that command inside the sandbox.
+5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes.
+6. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
+7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
+8. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request.
+9. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record.
+10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
 The default setup detection covers Go modules, npm/pnpm/Yarn lockfiles, and common Python project files. A workspace can supply an explicit setup command instead.
 
 ## Local data and security
 
 - SQLite: `$XDG_CONFIG_HOME/ayati/ayati.db` or `~/.config/ayati/ayati.db`
+- workspace environment key: `$XDG_CONFIG_HOME/ayati/environment.key` or `~/.config/ayati/environment.key`
 - Fireworks config: `$XDG_CONFIG_HOME/ayati/config.json`
 - GitHub user credential: `$XDG_CONFIG_HOME/ayati/github.json`
 - cloned workspaces: `~/.local/share/ayati/workspaces`
 
 The controller owns GitHub and Fireworks credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
+
+Workspace environment values are encrypted in SQLite with a private local key. APIs return names and scope but never stored values. Values are sent through standard input to a short-lived sandbox launcher for each shell command, are not stored in the repository or permanent Docker configuration, and are best-effort redacted from captured output. A command that is allowed to use a value can still read or transmit it; use narrowly scoped development credentials, especially because workspace network access is enabled.
+
+Back up `ayati.db` and `environment.key` together. Ayati refuses to replace a missing key for a database that already uses encrypted workspace environments.
 
 Each active workspace gets one named Docker container. It runs as a non-root user with a read-only root filesystem, dropped capabilities, no-new-privileges, PID/memory/CPU bounds, and only that workspace mounted writable at `/workspace`. The Docker socket, host home, and controller credentials are not mounted. Network access remains enabled so dependency installation and project tests can work; this is a strong local boundary, not a complete hostile-code security system.
 

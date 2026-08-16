@@ -14,7 +14,7 @@ import (
 
 type environment interface {
 	Ensure(context.Context, sandbox.Spec) error
-	Open(string) (agent.Shell, error)
+	Open(string, map[string]string) (agent.Shell, error)
 	Remove(context.Context, string) error
 }
 
@@ -71,7 +71,11 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		}
 	}
 	if setup != "" {
-		shell, err := s.environment.Open(value.SandboxName)
+		variables, err := s.store.EnvironmentValues(ctx, id, true)
+		if err != nil {
+			return s.fail(ctx, id, err)
+		}
+		shell, err := s.environment.Open(value.SandboxName, variables)
 		if err != nil {
 			return s.fail(ctx, id, err)
 		}
@@ -204,7 +208,11 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if err := s.environment.Ensure(ctx, sandbox.Spec{Name: value.SandboxName, Path: value.Path}); err != nil {
 		return nil, Workspace{}, fmt.Errorf("restore sandbox: %w", err)
 	}
-	shell, err := s.environment.Open(value.SandboxName)
+	variables, err := s.store.EnvironmentValues(ctx, id, false)
+	if err != nil {
+		return nil, Workspace{}, err
+	}
+	shell, err := s.environment.Open(value.SandboxName, variables)
 	return shell, value, err
 }
 

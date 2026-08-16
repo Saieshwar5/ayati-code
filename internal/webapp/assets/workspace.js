@@ -2,6 +2,7 @@ import { api, state, ui } from "./shared.js";
 import {
   initializeInspector, renderActivityEmpty, renderActivityMessage,
 } from "./inspector.js";
+import { loadEnvironment, syncEnvironmentAvailability } from "./environment.js";
 
 export async function openWorkspace(workspaceID, sessionID) {
   const workspace = state.workspaces.find((item) => item.id === workspaceID);
@@ -19,7 +20,7 @@ export async function openWorkspace(workspaceID, sessionID) {
     ui.pullTitle.value = workspace.branch.replaceAll("-", " ").replace(/^ayati\//, "");
   }
   renderPullRequest();
-  await Promise.all([loadMessages(), loadChanges()]);
+  await Promise.all([loadMessages(), loadChanges(), loadEnvironment()]);
 }
 export function syncActiveWorkspace(workspace) {
   state.activeWorkspace = workspace;
@@ -35,6 +36,7 @@ export function syncActiveWorkspace(workspace) {
   ui.detailError.textContent = message;
   ui.detailError.classList.toggle("hidden", !message);
   renderActivityState(workspace, state.activeSession);
+  syncEnvironmentAvailability();
   renderPullRequest();
   syncComposer(workspace);
   markActiveNavigation(workspace);
@@ -269,7 +271,7 @@ ui.message.addEventListener("keydown", (event) => {
 });
 ui.refreshChanges.addEventListener("click", loadChanges);
 ui.publishForm.addEventListener("submit", publish);
-initializeInspector(loadChanges);
+initializeInspector(loadChanges, loadEnvironment);
 resizeComposer();
 syncMessageInsets();
 if (window.ResizeObserver) new ResizeObserver(syncMessageInsets).observe(ui.messageForm);
