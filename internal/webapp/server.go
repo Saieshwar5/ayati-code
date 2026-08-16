@@ -80,7 +80,7 @@ func New(options Options) (*Server, error) {
 	if options.Logger == nil {
 		options.Logger = log.New(io.Discard, "", 0)
 	}
-	static, err := fs.Sub(assets, "assets")
+	static, err := fs.Sub(assets, "dist")
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/workspaces/", s.mutate(s.workspaceSessionMutation))
 	mux.HandleFunc("DELETE /api/workspaces/", s.mutate(s.workspaceSessionMutation))
 	mux.HandleFunc("GET /", s.index)
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", s.assets))
+	mux.Handle("GET /assets/", s.assets)
 	return s.recover(mux)
 }
 
@@ -117,7 +117,7 @@ func (s *Server) index(writer http.ResponseWriter, request *http.Request) {
 		http.NotFound(writer, request)
 		return
 	}
-	data, err := assets.ReadFile("assets/index.html")
+	data, err := assets.ReadFile("dist/index.html")
 	if err != nil {
 		http.Error(writer, "load interface", http.StatusInternalServerError)
 		return

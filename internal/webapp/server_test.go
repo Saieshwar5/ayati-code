@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -80,24 +81,27 @@ func (f *fakeGitHub) CreatePullRequest(
 
 func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 	handler, _, _, _ := testHandler(t)
-	for _, path := range []string{
-		"/", "/assets/app.js", "/assets/shared.js", "/assets/navigation.js",
-		"/assets/workspace.js", "/assets/inspector.js", "/assets/environment.js",
-		"/assets/styles.css", "/assets/environment.css", "/api/health",
-	} {
+	for _, path := range []string{"/", "/api/health"} {
 		response := serve(handler, http.MethodGet, path, "", false)
 		if response.Code != http.StatusOK {
 			t.Fatalf("GET %s status = %d", path, response.Code)
 		}
 	}
 	index := serve(handler, http.MethodGet, "/", "", false).Body.String()
-	for _, marker := range []string{
-		`class="sidebar"`, `class="conversation-pane"`, `id="inspector"`, `id="session-template"`,
-		`class="delete-workspace danger hidden"`,
-		`id="environment-panel"`, `id="create-environment-list"`,
-	} {
+	for _, marker := range []string{`id="root"`, `type="module"`, `/assets/`} {
 		if !strings.Contains(index, marker) {
 			t.Fatalf("interface does not contain %s", marker)
+		}
+	}
+	assetPattern := regexp.MustCompile(`(?:src|href)="(/assets/[^"]+)"`)
+	assets := assetPattern.FindAllStringSubmatch(index, -1)
+	if len(assets) < 2 {
+		t.Fatalf("interface assets = %#v", assets)
+	}
+	for _, match := range assets {
+		response := serve(handler, http.MethodGet, match[1], "", false)
+		if response.Code != http.StatusOK {
+			t.Fatalf("GET %s status = %d", match[1], response.Code)
 		}
 	}
 	response := serve(handler, http.MethodPost, "/api/workspaces", `{}`, false)
