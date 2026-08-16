@@ -65,3 +65,27 @@ func TestHandlerConfiguresProjectRootAndContinuesPreparation(t *testing.T) {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 }
+
+func TestHandlerChangesWorkspaceAuthority(t *testing.T) {
+	handler, store, _, _ := testHandler(t)
+	value, err := store.Create(context.Background(), workspace.Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: "main", Path: filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := store.CompletePreparation(context.Background(), value.ID); err != nil {
+		t.Fatalf("CompletePreparation: %v", err)
+	}
+	response := serve(handler, http.MethodPost, "/api/workspaces/"+value.ID+"/authority",
+		`{"authority":"develop","branch":"ayati/change","create_branch":true}`, true)
+	if response.Code != http.StatusOK {
+		t.Fatalf("authority status = %d, body = %s", response.Code, response.Body.String())
+	}
+	loaded, err := store.Get(context.Background(), value.ID)
+	if err != nil || loaded.Authority != workspace.AuthorityDevelop ||
+		loaded.Branch != "ayati/change" || loaded.EffectiveMountMode != "rw" {
+		t.Fatalf("workspace = %#v, error = %v", loaded, err)
+	}
+}

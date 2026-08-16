@@ -134,6 +134,18 @@ func (s *Service) CancelAndWait(workspaceID string) {
 	lock.Unlock()
 }
 
+func (s *Service) WithWorkspaceIdle(workspaceID string, action func() error) error {
+	if action == nil {
+		return errors.New("workspace action is required")
+	}
+	lock := s.lock(workspaceID)
+	if !lock.TryLock() {
+		return errors.New("an agent is working in this workspace")
+	}
+	defer lock.Unlock()
+	return action()
+}
+
 func (s *Service) setRun(workspaceID string, cancel context.CancelFunc) {
 	s.runsMu.Lock()
 	defer s.runsMu.Unlock()

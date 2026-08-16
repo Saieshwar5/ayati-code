@@ -147,6 +147,12 @@ export interface CreateWorkspaceInput {
   environment: EnvironmentInput[];
 }
 
+export interface AuthorityChangeInput {
+  authority: WorkspaceAuthority;
+  branch: string;
+  create_branch: boolean;
+}
+
 export interface PublishInput {
   commit_message: string;
   title: string;

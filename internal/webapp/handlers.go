@@ -166,6 +166,26 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 				}
 			}()
 		}
+	case "authority":
+		var input workspace.AuthorityChange
+		if !s.decode(writer, request, &input) {
+			return
+		}
+		var updated workspace.Workspace
+		change := func() error {
+			var changeErr error
+			updated, changeErr = s.workspaces.ChangeAuthority(request.Context(), parts[0], input)
+			return changeErr
+		}
+		if s.chat != nil {
+			err = s.chat.WithWorkspaceIdle(parts[0], change)
+		} else {
+			err = change()
+		}
+		if err == nil {
+			s.writeJSON(writer, http.StatusOK, updated)
+			return
+		}
 	case "stop":
 		if s.chat != nil {
 			s.chat.CancelAndWait(parts[0])

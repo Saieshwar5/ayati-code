@@ -59,9 +59,10 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes.
 6. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
 7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
-8. In Develop, review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Explore rejects publishing.
-9. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record.
-10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
+8. Change authority from the Workspace inspector when needed. Explore to Develop creates a local working branch when the workspace is still on its base branch, then remounts the project read-write. Develop to Explore preserves current modifications and remounts them read-only. Authority changes are rejected while an agent is working.
+9. In Develop, review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Explore rejects publishing.
+10. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record.
+11. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
 Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python project files. It records the project root, runtimes, package managers, lockfiles, useful verification commands, manifest fingerprint, setup result, and baseline commit in SQLite. One nested project root is selected automatically; multiple roots stop with an explicit selection requirement instead of guessing. A workspace can supply an explicit setup command instead. Rust preparation is reported as unsupported until the sandbox includes a compatible Rust toolchain.
 

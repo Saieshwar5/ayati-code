@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type {
+  AuthorityChangeInput,
   Message,
   PublishInput,
   ToolCall,
@@ -23,6 +24,7 @@ interface InspectorProps {
   onCollapsedChange: (collapsed: boolean) => void;
   onRefreshChanges: () => Promise<void>;
   onPublish: (input: PublishInput) => Promise<boolean>;
+  onAuthorityChange: (input: AuthorityChangeInput) => Promise<void>;
 }
 
 export function Inspector(props: InspectorProps) {
@@ -64,7 +66,13 @@ export function Inspector(props: InspectorProps) {
             <InspectorTab name="environment" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
             <InspectorTab name="publish" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
           </div>
-          {panel === "workspace" && <WorkspaceProfilePanel workspace={props.workspace} />}
+          {panel === "workspace" && (
+            <WorkspaceProfilePanel
+              workspace={props.workspace}
+              agentWorking={props.workspaceSessions.some((session) => session.status === "working")}
+              onAuthorityChange={props.onAuthorityChange}
+            />
+          )}
           {panel === "activity" && props.session && (
             <ActivityPanel workspace={props.workspace} session={props.session} messages={props.messages} />
           )}

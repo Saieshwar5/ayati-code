@@ -85,9 +85,32 @@ func TestDockerPersistentWorkspaceIntegration(t *testing.T) {
 		t.Fatalf("Explore command = %#v", result)
 	}
 	if err := manager.Remove(ctx, name); err != nil {
-		t.Fatalf("Remove: %v", err)
+		t.Fatalf("Remove Explore sandbox: %v", err)
+	}
+	if _, err := manager.Ensure(ctx, Spec{Name: name, Path: path, MountMode: MountReadWrite}); err != nil {
+		t.Fatalf("Ensure Develop sandbox: %v", err)
+	}
+	result = shell.Execute(ctx, agent.ShellRequest{Command: "touch develop-allowed"})
+	if result.ExitCode != 0 || result.Error != "" {
+		t.Fatalf("Develop command = %#v", result)
+	}
+	if err := manager.Remove(ctx, name); err != nil {
+		t.Fatalf("Remove Develop sandbox: %v", err)
+	}
+	if _, err := manager.Ensure(ctx, Spec{Name: name, Path: path, MountMode: MountReadOnly}); err != nil {
+		t.Fatalf("Freeze Develop changes: %v", err)
+	}
+	result = shell.Execute(ctx, agent.ShellRequest{Command: "test -f develop-allowed && ! rm develop-allowed"})
+	if result.ExitCode != 0 || result.Error != "" {
+		t.Fatalf("Frozen Develop change = %#v", result)
+	}
+	if err := manager.Remove(ctx, name); err != nil {
+		t.Fatalf("Remove frozen sandbox: %v", err)
 	}
 	if data, err := os.ReadFile(filepath.Join(path, ".ayati-integration")); err != nil || string(data) != "persistent" {
 		t.Fatalf("workspace data = %q, error = %v", data, err)
+	}
+	if _, err := os.Stat(filepath.Join(path, "develop-allowed")); err != nil {
+		t.Fatalf("Develop write was not preserved: %v", err)
 	}
 }

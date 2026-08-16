@@ -97,6 +97,8 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           onCollapsedChange={setInspectorCollapsed}
           onRefreshChanges={detail.loadChanges}
           onPublish={detail.publish}
+          onAuthorityChange={(input) =>
+            controller.changeWorkspaceAuthority(selectedWorkspace!.id, input)}
         />
       </section>
     </main>

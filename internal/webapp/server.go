@@ -32,6 +32,7 @@ type githubClient interface {
 type workspaceService interface {
 	Initialize(context.Context, string) error
 	ConfigureProjectRoot(context.Context, string, string) error
+	ChangeAuthority(context.Context, string, workspace.AuthorityChange) (workspace.Workspace, error)
 	Stop(context.Context, string) error
 	Delete(context.Context, string) error
 	Changes(context.Context, string) (workspace.Changes, error)
@@ -42,6 +43,7 @@ type chatService interface {
 	Messages(context.Context, string, string) ([]agent.Message, error)
 	Send(context.Context, string, string, string) (agent.Completion, error)
 	CancelAndWait(string)
+	WithWorkspaceIdle(string, func() error) error
 }
 
 type Server struct {
