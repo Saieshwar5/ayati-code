@@ -1,46 +1,84 @@
-# Ayati Micro Architecture
+# Ayati local architecture
 
-## Boundary
+## Product boundary
 
-Ayati is one local Go process with one Fireworks client and one model-facing tool named `shell`. It is a trusted-local coding harness, not a sandbox or hosted execution platform.
+Ayati is a single-user application running on one Linux machine. One Go process serves the browser UI, calls GitHub and Fireworks, owns SQLite, and controls local Docker containers. It deliberately has no Postgres, VM manager, worker fleet, queue, background agent service, or multi-provider abstraction.
 
-The runtime flow is intentionally linear:
+The durable product object is a workspace containing one or more sessions:
 
 ```text
-user message
-  -> append to JSONL session
-  -> request one Fireworks decision
-  -> final text: append and stop
-  -> shell call: append, execute, append result
-  -> continue, up to 20 decisions
+GitHub repository + base/working branch
+  -> local clone + SQLite record
+  -> one named Docker sandbox
+  -> dependency initialization
+  -> separate durable session chats and explicit agent runs
+  -> Git status/diff review
+  -> commit, push, and draft pull request
+  -> user stops sandbox
 ```
 
-The twentieth shell result is recorded before the loop stops. The harness does not make an extra provider call after the limit.
+The repository and SQLite record survive a normal Stop. A ready workspace restores its named container if the controller process or container was restarted. Delete is a separate confirmed action that removes the managed container, local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
 
-## Components
+## Component ownership
 
-- `internal/app` owns flags, startup, commands, and the active session.
-- `internal/agent` owns the prompt, message types, and 20-step loop.
-- `internal/config` owns the private Fireworks API key and default model file.
-- `internal/fireworks` owns the single non-streaming Chat Completions request.
-- `internal/shell` runs `/bin/sh -lc` in the workspace with fixed reliability bounds.
-- `internal/session` stores one append-only JSONL file per session.
-- `internal/ui` renders the plain line-oriented terminal interface.
+- `cmd/ayati` owns signal handling and selects the web server or the small `config` command.
+- `internal/webapp` owns HTTP routes, embedded browser assets, local server startup, and component wiring.
+- `internal/workspace` owns the SQLite schema, workspace state, trusted host Git operations, setup detection, change inspection, and publish flow.
+- `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
+- `internal/githubapp` owns GitHub user authorization, installed-repository discovery, branches, branch creation, draft pull requests, and the private credential file.
+- `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
+- `internal/agent` owns the one-tool prompt, shared messages, and sequential 20-decision loop.
+- `internal/fireworks` owns the single Fireworks request format.
+- `internal/config` owns private Fireworks configuration and its terminal setup command.
 
-The module uses only the Go standard library.
+Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
 
-## Sessions
+## SQLite state
 
-The first JSONL record contains session ID, canonical workspace, model, and creation time. Remaining records are exact user, assistant, and tool messages. Resume loads and replays the complete file. There is no database, migration, snapshot, compaction, recovery state machine, or context accounting.
+SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-Configuration is separate from sessions. Ayati reads the API key and default model from `$XDG_CONFIG_HOME/ayati/config.json` or `~/.config/ayati/config.json`. The directory uses mode `0700` and the file uses `0600`. Existing sessions continue using their stored model after the configured default changes.
+- `workspaces`: repository, branch, local path, sandbox name, setup command, lifecycle status, failure, and pull-request identity.
+- `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
+- `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 
-## Shell and trust
+Workspace lifecycle values describe only the environment: `creating`, `initializing`, `initialization_failed`, `ready`, and `stopped`. Session lifecycle values describe agent work: `idle`, `working`, `review`, and `failed`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Commands run with the current user's host permissions. Ayati removes `FIREWORKS_API_KEY` from the child environment and enforces command size, output size, timeout, process-group cancellation, and workspace working directory. These are reliability controls, not a security boundary; a same-user process may still access host files and processes.
+Sessions share one workspace clone, branch, sandbox, and diff. They isolate conversational context and activity history, not filesystem state. The controller rejects a second agent run while another session in the same workspace is active. Changes and publishing are therefore workspace-scoped, while conversation and internal activity are session-scoped.
 
-Each shell call includes a short model-provided purpose for terminal clarity and session history. The purpose is display metadata only; execution and security decisions must use the command itself.
+## Sandbox lifecycle
 
-## Deferred work
+Initialization first clones or opens the repository with trusted host Git. It then creates `ayati-workspace-<id>` from the fixed local image and mounts only the clone at `/workspace`. Dependency setup runs through the same shell contract later used by the agent. The container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
 
-Additional providers, model discovery, credential storage, TUI, attachments, network policy, sandboxing, context compaction, and richer session lifecycle remain outside this micro-harness.
+Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the owned sandbox, removes that workspace directory, and finally deletes its SQLite record. Foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
+
+The container boundary includes:
+
+- non-root image user;
+- read-only container root;
+- all Linux capabilities dropped and `no-new-privileges`;
+- 256 PID, 2 GiB memory, and 2 CPU limits;
+- private temporary and home tmpfs mounts;
+- one writable bind mount for the selected repository;
+- no Docker socket, host home, GitHub token, or Fireworks key.
+
+Commands run as `docker exec ... timeout /bin/sh -c` with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. Network isolation is deferred because initial dependency installation requires network access.
+
+## Agent and authority
+
+The model receives exactly one function:
+
+```json
+{"name":"shell","arguments":{"command":"go test ./..."}}
+```
+
+There are no file, GitHub, service, lifecycle, or database tools exposed to the model. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
+
+The composer has one Send action. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. The system prompt tells the model to respect that distinction. This is an interaction contract, while the container remains the execution boundary.
+
+## GitHub and publish boundary
+
+GitHub OAuth state is kept in an HTTP-only, same-site callback cookie. The user access token is stored in a private local file. Repository selection is checked against repositories returned for the App installations before a workspace is created.
+
+Authenticated clone and push use host Git with a short-lived private askpass script. The access token is passed only to that trusted Git child process and removed with the helper; it is never written into the remote URL or exposed to the model sandbox. Publishing stages all workspace changes, creates a focused user-supplied commit, pushes the working branch, and asks GitHub to open a draft pull request.
+
+Mutating HTTP endpoints require the non-simple `X-Ayati-Request: 1` header. The server binds to `127.0.0.1:8080` by default. This is appropriate for the personal local prototype; remote hosting, multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling are intentionally deferred.

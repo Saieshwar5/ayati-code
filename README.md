@@ -1,80 +1,81 @@
 # Ayati
 
-Ayati is a deliberately small Linux coding-agent harness. It uses one Fireworks model, one `shell` tool, one sequential loop, and plain JSONL sessions.
+Ayati is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from a repository and branch, lets Ayati initialize its dependencies inside one persistent Docker sandbox, works through one or more focused chat sessions, reviews the shared diff, and opens a draft pull request.
 
-> Ayati currently runs shell commands directly with your Linux user permissions. Use it only with trusted prompts and trusted local projects.
+The controller is one Go process on your machine. Workspace metadata and complete conversations live in SQLite. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
 
 ## Requirements
 
 - Linux
 - Go 1.25 or newer
-- A Fireworks API key
-- A Fireworks model identifier
+- Git
+- Docker Engine
+- A GitHub App installed on the repositories Ayati may access
+- A Fireworks API key and model
 
-## Configure
-
-The first run asks for the Fireworks API key and model, then saves them for future runs:
+Build the local sandbox image once:
 
 ```bash
-go run -buildvcs=false ./cmd/ayati
+make sandbox
 ```
 
-The API key is hidden while typing. To update either saved value later:
+Configure the model provider. The key is read without terminal echo and saved with private permissions:
 
 ```bash
 go run -buildvcs=false ./cmd/ayati config
 ```
 
-Configuration is stored with private file permissions at `$XDG_CONFIG_HOME/ayati/config.json` or `~/.config/ayati/config.json`.
+## GitHub App
 
-## Run
+Create a GitHub App for the local instance and give it these repository permissions:
 
-After configuration, start Ayati without exporting credentials:
+- Contents: read and write
+- Pull requests: read and write
+- Metadata: read-only
 
-```bash
-go run -buildvcs=false ./cmd/ayati
-```
-
-Run against another project:
+Set its callback URL to `http://127.0.0.1:8080/auth/github/callback`, install it on the repositories you want to expose, then start Ayati with its client credentials:
 
 ```bash
-go run -buildvcs=false ./cmd/ayati --workspace /path/to/project
+export AYATI_GITHUB_CLIENT_ID="your-client-id"
+export AYATI_GITHUB_CLIENT_SECRET="your-client-secret"
+make run
 ```
 
-Resume a session:
+Open `http://127.0.0.1:8080`. A different callback or address can be supplied with `AYATI_GITHUB_CALLBACK_URL` and `AYATI_ADDRESS`.
+
+## Workspace flow
+
+1. Sign in through the GitHub App.
+2. Choose an installed repository and an existing branch, or create a working branch.
+3. Create the workspace. Ayati clones the branch, starts its named sandbox, detects the dependency setup command, and runs that command inside the sandbox.
+4. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, and uncommitted changes.
+5. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
+6. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
+7. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request.
+8. Stop the workspace when finished. This removes its container but preserves the cloned repository, sessions, conversations, and SQLite record.
+9. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
+
+The default setup detection covers Go modules, npm/pnpm/Yarn lockfiles, and common Python project files. A workspace can supply an explicit setup command instead.
+
+## Local data and security
+
+- SQLite: `$XDG_CONFIG_HOME/ayati/ayati.db` or `~/.config/ayati/ayati.db`
+- Fireworks config: `$XDG_CONFIG_HOME/ayati/config.json`
+- GitHub user credential: `$XDG_CONFIG_HOME/ayati/github.json`
+- cloned workspaces: `~/.local/share/ayati/workspaces`
+
+The controller owns GitHub and Fireworks credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
+
+Each active workspace gets one named Docker container. It runs as a non-root user with a read-only root filesystem, dropped capabilities, no-new-privileges, PID/memory/CPU bounds, and only that workspace mounted writable at `/workspace`. The Docker socket, host home, and controller credentials are not mounted. Network access remains enabled so dependency installation and project tests can work; this is a strong local boundary, not a complete hostile-code security system.
+
+Workspace deletion is restricted to the managed data root. It removes the owned container and local workspace directory before cascading the workspace's sessions and messages from SQLite. Remote GitHub data is outside this action.
+
+## Development
 
 ```bash
-go run -buildvcs=false ./cmd/ayati --workspace /path/to/project --session 1a2b3c4d
+make test
+make build
+make check
 ```
 
-`--model` temporarily overrides the saved model for a new session. Resumed sessions always use their stored model.
-
-## Terminal commands
-
-- `/new` starts an empty session with the current model.
-- `/sessions` lists sessions for the current workspace.
-- `/resume <id>` resumes by full ID or unique prefix.
-- `/help` shows commands.
-- `/quit` quits.
-- `Ctrl+C` cancels an active model request or shell command and quits.
-
-## Behavior
-
-- The model receives exactly one function tool: `shell`.
-- Every shell call includes a short purpose that is shown before the command.
-- A request may use at most 20 model decisions.
-- Each decision may contain at most one shell call.
-- Shell commands start in the selected workspace.
-- Commands have a two-minute timeout, 64 KiB input limit, and bounded stdout/stderr.
-- Sessions are append-only JSONL files under `$XDG_STATE_HOME/ayati/sessions` or `~/.local/state/ayati/sessions`.
-- The complete session is replayed. There are no snapshots, compaction, provider switching, model catalogs, modes, or background services.
-
-## Verify
-
-```bash
-go test -buildvcs=false ./...
-go vet -buildvcs=false ./...
-CGO_ENABLED=0 go build -buildvcs=false -trimpath -o ayati ./cmd/ayati
-```
-
-See [docs/architecture.md](docs/architecture.md) for the small set of runtime boundaries.
+`make check` verifies formatting, tests, race behavior, vet, and a CGO-disabled build. See [docs/architecture.md](docs/architecture.md) for component ownership and lifecycle details.
