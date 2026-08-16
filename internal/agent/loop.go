@@ -6,14 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode/utf8"
 )
 
 var ErrStepLimit = errors.New("agent reached the 20-step limit")
 
 type shellInvocation struct {
-	Command string
-	Purpose string
+	Request ShellRequest
 }
 
 type Loop struct {
@@ -81,9 +79,9 @@ func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Com
 			return Completion{Steps: step}, err
 		}
 		if l.Observer != nil {
-			l.Observer.ToolCall(invocation.Purpose, invocation.Command)
+			l.Observer.ToolCall(invocation.Request)
 		}
-		result := l.Shell.Run(ctx, invocation.Command)
+		result := l.Shell.Execute(ctx, invocation.Request)
 		encoded, err := json.Marshal(result)
 		if err != nil {
 			return Completion{Steps: step}, fmt.Errorf("encode shell result: %w", err)
@@ -116,20 +114,13 @@ func parseShellCall(call ToolCall) (shellInvocation, error) {
 	}
 	var arguments struct {
 		Command string `json:"command"`
-		Purpose string `json:"purpose"`
 	}
 	if err := json.Unmarshal([]byte(call.Function.Arguments), &arguments); err != nil {
 		return shellInvocation{}, fmt.Errorf("decode shell arguments: %w", err)
 	}
-	if strings.TrimSpace(arguments.Command) == "" {
+	command := strings.TrimSpace(arguments.Command)
+	if command == "" {
 		return shellInvocation{}, fmt.Errorf("shell command is empty")
 	}
-	purpose := strings.Join(strings.Fields(arguments.Purpose), " ")
-	if purpose == "" {
-		return shellInvocation{}, fmt.Errorf("shell purpose is empty")
-	}
-	if utf8.RuneCountInString(purpose) > MaxShellPurposeLength {
-		return shellInvocation{}, fmt.Errorf("shell purpose exceeds %d characters", MaxShellPurposeLength)
-	}
-	return shellInvocation{Command: arguments.Command, Purpose: purpose}, nil
+	return shellInvocation{Request: ShellRequest{Command: command}}, nil
 }

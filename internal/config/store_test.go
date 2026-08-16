@@ -1,8 +1,11 @@
 package config
 
 import (
+	"bytes"
+	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -54,5 +57,31 @@ func TestLoadRejectsIncompleteConfiguration(t *testing.T) {
 	}
 	if _, err := Load(path); err == nil {
 		t.Fatal("Load accepted configuration without an API key")
+	}
+}
+
+func TestConfigureUpdatesModelWithoutExposingSavedKey(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	path, err := DefaultPath()
+	if err != nil {
+		t.Fatalf("DefaultPath: %v", err)
+	}
+	if err := Save(path, Values{FireworksAPIKey: "saved-secret", Model: "old-model"}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	var output, errorOutput bytes.Buffer
+	code := Configure(context.Background(), strings.NewReader("\nnew-model\n"), &output, &errorOutput)
+	if code != 0 || errorOutput.Len() != 0 {
+		t.Fatalf("code = %d, error = %q", code, errorOutput.String())
+	}
+	values, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if values.FireworksAPIKey != "saved-secret" || values.Model != "new-model" {
+		t.Fatalf("values = %#v", values)
+	}
+	if strings.Contains(output.String(), "saved-secret") {
+		t.Fatal("output exposed the API key")
 	}
 }

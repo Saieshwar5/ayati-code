@@ -31,9 +31,9 @@ func (r *memoryRecorder) Append(message Message) error {
 
 type fixedShell struct{ calls int }
 
-func (s *fixedShell) Run(_ context.Context, command string) ShellResult {
+func (s *fixedShell) Execute(_ context.Context, request ShellRequest) ShellResult {
 	s.calls++
-	return ShellResult{Command: command, ExitCode: 0, Stdout: "ok"}
+	return ShellResult{Command: request.Command, ExitCode: 0, Stdout: "ok"}
 }
 
 func TestLoopCompletesAfterOneFinalResponse(t *testing.T) {
@@ -56,7 +56,7 @@ func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	for index := range messages {
 		messages[index] = Message{Role: "assistant", ToolCalls: []ToolCall{{
 			ID: fmt.Sprintf("call-%d", index), Type: "function",
-			Function: FunctionCall{Name: "shell", Arguments: `{"command":"true","purpose":"Verify the change"}`},
+			Function: FunctionCall{Name: "shell", Arguments: `{"command":"true"}`},
 		}}}
 	}
 	provider := &scriptedProvider{messages: messages}
@@ -73,12 +73,12 @@ func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	}
 }
 
-func TestParseShellCallRequiresPurpose(t *testing.T) {
+func TestParseShellCallRequiresCommand(t *testing.T) {
 	_, err := parseShellCall(ToolCall{
 		ID: "call-1", Type: "function",
-		Function: FunctionCall{Name: "shell", Arguments: `{"command":"pwd"}`},
+		Function: FunctionCall{Name: "shell", Arguments: `{}`},
 	})
-	if err == nil || err.Error() != "shell purpose is empty" {
+	if err == nil || err.Error() != "shell command is empty" {
 		t.Fatalf("error = %v", err)
 	}
 }

@@ -5,10 +5,11 @@ import (
 	"time"
 )
 
-const (
-	MaxSteps              = 20
-	MaxShellPurposeLength = 240
-)
+const MaxSteps = 20
+
+type ShellRequest struct {
+	Command string `json:"command"`
+}
 
 type FunctionCall struct {
 	Name      string `json:"name"`
@@ -39,7 +40,7 @@ type Provider interface {
 }
 
 type ShellResult struct {
-	Command   string        `json:"command"`
+	Command   string        `json:"command,omitempty"`
 	Stdout    string        `json:"stdout,omitempty"`
 	Stderr    string        `json:"stderr,omitempty"`
 	ExitCode  int           `json:"exit_code"`
@@ -50,7 +51,7 @@ type ShellResult struct {
 }
 
 type Shell interface {
-	Run(context.Context, string) ShellResult
+	Execute(context.Context, ShellRequest) ShellResult
 }
 
 type Recorder interface {
@@ -59,7 +60,7 @@ type Recorder interface {
 
 type Observer interface {
 	Step(current, maximum int)
-	ToolCall(purpose, command string)
+	ToolCall(request ShellRequest)
 	ToolResult(ShellResult)
 	Assistant(text string)
 }

@@ -1,4 +1,4 @@
-package ui
+package config
 
 import (
 	"os"
@@ -17,9 +17,7 @@ func disableEcho(file *os.File) (func() error, error) {
 	if err := ioctlTermios(fd, syscall.TCSETS, &hidden); err != nil {
 		return nil, err
 	}
-	return func() error {
-		return ioctlTermios(fd, syscall.TCSETS, &original)
-	}, nil
+	return func() error { return ioctlTermios(fd, syscall.TCSETS, &original) }, nil
 }
 
 func ioctlTermios(fd uintptr, operation uintptr, state *syscall.Termios) error {
