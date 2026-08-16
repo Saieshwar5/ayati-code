@@ -1,6 +1,17 @@
-import type { ProjectProfile, Workspace } from "../api/contracts";
+import type { AuthorityChangeInput, ProjectProfile, Workspace } from "../api/contracts";
+import { AuthorityControl } from "./AuthorityControl";
 
-export function WorkspaceProfilePanel({ workspace }: { workspace: Workspace }) {
+interface WorkspaceProfilePanelProps {
+  workspace: Workspace;
+  agentWorking?: boolean;
+  onAuthorityChange?: (input: AuthorityChangeInput) => Promise<void>;
+}
+
+export function WorkspaceProfilePanel({
+  workspace,
+  agentWorking = false,
+  onAuthorityChange = async () => {},
+}: WorkspaceProfilePanelProps) {
   const profile = workspace.project_profile;
   return (
     <section className="inspector-panel active" role="tabpanel">
@@ -11,9 +22,12 @@ export function WorkspaceProfilePanel({ workspace }: { workspace: Workspace }) {
         </div>
         <span className={`status ${workspace.status}`}>{workspace.status.replaceAll("_", " ")}</span>
       </div>
+      <AuthorityControl
+        workspace={workspace}
+        agentWorking={agentWorking}
+        onChange={onAuthorityChange}
+      />
       <div className="profile-summary">
-        <ProfileFact label="Authority" value={workspace.authority === "explore" ? "Explore · source protected" : "Develop · editable"} />
-        <ProfileFact label="Effective mount" value={workspace.effective_mount_mode === "ro" ? "Read only" : workspace.effective_mount_mode === "rw" ? "Read and write" : "Not applied yet"} />
         <ProfileFact label="Preparation" value={preparationLabel(workspace)} />
       </div>
       {profile ? <ResolvedProfile profile={profile} /> : (

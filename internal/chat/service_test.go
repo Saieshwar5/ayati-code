@@ -138,6 +138,10 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("agent run did not start")
 	}
+	if err := service.WithWorkspaceIdle(value.ID, func() error { return nil }); err == nil ||
+		!strings.Contains(err.Error(), "agent is working") {
+		t.Fatalf("WithWorkspaceIdle error = %v", err)
+	}
 	service.CancelAndWait(value.ID)
 	select {
 	case runErr := <-finished:
@@ -146,6 +150,10 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("agent run did not stop")
+	}
+	called := false
+	if err := service.WithWorkspaceIdle(value.ID, func() error { called = true; return nil }); err != nil || !called {
+		t.Fatalf("idle action called = %t, error = %v", called, err)
 	}
 }
 

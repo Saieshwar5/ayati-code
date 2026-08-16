@@ -15,15 +15,21 @@ import (
 )
 
 type fakeEnvironment struct {
-	ensured   []sandbox.Spec
-	removed   []string
-	variables []map[string]string
-	shell     agent.Shell
-	err       error
+	ensured    []sandbox.Spec
+	removed    []string
+	variables  []map[string]string
+	shell      agent.Shell
+	err        error
+	ensureErrs []error
 }
 
 func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) (sandbox.MountMode, error) {
 	f.ensured = append(f.ensured, spec)
+	if len(f.ensureErrs) > 0 {
+		err := f.ensureErrs[0]
+		f.ensureErrs = f.ensureErrs[1:]
+		return spec.MountMode, err
+	}
 	return spec.MountMode, f.err
 }
 
@@ -50,10 +56,18 @@ func (s *recordingShell) Execute(_ context.Context, request agent.ShellRequest) 
 type recordingGit struct {
 	calls         [][]string
 	statusResults []string
+	runErrors     []error
 }
 
 func (g *recordingGit) Run(_ context.Context, arguments ...string) error {
 	g.calls = append(g.calls, append([]string(nil), arguments...))
+	if len(g.runErrors) > 0 {
+		err := g.runErrors[0]
+		g.runErrors = g.runErrors[1:]
+		if err != nil {
+			return err
+		}
+	}
 	if len(arguments) > 0 && arguments[0] == "clone" {
 		path := arguments[len(arguments)-1]
 		return os.MkdirAll(filepath.Join(path, ".git"), 0o700)

@@ -35,6 +35,24 @@ func (f *fakeWorkspaceService) ConfigureProjectRoot(ctx context.Context, id, roo
 	return f.store.SelectProjectRoot(ctx, id, root)
 }
 
+func (f *fakeWorkspaceService) ChangeAuthority(
+	ctx context.Context, id string, input workspace.AuthorityChange,
+) (workspace.Workspace, error) {
+	value, err := f.store.Get(ctx, id)
+	if err != nil {
+		return workspace.Workspace{}, err
+	}
+	branch := input.Branch
+	if branch == "" {
+		branch = value.Branch
+	}
+	if err := f.store.CompleteAuthorityChange(ctx, id, input.Authority, branch,
+		input.CreateBranch, string(input.Authority.MountMode())); err != nil {
+		return workspace.Workspace{}, err
+	}
+	return f.store.Get(ctx, id)
+}
+
 func (f *fakeWorkspaceService) Stop(ctx context.Context, id string) error {
 	return f.store.UpdateStatus(ctx, id, workspace.StatusStopped, "")
 }
@@ -263,6 +281,7 @@ type fakeChat struct{}
 func (fakeChat) Messages(context.Context, string, string) ([]agent.Message, error) { return nil, nil }
 func (fakeChat) Cancel(string)                                                     {}
 func (fakeChat) CancelAndWait(string)                                              {}
+func (fakeChat) WithWorkspaceIdle(_ string, action func() error) error             { return action() }
 func (fakeChat) Send(context.Context, string, string, string) (agent.Completion, error) {
 	return agent.Completion{Text: "done"}, nil
 }

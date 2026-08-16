@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
+  AuthorityChangeInput,
   CreateWorkspaceInput,
   Repository,
   User,
@@ -187,6 +188,16 @@ export function useWorkspaceController(user: User) {
     [refreshWorkspaces],
   );
 
+  const changeWorkspaceAuthority = useCallback(
+    async (workspaceID: string, input: AuthorityChangeInput) => {
+      const updated = await api.changeWorkspaceAuthority(workspaceID, input);
+      setWorkspaces((current) => current.map((workspace) =>
+        workspace.id === updated.id ? updated : workspace,
+      ));
+    },
+    [],
+  );
+
   const deleteWorkspace = useCallback(
     async (workspace: Workspace) => {
       const confirmed = window.confirm(
@@ -255,6 +266,7 @@ export function useWorkspaceController(user: User) {
     deleteSession,
     workspaceAction,
     configureProjectRoot,
+    changeWorkspaceAuthority,
     deleteWorkspace,
     refreshWorkspaces,
     loadSessions,
