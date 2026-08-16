@@ -17,6 +17,9 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if value.Status != StatusCreating && value.Status != StatusInitializationFailed {
+		return fmt.Errorf("workspace is %s and cannot be initialized", value.Status)
+	}
 	if err := s.store.UpdateStatus(ctx, id, StatusInitializing, ""); err != nil {
 		return err
 	}

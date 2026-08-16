@@ -78,7 +78,10 @@ func (s *Store) configure() error {
 	if err := s.migrateProjectProfiles(context.Background()); err != nil {
 		return err
 	}
-	return s.migrateWorkspaceReadiness(context.Background())
+	if err := s.migrateWorkspaceReadiness(context.Background()); err != nil {
+		return err
+	}
+	return s.recoverInterruptedWork(context.Background())
 }
 
 func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {

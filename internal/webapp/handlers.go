@@ -186,6 +186,8 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			s.chat.CancelAndWait(parts[0])
 		}
 		err = s.workspaces.Stop(request.Context(), parts[0])
+	case "resume":
+		err = s.workspaces.Resume(request.Context(), parts[0])
 	case "publish":
 		credentials, ok := s.requireCredentials(writer)
 		if !ok {

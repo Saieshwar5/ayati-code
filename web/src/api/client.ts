@@ -62,6 +62,8 @@ export const api = {
     }),
   stopWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/stop`, { method: "POST" }),
+  resumeWorkspace: (id: string) =>
+    request<void>(`/api/workspaces/${id}/resume`, { method: "POST" }),
   deleteWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}`, { method: "DELETE" }),
   sessions: (workspaceID: string) =>

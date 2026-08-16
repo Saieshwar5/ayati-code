@@ -25,7 +25,7 @@ const workspace: Workspace = {
 
 describe("WorkspaceReadiness", () => {
   it("shows completed, current, and pending preparation steps", () => {
-    render(<WorkspaceReadiness workspace={workspace} onConfigure={vi.fn()} onRetry={vi.fn()} onDelete={vi.fn()} />);
+    render(<WorkspaceReadiness workspace={workspace} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText("Repository cloned").closest("li")?.className).toBe("done");
     expect(screen.getByText("Project understood").closest("li")?.className).toBe("current");
     expect(screen.getByText("Dependencies installed").closest("li")?.className).toBe("pending");
@@ -48,6 +48,7 @@ describe("WorkspaceReadiness", () => {
         }}
         onConfigure={configure}
         onRetry={vi.fn()}
+        onResume={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -70,6 +71,7 @@ describe("WorkspaceReadiness", () => {
         }}
         onConfigure={vi.fn()}
         onRetry={retry}
+        onResume={vi.fn()}
         onDelete={vi.fn()}
       />,
     );
@@ -77,5 +79,23 @@ describe("WorkspaceReadiness", () => {
     expect(screen.getByText("setup modified package-lock.json")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Retry preparation" }));
     expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it("resumes a stopped sandbox without retrying preparation", async () => {
+    const retry = vi.fn().mockResolvedValue(undefined);
+    const resume = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceReadiness
+        workspace={{ ...workspace, status: "stopped", preparation_stage: "ready" }}
+        onConfigure={vi.fn()}
+        onRetry={retry}
+        onResume={resume}
+        onDelete={vi.fn()}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Resume environment" }));
+    expect(resume).toHaveBeenCalledOnce();
+    expect(retry).not.toHaveBeenCalled();
   });
 });

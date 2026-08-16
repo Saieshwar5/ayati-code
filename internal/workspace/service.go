@@ -55,10 +55,37 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if value.Status != StatusReady {
+		return fmt.Errorf("workspace is %s, not ready", value.Status)
+	}
 	if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
 		return fmt.Errorf("remove sandbox: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
+}
+
+func (s *Service) Resume(ctx context.Context, id string) error {
+	value, err := s.store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if value.Status != StatusStopped {
+		return fmt.Errorf("workspace is %s, not stopped", value.Status)
+	}
+	if value.PreparationStage != PreparationReady {
+		return fmt.Errorf("workspace preparation is %s and cannot be resumed", value.PreparationStage)
+	}
+	mode, err := s.environment.Ensure(ctx, s.sandboxSpec(value, value.Authority.MountMode()))
+	if err != nil {
+		return fmt.Errorf("resume sandbox: %w", err)
+	}
+	if mode != value.Authority.MountMode() {
+		return fmt.Errorf("resumed sandbox mount is %s, expected %s", mode, value.Authority.MountMode())
+	}
+	if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
+		return err
+	}
+	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {

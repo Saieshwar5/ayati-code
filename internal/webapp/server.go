@@ -35,6 +35,7 @@ type workspaceService interface {
 	ConfigureProjectRoot(context.Context, string, string) error
 	ChangeAuthority(context.Context, string, workspace.AuthorityChange) (workspace.Workspace, error)
 	Stop(context.Context, string) error
+	Resume(context.Context, string) error
 	Delete(context.Context, string) error
 	Changes(context.Context, string) (workspace.Changes, error)
 	Publish(context.Context, string, string, string, string) error

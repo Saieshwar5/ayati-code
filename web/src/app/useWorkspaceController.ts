@@ -170,7 +170,7 @@ export function useWorkspaceController(user: User) {
   );
 
   const workspaceAction = useCallback(
-    async (workspaceID: string, action: "initialize" | "stop") => {
+    async (workspaceID: string, action: "initialize" | "resume" | "stop") => {
       try {
         if (action === "initialize") {
           await api.initializeWorkspace(workspaceID);
@@ -179,6 +179,9 @@ export function useWorkspaceController(user: User) {
               ? { ...workspace, status: "initializing", preparation_stage: "pending", error: undefined }
               : workspace,
           ));
+        } else if (action === "resume") {
+          await api.resumeWorkspace(workspaceID);
+          await refreshWorkspaces();
         } else {
           await api.stopWorkspace(workspaceID);
           await refreshWorkspaces();

@@ -1,0 +1,132 @@
+package workspace
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+)
+
+func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "ayati.db")
+	store, err := Open(path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	interrupted := createTestWorkspace(t, store)
+	ready := createTestWorkspace(t, store)
+	if err := store.UpdateStatus(context.Background(), interrupted.ID, StatusInitializing, ""); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	if err := store.UpdatePreparation(context.Background(), interrupted.ID,
+		PreparationInstalling, "Installing dependencies"); err != nil {
+		t.Fatalf("UpdatePreparation: %v", err)
+	}
+	sessions, err := store.ListSessions(context.Background(), interrupted.ID)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if err := store.UpdateSessionStatus(context.Background(), sessions[0].ID,
+		SessionStatusWorking, ""); err != nil {
+		t.Fatalf("UpdateSessionStatus: %v", err)
+	}
+	if err := store.CompletePreparation(context.Background(), ready.ID); err != nil {
+		t.Fatalf("CompletePreparation: %v", err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	store, err = Open(path)
+	if err != nil {
+		t.Fatalf("reopen: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	loaded, err := store.Get(context.Background(), interrupted.ID)
+	if err != nil || loaded.Status != StatusInitializationFailed ||
+		loaded.PreparationStage != PreparationFailed ||
+		loaded.PreparationFailedStage != PreparationInstalling ||
+		!strings.Contains(loaded.Error, "interrupted") || loaded.EffectiveMountMode != "" {
+		t.Fatalf("recovered workspace = %#v, error = %v", loaded, err)
+	}
+	sessions, err = store.ListSessions(context.Background(), interrupted.ID)
+	if err != nil || sessions[0].Status != SessionStatusFailed ||
+		!strings.Contains(sessions[0].Error, "interrupted") {
+		t.Fatalf("recovered sessions = %#v, error = %v", sessions, err)
+	}
+	loadedReady, err := store.Get(context.Background(), ready.ID)
+	if err != nil || loadedReady.Status != StatusReady || loadedReady.PreparationStage != PreparationReady {
+		t.Fatalf("ready workspace = %#v, error = %v", loadedReady, err)
+	}
+}
+
+func TestServiceRemovesInterruptedPreparationSandbox(t *testing.T) {
+	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	if err := store.UpdateStatus(context.Background(), value.ID,
+		StatusInitializationFailed, interruptedPreparationMessage); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	environment := &fakeEnvironment{}
+	service := &Service{store: store, environment: environment, git: &recordingGit{}}
+	if err := service.Recover(context.Background()); err != nil {
+		t.Fatalf("Recover: %v", err)
+	}
+	if len(environment.removed) != 1 || environment.removed[0] != value.SandboxName {
+		t.Fatalf("removed sandboxes = %#v", environment.removed)
+	}
+}
+
+func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T) {
+	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "ayati/change", true)
+	if err := os.MkdirAll(value.Path, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(value.Path, "uncommitted.go"), []byte("package change\n"), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	environment := &fakeEnvironment{}
+	git := &recordingGit{}
+	service := &Service{store: store, environment: environment, git: git}
+	if err := service.Stop(context.Background(), value.ID); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	if err := service.Resume(context.Background(), value.ID); err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	loaded, err := store.Get(context.Background(), value.ID)
+	if err != nil || loaded.Status != StatusReady || loaded.EffectiveMountMode != "rw" {
+		t.Fatalf("workspace = %#v, error = %v", loaded, err)
+	}
+	if len(environment.removed) != 1 || len(environment.ensured) != 1 ||
+		environment.ensured[0].MountMode != sandbox.MountReadWrite || len(git.calls) != 0 {
+		t.Fatalf("sandbox = removed %#v ensured %#v, git = %#v",
+			environment.removed, environment.ensured, git.calls)
+	}
+	data, err := os.ReadFile(filepath.Join(value.Path, "uncommitted.go"))
+	if err != nil || string(data) != "package change\n" {
+		t.Fatalf("preserved change = %q, error = %v", data, err)
+	}
+}
+
+func TestServiceRejectsInitializationOutsideCreationOrRetry(t *testing.T) {
+	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}}
+	if err := service.Initialize(context.Background(), value.ID); err == nil ||
+		!strings.Contains(err.Error(), "cannot be initialized") {
+		t.Fatalf("Initialize error = %v", err)
+	}
+	if err := service.Resume(context.Background(), value.ID); err == nil ||
+		!strings.Contains(err.Error(), "not stopped") {
+		t.Fatalf("Resume error = %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), value.ID, StatusInitializationFailed, "failed"); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	if err := service.Stop(context.Background(), value.ID); err == nil ||
+		!strings.Contains(err.Error(), "not ready") {
+		t.Fatalf("Stop error = %v", err)
+	}
+}

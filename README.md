@@ -62,12 +62,14 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
 8. Change authority from the Workspace inspector when needed. Explore to Develop creates a local working branch when the workspace is still on its base branch, then remounts the project read-write. Develop to Explore preserves current modifications and remounts them read-only. Authority changes are rejected while an agent is working.
 9. In Develop, review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Explore rejects publishing.
-10. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record.
+10. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record. Resume recreates only the sandbox with the stored authority; it does not rerun dependency setup or reject preserved Develop changes.
 11. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
 Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python project files. It records the project root, runtimes, package managers, lockfiles, useful verification commands, manifest fingerprint, setup result, and baseline commit in SQLite. One nested project root is selected automatically; multiple roots stop with an explicit selection requirement instead of guessing. A workspace can supply an explicit setup command instead. Rust preparation is reported as unsupported until the sandbox includes a compatible Rust toolchain.
 
 Preparation progress, the selected project root, actionable failure stage, and configuration candidates are durable SQLite state. Reloading the browser therefore reconstructs the truthful readiness view instead of guessing from an in-memory task. Chat and additional sessions become available only after the workspace reaches `ready`; failed preparation can be retried without losing the clone or original session.
+
+If Ayati itself stops during repository preparation, the next startup marks that workspace as interrupted, removes any lingering writable preparation sandbox, and offers an explicit retry or deletion. Workspaces that were already ready, stopped, or waiting for project selection are not changed by startup recovery.
 
 ## Local data and security
 
