@@ -28,11 +28,12 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	var input struct {
-		Repository   string `json:"repository"`
-		BaseBranch   string `json:"base_branch"`
-		Branch       string `json:"branch"`
-		CreateBranch bool   `json:"create_branch"`
-		Setup        string `json:"setup_command"`
+		Repository   string                       `json:"repository"`
+		BaseBranch   string                       `json:"base_branch"`
+		Branch       string                       `json:"branch"`
+		CreateBranch bool                         `json:"create_branch"`
+		Setup        string                       `json:"setup_command"`
+		Environment  []workspace.EnvironmentInput `json:"environment"`
 	}
 	if !s.decode(writer, request, &input) {
 		return
@@ -52,6 +53,10 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, "working branch must differ from the pull request base")
 		return
 	}
+	if err := workspace.ValidateEnvironment(input.Environment); err != nil {
+		s.writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
 	createLocally := input.CreateBranch
 	if input.CreateBranch {
 		if err := s.github.CreateBranch(request.Context(), credentials.AccessToken,
@@ -64,7 +69,7 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 	value, err := s.store.Create(request.Context(), workspace.Create{
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: createLocally,
-		Setup: input.Setup, Root: s.workspaceRoot,
+		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
 	})
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, "create workspace")
@@ -97,6 +102,22 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			return
 		}
 		s.writeJSON(writer, http.StatusCreated, value)
+		return
+	}
+	if len(parts) == 2 && parts[1] == "environment" {
+		if !s.requireMutableEnvironment(writer, request, parts[0]) {
+			return
+		}
+		var input workspace.EnvironmentInput
+		if !s.decode(writer, request, &input) {
+			return
+		}
+		value, err := s.store.UpsertEnvironment(request.Context(), parts[0], input)
+		if err != nil {
+			s.writeError(writer, http.StatusBadRequest, err.Error())
+			return
+		}
+		s.writeJSON(writer, http.StatusOK, value)
 		return
 	}
 	if len(parts) == 4 && parts[1] == "sessions" && parts[3] == "messages" {

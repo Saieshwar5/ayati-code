@@ -40,10 +40,11 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `workspaces`: repository, branch, local path, sandbox name, setup command, lifecycle status, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
+- `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `initialization_failed`, `ready`, and `stopped`. Session lifecycle values describe agent work: `idle`, `working`, `review`, and `failed`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, sandbox, and diff. They isolate conversational context and activity history, not filesystem state. The controller rejects a second agent run while another session in the same workspace is active. Changes and publishing are therefore workspace-scoped, while conversation and internal activity are session-scoped.
+Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. The controller rejects a second agent run while another session in the same workspace is active. Changes, environment, and publishing are therefore workspace-scoped, while conversation and internal activity are session-scoped.
 
 ## Sandbox lifecycle
 
@@ -61,7 +62,9 @@ The container boundary includes:
 - one writable bind mount for the selected repository;
 - no Docker socket, host home, GitHub token, or Fireworks key.
 
-Commands run as `docker exec ... timeout /bin/sh -c` with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. Network isolation is deferred because initial dependency installation requires network access.
+Commands run through `docker exec -i` and a fixed launcher with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. The controller decrypts the current workspace values for each command and sends shell-quoted exports over standard input; they are never Docker command arguments or permanent container environment. Setup receives only values explicitly marked for setup. Exact configured values are redacted from captured output before tool results are recorded, though transformed values cannot be reliably recognized. Network isolation is deferred because initial dependency installation requires network access.
+
+Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization or an active agent run. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, log, and Docker-metadata exposure, not against commands that are intentionally given the values.
 
 ## Agent and authority
 

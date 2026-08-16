@@ -56,17 +56,18 @@ function formatDuration(nanoseconds) {
   return milliseconds >= 1000 ? `${(milliseconds / 1000).toFixed(1)}s` : `${Math.round(milliseconds)}ms`;
 }
 
-export function selectInspectorPanel(name, loadChanges) {
+export function selectInspectorPanel(name, loadChanges, loadEnvironment) {
   ui.inspector.querySelector(".inspector-title h2").textContent = name[0].toUpperCase() + name.slice(1);
   document.querySelectorAll(".inspector-tab").forEach((tab) => {
     const selected = tab.dataset.panel === name;
     tab.classList.toggle("active", selected);
     tab.setAttribute("aria-selected", String(selected));
   });
-  for (const panel of [ui.activityPanel, ui.changesPanel, ui.publishPanel]) {
+  for (const panel of [ui.activityPanel, ui.changesPanel, ui.environmentPanel, ui.publishPanel]) {
     panel.classList.toggle("active", panel.id === `${name}-panel`);
   }
   if (name === "changes") loadChanges();
+  if (name === "environment") loadEnvironment();
 }
 
 export function setInspectorCollapsed(collapsed) {
@@ -77,12 +78,12 @@ export function setInspectorCollapsed(collapsed) {
   try { localStorage.setItem("ayati.inspector.collapsed", String(collapsed)); } catch (_) { /* optional preference */ }
 }
 
-export function initializeInspector(loadChanges) {
+export function initializeInspector(loadChanges, loadEnvironment) {
   ui.inspectorToggle.addEventListener("click", () => {
     setInspectorCollapsed(!ui.dashboard.classList.contains("inspector-collapsed"));
   });
   document.querySelectorAll(".inspector-tab").forEach((tab) => {
-    tab.addEventListener("click", () => selectInspectorPanel(tab.dataset.panel, loadChanges));
+    tab.addEventListener("click", () => selectInspectorPanel(tab.dataset.panel, loadChanges, loadEnvironment));
   });
   let collapsed = window.matchMedia("(max-width: 880px)").matches;
   try {

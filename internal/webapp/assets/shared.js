@@ -7,6 +7,7 @@ for (const [name, selector] of Object.entries({
   baseBranch: "#base-branch", createBranch: "#create-branch", branch: "#branch", setup: "#setup",
   newBranchField: "#new-branch-field", existingBranchField: "#existing-branch-field",
   existingBranch: "#existing-branch",
+  addCreateEnvironment: "#add-create-environment", createEnvironmentList: "#create-environment-list",
   formError: "#form-error", list: "#workspace-list", navEmpty: "#workspace-nav-empty",
   template: "#workspace-template", sessionTemplate: "#session-template",
   home: "#workspace-home", workspaceEmpty: "#workspace-empty",
@@ -20,6 +21,10 @@ for (const [name, selector] of Object.entries({
   detailError: "#detail-error", inspector: "#inspector", inspectorToggle: "#inspector-toggle",
   inspectorEmpty: "#inspector-empty", inspectorContent: "#inspector-content",
   activityPanel: "#activity-panel", changesPanel: "#changes-panel", publishPanel: "#publish-panel",
+  environmentPanel: "#environment-panel", environmentList: "#environment-list",
+  environmentForm: "#environment-form", environmentName: "#environment-name",
+  environmentValue: "#environment-value", environmentSetup: "#environment-setup",
+  environmentError: "#environment-error", cancelEnvironmentEdit: "#cancel-environment-edit",
   activityState: "#activity-state", activity: "#activity",
 })) ui[name] = document.querySelector(selector);
 

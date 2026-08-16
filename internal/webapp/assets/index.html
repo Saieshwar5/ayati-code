@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ayati</title>
   <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/environment.css">
 </head>
 <body>
   <main>
@@ -90,6 +91,17 @@
             <label>Setup command <span class="optional">optional, detected automatically</span>
               <input id="setup" placeholder="go mod download">
             </label>
+            <section class="create-environment" aria-labelledby="create-environment-title">
+              <div class="section-heading">
+                <div>
+                  <p class="eyebrow">Environment</p>
+                  <h3 id="create-environment-title">Workspace variables</h3>
+                </div>
+                <button id="add-create-environment" class="quiet compact" type="button">Add variable</button>
+              </div>
+              <p class="scope-note">Encrypted locally and shared by every session. Values are not added to the repository.</p>
+              <div id="create-environment-list" class="environment-drafts"></div>
+            </section>
             <div id="form-error" class="error hidden"></div>
             <div class="form-actions">
               <button class="primary" type="submit">Create and initialize</button>
@@ -135,6 +147,7 @@
           <div class="inspector-tabs" role="tablist" aria-label="Workspace details">
             <button class="inspector-tab active" type="button" data-panel="activity" role="tab" aria-selected="true">Activity<span>Session</span></button>
             <button class="inspector-tab" type="button" data-panel="changes" role="tab" aria-selected="false">Changes<span>Workspace</span></button>
+            <button class="inspector-tab" type="button" data-panel="environment" role="tab" aria-selected="false">Environment<span>Workspace</span></button>
             <button class="inspector-tab" type="button" data-panel="publish" role="tab" aria-selected="false">Publish<span>Workspace</span></button>
           </div>
 
@@ -153,6 +166,34 @@
             </div>
             <p class="scope-note">Changes are shared by every session in this workspace.</p>
             <pre id="changes" class="changes-output">No changes loaded.</pre>
+          </section>
+
+          <section id="environment-panel" class="inspector-panel" role="tabpanel">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">Development</p>
+                <h3>Environment variables</h3>
+              </div>
+            </div>
+            <p class="scope-note">Values are write-only, encrypted locally, and available to shell commands in every session.</p>
+            <div id="environment-list" class="environment-list"></div>
+            <form id="environment-form" class="environment-form">
+              <label>Name
+                <input id="environment-name" autocomplete="off" placeholder="DATABASE_URL" required>
+              </label>
+              <label>Value
+                <input id="environment-value" type="password" autocomplete="new-password" placeholder="Enter a new value" required>
+              </label>
+              <label class="check-row">
+                <input id="environment-setup" type="checkbox">
+                Also expose during dependency setup
+              </label>
+              <div id="environment-error" class="error hidden"></div>
+              <div class="environment-actions">
+                <button id="cancel-environment-edit" class="quiet hidden" type="button">Cancel</button>
+                <button class="primary" type="submit">Add variable</button>
+              </div>
+            </form>
           </section>
 
           <section id="publish-panel" class="inspector-panel" role="tabpanel">

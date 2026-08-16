@@ -16,10 +16,16 @@ type fakeRunner struct {
 	results []commandResult
 	errors  []error
 	calls   [][]string
+	inputs  []string
 }
 
 func (f *fakeRunner) Run(_ context.Context, arguments ...string) (commandResult, error) {
+	return f.RunInput(context.Background(), "", arguments...)
+}
+
+func (f *fakeRunner) RunInput(_ context.Context, input string, arguments ...string) (commandResult, error) {
 	f.calls = append(f.calls, append([]string(nil), arguments...))
+	f.inputs = append(f.inputs, input)
 	result, err := commandResult{}, error(nil)
 	if len(f.results) > 0 {
 		result, f.results = f.results[0], f.results[1:]
@@ -78,8 +84,35 @@ func TestShellExecutesOnlyCommandInsideWorkspaceSandbox(t *testing.T) {
 		t.Fatalf("result = %#v", result)
 	}
 	call := runner.calls[0]
-	if call[0] != "exec" || call[1] != "ayati-workspace-1234" || call[len(call)-1] != "go test ./..." {
+	if call[0] != "exec" || call[1] != "-i" || call[2] != "ayati-workspace-1234" || call[len(call)-1] != "go test ./..." {
 		t.Fatalf("call = %#v", call)
+	}
+}
+
+func TestShellInjectsAndRedactsWorkspaceEnvironment(t *testing.T) {
+	runner := &fakeRunner{results: []commandResult{{
+		stdout: "token=very-secret-value\n", stderr: "very-secret-value failed\n", exitCode: 1,
+	}}}
+	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
+	shell, err := manager.Open("ayati-workspace-1234", map[string]string{"PROJECT_TOKEN": "very-secret-value"})
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "printenv PROJECT_TOKEN"})
+	arguments := strings.Join(runner.calls[0], " ")
+	if strings.Contains(arguments, "very-secret-value") || !strings.Contains(runner.inputs[0], "very-secret-value") {
+		t.Fatalf("arguments = %q, input = %q", arguments, runner.inputs[0])
+	}
+	if strings.Contains(result.Stdout+result.Stderr, "very-secret-value") ||
+		!strings.Contains(result.Stdout, "[REDACTED:PROJECT_TOKEN]") {
+		t.Fatalf("result = %#v", result)
+	}
+}
+
+func TestRedactionCoversSecretAtTruncationBoundary(t *testing.T) {
+	value := redactEnvironment("output very-secr", map[string]string{"TOKEN": "very-secret-value"}, true)
+	if strings.Contains(value, "very-secr") || !strings.Contains(value, "[REDACTED:TOKEN]") {
+		t.Fatalf("redacted output = %q", value)
 	}
 }
 
@@ -87,6 +120,13 @@ func TestManagerRejectsUnscopedContainerName(t *testing.T) {
 	manager := &Manager{runner: &fakeRunner{}}
 	if err := manager.Remove(context.Background(), "postgres"); err == nil {
 		t.Fatal("Remove accepted an unscoped container")
+	}
+}
+
+func TestManagerRejectsUnsafeEnvironmentName(t *testing.T) {
+	manager := &Manager{runner: &fakeRunner{}}
+	if _, err := manager.Open("ayati-workspace-1234", map[string]string{"BAD-NAME": "value"}); err == nil {
+		t.Fatal("Open accepted an unsafe environment name")
 	}
 }
 

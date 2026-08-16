@@ -42,9 +42,21 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	created_at TEXT NOT NULL
 )`
 
+const environmentSchema = `CREATE TABLE IF NOT EXISTS workspace_environment (
+	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+	name TEXT NOT NULL,
+	ciphertext BLOB NOT NULL,
+	nonce BLOB NOT NULL,
+	expose_during_setup INTEGER NOT NULL DEFAULT 0,
+	created_at TEXT NOT NULL,
+	updated_at TEXT NOT NULL,
+	PRIMARY KEY (workspace_id, name)
+)`
+
 func (s *Store) configure() error {
 	for _, statement := range []string{
-		`PRAGMA journal_mode = WAL`, `PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`, workspaceSchema,
+		`PRAGMA journal_mode = WAL`, `PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`,
+		workspaceSchema, environmentSchema,
 	} {
 		if _, err := s.db.Exec(statement); err != nil {
 			return fmt.Errorf("initialize database: %w", err)
@@ -98,7 +110,7 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 		WHERE status IN ('working', 'agent_failed', 'review', 'pull_request_open', 'done')`, StatusReady); err != nil {
 		return fmt.Errorf("normalize workspace status: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `PRAGMA user_version = 1`); err != nil {
+	if _, err := tx.ExecContext(ctx, `PRAGMA user_version = 2`); err != nil {
 		return fmt.Errorf("record schema version: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

@@ -42,6 +42,8 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 The controller owns GitHub, Git, SQLite, Docker lifecycle, and Fireworks credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
 
+Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or Fireworks credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
+
 Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, and only the selected workspace writable. Preserve command, output, timeout, workspace, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
 
 Each workspace keeps one named sandbox until the user stops it. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.

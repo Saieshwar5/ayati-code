@@ -1,5 +1,6 @@
 import { api, option, show, state, ui } from "./shared.js";
 import { loadWorkspaces } from "./navigation.js";
+import { creationEnvironment, resetCreationEnvironment } from "./environment.js";
 
 async function start() {
   try {
@@ -131,9 +132,11 @@ ui.form.addEventListener("submit", async (event) => {
         branch: ui.createBranch.checked ? ui.branch.value : ui.existingBranch.value,
         create_branch: ui.createBranch.checked,
         setup_command: ui.setup.value,
+        environment: creationEnvironment(),
       }),
     });
     ui.form.reset();
+    resetCreationEnvironment();
     syncBranch();
     await loadWorkspaces({ selectWorkspaceID: created.id });
   } catch (error) {

@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
@@ -30,6 +29,7 @@ type commandResult struct {
 
 type runner interface {
 	Run(context.Context, ...string) (commandResult, error)
+	RunInput(context.Context, string, ...string) (commandResult, error)
 }
 
 type Manager struct {
@@ -101,11 +101,14 @@ func (m *Manager) Ensure(ctx context.Context, spec Spec) error {
 	return nil
 }
 
-func (m *Manager) Open(name string) (agent.Shell, error) {
+func (m *Manager) Open(name string, variables map[string]string) (agent.Shell, error) {
 	if err := validateName(name); err != nil {
 		return nil, err
 	}
-	return &Shell{manager: m, name: name, timeout: commandTimeout}, nil
+	if err := validateVariables(variables); err != nil {
+		return nil, err
+	}
+	return &Shell{manager: m, name: name, timeout: commandTimeout, variables: copyVariables(variables)}, nil
 }
 
 func (m *Manager) Remove(ctx context.Context, name string) error {
@@ -168,9 +171,10 @@ func (m *Manager) run(ctx context.Context, arguments ...string) (commandResult, 
 }
 
 type Shell struct {
-	manager *Manager
-	name    string
-	timeout time.Duration
+	manager   *Manager
+	name      string
+	timeout   time.Duration
+	variables map[string]string
 }
 
 func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.ShellResult {
@@ -188,9 +192,8 @@ func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.S
 	callContext, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	seconds := strconv.Itoa(int(s.timeout.Seconds()))
-	output, err := s.manager.runner.Run(callContext,
-		"exec", s.name, "timeout", "-k", "1", seconds, "/bin/sh", "-c", command,
-	)
+	input, arguments := environmentCommand(s.name, seconds, command, s.variables)
+	output, err := s.manager.runner.RunInput(callContext, input, arguments...)
 	contextErr := callContext.Err()
 	var stopErr error
 	if contextErr != nil {
@@ -198,8 +201,8 @@ func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.S
 		stopErr = s.manager.stop(stopContext, s.name)
 		stopCancel()
 	}
-	result.Stdout = output.stdout
-	result.Stderr = output.stderr
+	result.Stdout = redactEnvironment(output.stdout, s.variables, output.truncated)
+	result.Stderr = redactEnvironment(output.stderr, s.variables, output.truncated)
 	result.ExitCode = output.exitCode
 	result.Truncated = output.truncated
 	result.Duration = time.Since(started)
@@ -239,57 +242,3 @@ func validateName(name string) error {
 	}
 	return nil
 }
-
-type osRunner struct{ docker string }
-
-func (r osRunner) Run(ctx context.Context, arguments ...string) (commandResult, error) {
-	stdout := &boundedBuffer{limit: outputLimit}
-	stderr := &boundedBuffer{limit: outputLimit}
-	command := exec.CommandContext(ctx, r.docker, arguments...)
-	command.Stdout = stdout
-	command.Stderr = stderr
-	command.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-	command.Cancel = func() error {
-		if command.Process == nil {
-			return nil
-		}
-		return syscall.Kill(-command.Process.Pid, syscall.SIGKILL)
-	}
-	command.WaitDelay = time.Second
-	err := command.Run()
-	result := commandResult{
-		stdout: stdout.String(), stderr: stderr.String(), exitCode: 0,
-		truncated: stdout.truncated || stderr.truncated,
-	}
-	if err == nil {
-		return result, nil
-	}
-	result.exitCode = -1
-	var exitError *exec.ExitError
-	if errors.As(err, &exitError) {
-		result.exitCode = exitError.ExitCode()
-	}
-	return result, err
-}
-
-type boundedBuffer struct {
-	data      []byte
-	limit     int
-	truncated bool
-}
-
-func (b *boundedBuffer) Write(value []byte) (int, error) {
-	available := b.limit - len(b.data)
-	if available > len(value) {
-		available = len(value)
-	}
-	if available > 0 {
-		b.data = append(b.data, value[:available]...)
-	}
-	if available < len(value) {
-		b.truncated = true
-	}
-	return len(value), nil
-}
-
-func (b *boundedBuffer) String() string { return string(b.data) }

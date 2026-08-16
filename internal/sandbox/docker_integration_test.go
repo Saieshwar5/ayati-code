@@ -27,7 +27,7 @@ func TestDockerPersistentWorkspaceIntegration(t *testing.T) {
 		t.Fatalf("Ensure: %v", err)
 	}
 	t.Cleanup(func() { _ = manager.Remove(context.Background(), name) })
-	shell, err := manager.Open(name)
+	shell, err := manager.Open(name, map[string]string{"AYATI_TEST_VALUE": "sandbox-secret"})
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -36,6 +36,7 @@ func TestDockerPersistentWorkspaceIntegration(t *testing.T) {
 		`test -z "$FIREWORKS_API_KEY"`,
 		`command -v git`, `command -v go`, `command -v node`, `command -v npm`,
 		`command -v python3`, `command -v rg`,
+		`test "$AYATI_TEST_VALUE" = sandbox-secret`,
 		`printf persistent > .ayati-integration`,
 	}, " && ")
 	result := shell.Execute(ctx, agent.ShellRequest{Command: command})

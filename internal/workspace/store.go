@@ -53,9 +53,13 @@ type Create struct {
 	Setup        string
 	Path         string
 	Root         string
+	Environment  []EnvironmentInput
 }
 
-type Store struct{ db *sql.DB }
+type Store struct {
+	db     *sql.DB
+	sealer *environmentSealer
+}
 
 func DefaultPath() (string, error) {
 	root, err := os.UserConfigDir()
@@ -77,7 +81,17 @@ func Open(path string) (*Store, error) {
 		return nil, fmt.Errorf("open database: %w", err)
 	}
 	db.SetMaxOpenConns(1)
-	store := &Store{db: db}
+	var schemaVersion int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&schemaVersion); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("inspect database version: %w", err)
+	}
+	sealer, err := newEnvironmentSealer(path, schemaVersion >= 2)
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	store := &Store{db: db, sealer: sealer}
 	if err := store.configure(); err != nil {
 		db.Close()
 		return nil, err
@@ -142,6 +156,9 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		return Workspace{}, fmt.Errorf("create workspace: %w", err)
 	}
 	if _, err := createSession(ctx, tx, value.ID, "Original session", now); err != nil {
+		return Workspace{}, err
+	}
+	if err := s.insertEnvironment(ctx, tx, value.ID, input.Environment, now); err != nil {
 		return Workspace{}, err
 	}
 	if err := tx.Commit(); err != nil {
