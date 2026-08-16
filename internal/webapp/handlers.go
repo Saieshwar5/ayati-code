@@ -67,7 +67,7 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	value, err := s.store.Create(request.Context(), workspace.Create{
+	value, err := s.createManagedWorkspace(request.Context(), workspace.Create{
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: input.CreateBranch,
 		Authority: authority, Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
@@ -76,11 +76,6 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, "create workspace")
 		return
 	}
-	go func() {
-		if err := s.workspaces.Initialize(s.ctx, value.ID); err != nil {
-			s.logger.Printf("initialize workspace %s: %v", value.ID, err)
-		}
-	}()
 	s.writeJSON(writer, http.StatusAccepted, value)
 }
 

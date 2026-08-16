@@ -147,6 +147,16 @@ export interface CreateWorkspaceInput {
   environment: EnvironmentInput[];
 }
 
+export interface CreateNewProjectInput {
+  name: string;
+  description: string;
+  private: boolean;
+  authority: WorkspaceAuthority;
+  branch: string;
+  setup_command: string;
+  environment: EnvironmentInput[];
+}
+
 export interface AuthorityChangeInput {
   authority: WorkspaceAuthority;
   branch: string;

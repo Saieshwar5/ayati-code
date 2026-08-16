@@ -1,6 +1,6 @@
 # Ayati
 
-Ayati is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from a repository and branch, lets Ayati initialize its dependencies inside one persistent Docker sandbox, works through one or more focused chat sessions, reviews the shared diff, and opens a draft pull request.
+Ayati is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Ayati initialize its dependencies inside one persistent Docker sandbox, works through one or more focused chat sessions, reviews the shared diff, and opens a draft pull request.
 
 The controller is one Go process on your machine. Workspace metadata and complete conversations live in SQLite. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
 
@@ -38,6 +38,7 @@ Create a GitHub App for the local instance and give it these repository permissi
 
 - Contents: read and write
 - Pull requests: read and write
+- Administration: read and write (required only when Ayati creates a new repository)
 - Metadata: read-only
 
 Set its callback URL to `http://127.0.0.1:8080/auth/github/callback`, install it on the repositories you want to expose, then start Ayati with its client credentials:
@@ -53,7 +54,7 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 ## Workspace flow
 
 1. Sign in through the GitHub App.
-2. Choose an installed repository, starting branch, and workspace authority. Explore is the protected default; Develop additionally asks for a working branch.
+2. Choose an installed repository, or create a personal GitHub repository from Ayati. New repositories are private by default and initialized with a README. Choose the workspace authority; Explore is the protected default, while Develop additionally asks for a local working branch.
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
 4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and authority sealing. Ayati encrypts its environment, deterministically records the project profile and clean Git commit, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. If several applications are detected, preparation pauses for a project-root choice and continues after that choice. Explore is sealed only when setup leaves tracked and non-ignored project files unchanged, then recreated with `/workspace` read-only before the agent can run.
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes.
@@ -85,6 +86,8 @@ Back up `ayati.db` and `environment.key` together. Ayati refuses to replace a mi
 Each active workspace gets one named Docker container. It runs as a non-root user with a read-only root filesystem, dropped capabilities, no-new-privileges, PID/memory/CPU bounds, and the selected repository mounted at `/workspace`. Explore mounts it read-only; Develop mounts it read-write. Writable `/tmp` and `/home/ayati` tmpfs locations remain available in both authorities. `/cache` is a separate writable bind under the managed workspace directory, so language and package-manager caches survive container recreation without making the repository writable. Ayati inspects the effective repository and cache mounts and replaces a container whose configuration does not match the controller. The Docker socket, host home, and controller credentials are not mounted. Network access remains enabled so dependency installation and project tests can work; this is a strong local boundary, not a complete hostile-code security system.
 
 Workspace deletion is restricted to the managed data root. It removes the owned container and local workspace directory before cascading the workspace's sessions and messages from SQLite. Remote GitHub data is outside this action.
+
+New-project creation is also controller-owned. Ayati creates the remote repository before recording and preparing the local workspace, and never automatically deletes that repository if a later local step fails. The error names the created repository so the user can retry or manage it explicitly.
 
 ## Development
 

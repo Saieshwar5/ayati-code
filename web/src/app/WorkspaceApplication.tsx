@@ -81,6 +81,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onShowCreate={controller.showCreate}
               onCancel={controller.closeCreate}
               onCreate={controller.createWorkspace}
+              onCreateProject={controller.createNewProject}
             />
           )}
         </section>
