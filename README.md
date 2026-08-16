@@ -53,13 +53,13 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 ## Workspace flow
 
 1. Sign in through the GitHub App.
-2. Choose an installed repository and an existing branch, or create a working branch.
+2. Choose an installed repository, starting branch, and workspace authority. Explore is the protected default; Develop additionally asks for a working branch.
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
-4. Create the workspace. Ayati encrypts its environment, clones the branch, starts its named sandbox, detects the dependency setup command, and runs that command inside the sandbox.
+4. Create the workspace. Ayati encrypts its environment, clones the branch, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. Explore is then recreated with `/workspace` read-only before the agent can run.
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes.
 6. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
 7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
-8. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request.
+8. In Develop, review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Explore rejects publishing.
 9. Stop the workspace when finished. This removes its container but preserves the cloned repository, environment, sessions, conversations, and SQLite record.
 10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
@@ -79,7 +79,7 @@ Workspace environment values are encrypted in SQLite with a private local key. A
 
 Back up `ayati.db` and `environment.key` together. Ayati refuses to replace a missing key for a database that already uses encrypted workspace environments.
 
-Each active workspace gets one named Docker container. It runs as a non-root user with a read-only root filesystem, dropped capabilities, no-new-privileges, PID/memory/CPU bounds, and only that workspace mounted writable at `/workspace`. The Docker socket, host home, and controller credentials are not mounted. Network access remains enabled so dependency installation and project tests can work; this is a strong local boundary, not a complete hostile-code security system.
+Each active workspace gets one named Docker container. It runs as a non-root user with a read-only root filesystem, dropped capabilities, no-new-privileges, PID/memory/CPU bounds, and the selected repository mounted at `/workspace`. Explore mounts it read-only; Develop mounts it read-write. Writable `/tmp`, `/home/ayati`, and `/cache` tmpfs locations remain available in both authorities. Ayati inspects the effective Docker mount and replaces a container whose mode or image does not match SQLite. The Docker socket, host home, and controller credentials are not mounted. Network access remains enabled so dependency installation and project tests can work; this is a strong local boundary, not a complete hostile-code security system.
 
 Workspace deletion is restricted to the managed data root. It removes the owned container and local workspace directory before cascading the workspace's sessions and messages from SQLite. Remote GitHub data is outside this action.
 

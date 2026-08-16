@@ -20,6 +20,7 @@ type Loop struct {
 	Recorder Recorder
 	Observer Observer
 	Model    string
+	Prompt   string
 }
 
 func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Completion, error) {
@@ -43,8 +44,12 @@ func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Com
 		if l.Observer != nil {
 			l.Observer.Step(step, MaxSteps)
 		}
+		prompt := strings.TrimSpace(l.Prompt)
+		if prompt == "" {
+			prompt = SystemPrompt
+		}
 		message, err := l.Provider.Next(ctx, Request{
-			Model: l.Model, SystemPrompt: SystemPrompt, Messages: append([]Message(nil), (*history)...),
+			Model: l.Model, SystemPrompt: prompt, Messages: append([]Message(nil), (*history)...),
 		})
 		if err != nil {
 			return Completion{Steps: step}, err

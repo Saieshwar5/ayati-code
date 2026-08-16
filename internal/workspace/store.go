@@ -27,21 +27,23 @@ var statuses = map[string]bool{
 }
 
 type Workspace struct {
-	ID                string    `json:"id"`
-	Repository        string    `json:"repository"`
-	CloneURL          string    `json:"clone_url"`
-	BaseBranch        string    `json:"base_branch"`
-	Branch            string    `json:"branch"`
-	CreateBranch      bool      `json:"create_branch"`
-	Setup             string    `json:"setup_command"`
-	Path              string    `json:"path"`
-	SandboxName       string    `json:"sandbox_name"`
-	Status            string    `json:"status"`
-	Error             string    `json:"error,omitempty"`
-	PullRequestNumber int       `json:"pull_request_number,omitempty"`
-	PullRequestURL    string    `json:"pull_request_url,omitempty"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+	ID                 string    `json:"id"`
+	Repository         string    `json:"repository"`
+	CloneURL           string    `json:"clone_url"`
+	BaseBranch         string    `json:"base_branch"`
+	Branch             string    `json:"branch"`
+	CreateBranch       bool      `json:"create_branch"`
+	Authority          Authority `json:"authority"`
+	EffectiveMountMode string    `json:"effective_mount_mode,omitempty"`
+	Setup              string    `json:"setup_command"`
+	Path               string    `json:"path"`
+	SandboxName        string    `json:"sandbox_name"`
+	Status             string    `json:"status"`
+	Error              string    `json:"error,omitempty"`
+	PullRequestNumber  int       `json:"pull_request_number,omitempty"`
+	PullRequestURL     string    `json:"pull_request_url,omitempty"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 type Create struct {
@@ -50,6 +52,7 @@ type Create struct {
 	BaseBranch   string
 	Branch       string
 	CreateBranch bool
+	Authority    Authority
 	Setup        string
 	Path         string
 	Root         string
@@ -113,6 +116,11 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
 	input.Branch = strings.TrimSpace(input.Branch)
 	input.Setup = strings.TrimSpace(input.Setup)
+	authority, err := ParseAuthority(string(input.Authority))
+	if err != nil {
+		return Workspace{}, err
+	}
+	input.Authority = authority
 	if input.Repository == "" || input.CloneURL == "" || input.BaseBranch == "" || input.Branch == "" {
 		return Workspace{}, errors.New("repository, clone URL, base branch, and branch are required")
 	}
@@ -136,6 +144,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		ID: id, Repository: input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
 		CreateBranch: input.CreateBranch,
+		Authority:    input.Authority,
 		Path:         path, SandboxName: "ayati-workspace-" + id, Status: StatusCreating,
 		CreatedAt: now, UpdatedAt: now,
 	}
@@ -145,11 +154,12 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
-		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
+		id, repository, clone_url, base_branch, branch, create_branch, authority,
+		effective_mount_mode, setup_command, path,
 		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, '', 0, '', ?, ?)`,
 		value.ID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
-		value.CreateBranch, value.Setup, value.Path, value.SandboxName, value.Status,
+		value.CreateBranch, value.Authority, value.Setup, value.Path, value.SandboxName, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
 	if err != nil {
@@ -253,7 +263,7 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 }
 
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
-	create_branch, setup_command, path, sandbox_name, status, error,
+	create_branch, authority, effective_mount_mode, setup_command, path, sandbox_name, status, error,
 	pull_request_number, pull_request_url, created_at, updated_at FROM workspaces`
 
 type scanner interface{ Scan(...any) error }
@@ -263,7 +273,8 @@ func scanWorkspace(row scanner) (Workspace, error) {
 	var createdAt, updatedAt string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
-		&value.CreateBranch, &value.Setup, &value.Path, &value.SandboxName, &value.Status, &value.Error,
+		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode, &value.Setup,
+		&value.Path, &value.SandboxName, &value.Status, &value.Error,
 		&value.PullRequestNumber, &value.PullRequestURL,
 		&createdAt, &updatedAt,
 	)

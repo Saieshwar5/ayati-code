@@ -14,6 +14,8 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	base_branch TEXT NOT NULL,
 	branch TEXT NOT NULL,
 	create_branch INTEGER NOT NULL,
+	authority TEXT NOT NULL DEFAULT 'explore' CHECK (authority IN ('explore', 'develop')),
+	effective_mount_mode TEXT NOT NULL DEFAULT '',
 	setup_command TEXT NOT NULL,
 	path TEXT NOT NULL UNIQUE,
 	sandbox_name TEXT NOT NULL UNIQUE,
@@ -62,7 +64,52 @@ func (s *Store) configure() error {
 			return fmt.Errorf("initialize database: %w", err)
 		}
 	}
-	return s.migrateSessions(context.Background())
+	if err := s.migrateSessions(context.Background()); err != nil {
+		return err
+	}
+	return s.migrateWorkspaceAuthority(context.Background())
+}
+
+func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {
+	columns, err := databaseColumns(ctx, s.db, "workspaces")
+	if err != nil {
+		return err
+	}
+	statements := []string{}
+	if !columns["authority"] {
+		statements = append(statements,
+			`ALTER TABLE workspaces ADD COLUMN authority TEXT NOT NULL DEFAULT 'develop'`)
+	}
+	if !columns["effective_mount_mode"] {
+		statements = append(statements,
+			`ALTER TABLE workspaces ADD COLUMN effective_mount_mode TEXT NOT NULL DEFAULT ''`)
+	}
+	statements = append(statements, `PRAGMA user_version = 3`)
+	for _, statement := range statements {
+		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate workspace authority: %w", err)
+		}
+	}
+	return nil
+}
+
+func databaseColumns(ctx context.Context, db *sql.DB, table string) (map[string]bool, error) {
+	rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
+	if err != nil {
+		return nil, fmt.Errorf("inspect %s schema: %w", table, err)
+	}
+	defer rows.Close()
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var position, notNull, primaryKey int
+		var name, kind string
+		var defaultValue any
+		if err := rows.Scan(&position, &name, &kind, &notNull, &defaultValue, &primaryKey); err != nil {
+			return nil, err
+		}
+		columns[name] = true
+	}
+	return columns, rows.Err()
 }
 
 func (s *Store) migrateSessions(ctx context.Context) error {

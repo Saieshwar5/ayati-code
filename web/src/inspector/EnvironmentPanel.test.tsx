@@ -11,6 +11,8 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "ayati/change",
   create_branch: false,
+	authority: "develop",
+	effective_mount_mode: "rw",
   setup_command: "",
   path: "/workspace",
   sandbox_name: "ayati-workspace-1",

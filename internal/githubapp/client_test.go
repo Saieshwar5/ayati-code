@@ -71,22 +71,11 @@ func TestAuthorizeURLCarriesStateAndCallback(t *testing.T) {
 	}
 }
 
-func TestClientCreatesBranchAndDraftPullRequest(t *testing.T) {
+func TestClientCreatesDraftPullRequest(t *testing.T) {
 	transport := roundTripFunc(func(request *http.Request) (*http.Response, error) {
 		assertBearer(t, request)
 		body := ""
 		switch request.Method + " " + request.URL.Path {
-		case "GET /repos/owner/project/branches/main":
-			body = `{"name":"main","commit":{"sha":"abc123"}}`
-		case "POST /repos/owner/project/git/refs":
-			var input map[string]string
-			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
-				t.Fatalf("decode ref request: %v", err)
-			}
-			if input["ref"] != "refs/heads/ayati/change" || input["sha"] != "abc123" {
-				t.Fatalf("ref request = %#v", input)
-			}
-			body = `{}`
 		case "POST /repos/owner/project/pulls":
 			var input map[string]any
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
@@ -109,9 +98,6 @@ func TestClientCreatesBranchAndDraftPullRequest(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	client.httpClient = &http.Client{Transport: transport}
-	if err := client.CreateBranch(context.Background(), "token", "owner/project", "main", "ayati/change"); err != nil {
-		t.Fatalf("CreateBranch: %v", err)
-	}
 	pull, err := client.CreatePullRequest(
 		context.Background(), "token", "owner/project", "main", "ayati/change", "Change", "Body",
 	)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,15 +12,22 @@ import (
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
 )
 
-type fakeRuntime struct{ shell agent.Shell }
-
-func (f fakeRuntime) Shell(_ context.Context, _ string) (agent.Shell, workspace.Workspace, error) {
-	return f.shell, workspace.Workspace{}, nil
+type fakeRuntime struct {
+	shell     agent.Shell
+	workspace workspace.Workspace
 }
 
-type scriptedProvider struct{ messages []agent.Message }
+func (f fakeRuntime) Shell(_ context.Context, _ string) (agent.Shell, workspace.Workspace, error) {
+	return f.shell, f.workspace, nil
+}
 
-func (p *scriptedProvider) Next(_ context.Context, _ agent.Request) (agent.Message, error) {
+type scriptedProvider struct {
+	messages []agent.Message
+	requests []agent.Request
+}
+
+func (p *scriptedProvider) Next(_ context.Context, request agent.Request) (agent.Message, error) {
+	p.requests = append(p.requests, request)
 	message := p.messages[0]
 	p.messages = p.messages[1:]
 	return message, nil
@@ -67,13 +75,17 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 	shell := &fakeShell{}
-	service, err := New(store, fakeRuntime{shell: shell}, provider, "test-model")
+	service, err := New(store, fakeRuntime{shell: shell, workspace: value}, provider, "test-model")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	completion, err := service.Send(context.Background(), value.ID, sessions[0].ID, "work on it")
 	if err != nil || completion.Text != "done" || len(shell.commands) != 1 {
 		t.Fatalf("completion = %#v, commands = %#v, error = %v", completion, shell.commands, err)
+	}
+	if len(provider.requests) == 0 ||
+		!strings.Contains(provider.requests[0].SystemPrompt, "physically mounted read-only") {
+		t.Fatalf("system prompt = %q", provider.requests[0].SystemPrompt)
 	}
 	messages, err := service.Messages(context.Background(), value.ID, sessions[0].ID)
 	if err != nil || len(messages) != 4 || messages[0].Role != "user" || messages[3].Content != "done" {

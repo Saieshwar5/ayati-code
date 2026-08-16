@@ -26,7 +26,6 @@ type githubClient interface {
 	CurrentUser(context.Context, string) (githubapp.User, error)
 	Repositories(context.Context, string) ([]githubapp.Repository, error)
 	Branches(context.Context, string, string) ([]githubapp.Branch, error)
-	CreateBranch(context.Context, string, string, string, string) error
 	CreatePullRequest(context.Context, string, string, string, string, string, string) (githubapp.PullRequest, error)
 }
 

@@ -37,16 +37,22 @@ func (f *fakeRunner) RunInput(_ context.Context, input string, arguments ...stri
 }
 
 func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "repo")
 	runner := &fakeRunner{
-		results: []commandResult{{stderr: "No such container"}, {}, {}},
-		errors:  []error{errors.New("missing"), nil, nil},
+		results: []commandResult{
+			{stderr: "No such container"}, {}, {},
+			{stdout: "true|1234|ayati:test|" + path + "|false\n"},
+		},
+		errors: []error{errors.New("missing")},
 	}
 	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
-	path := filepath.Join(t.TempDir(), "repo")
-	if err := manager.Ensure(context.Background(), Spec{Name: "ayati-workspace-1234", Path: path}); err != nil {
+	mode, err := manager.Ensure(context.Background(), Spec{
+		Name: "ayati-workspace-1234", Path: path, MountMode: MountReadOnly,
+	})
+	if err != nil || mode != MountReadOnly {
 		t.Fatalf("Ensure: %v", err)
 	}
-	if len(runner.calls) != 3 {
+	if len(runner.calls) != 4 {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
 	create := runner.calls[1]
@@ -54,7 +60,9 @@ func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
 		t.Fatalf("create call = %#v", create)
 	}
 	joined := strings.Join(create, " ")
-	for _, expected := range []string{"--read-only", "--cap-drop ALL", "dst=/workspace", "--pids-limit 256"} {
+	for _, expected := range []string{
+		"--read-only", "--cap-drop ALL", "dst=/workspace,readonly", "--pids-limit 256", "/cache:rw",
+	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("create call %q does not contain %q", joined, expected)
 		}
@@ -63,14 +71,34 @@ func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
 
 func TestManagerReusesRunningSandbox(t *testing.T) {
 	path := t.TempDir()
-	runner := &fakeRunner{results: []commandResult{{stdout: "true|1234|" + path + "\n"}}}
+	runner := &fakeRunner{results: []commandResult{{stdout: "true|1234|ayati:test|" + path + "|false\n"}}}
 	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
-	if err := manager.Ensure(context.Background(), Spec{
-		Name: "ayati-workspace-1234", Path: path,
+	if _, err := manager.Ensure(context.Background(), Spec{
+		Name: "ayati-workspace-1234", Path: path, MountMode: MountReadOnly,
 	}); err != nil {
 		t.Fatalf("Ensure: %v", err)
 	}
 	if len(runner.calls) != 1 || !reflect.DeepEqual(runner.calls[0][:3], []string{"container", "inspect", "--format"}) {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
+func TestManagerRecreatesSandboxWhenMountModeDiffers(t *testing.T) {
+	path := t.TempDir()
+	runner := &fakeRunner{results: []commandResult{
+		{stdout: "true|1234|ayati:test|" + path + "|true\n"},
+		{}, {}, {},
+		{stdout: "true|1234|ayati:test|" + path + "|false\n"},
+	}}
+	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
+	mode, err := manager.Ensure(context.Background(), Spec{
+		Name: "ayati-workspace-1234", Path: path, MountMode: MountReadOnly,
+	})
+	if err != nil || mode != MountReadOnly {
+		t.Fatalf("Ensure mode = %q, error = %v", mode, err)
+	}
+	if len(runner.calls) != 5 || runner.calls[1][0] != "rm" || runner.calls[2][0] != "create" ||
+		!strings.Contains(strings.Join(runner.calls[2], " "), "dst=/workspace,readonly") {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
 }
@@ -131,7 +159,9 @@ func TestManagerRejectsUnsafeEnvironmentName(t *testing.T) {
 }
 
 func TestManagerDoesNotRemoveContainerWithoutOwnershipLabel(t *testing.T) {
-	runner := &fakeRunner{results: []commandResult{{stdout: "true|someone-else|/tmp/project\n"}}}
+	runner := &fakeRunner{results: []commandResult{{
+		stdout: "true|someone-else|ayati:test|/tmp/project|true\n",
+	}}}
 	manager := &Manager{runner: runner}
 	if err := manager.Remove(context.Background(), "ayati-workspace-1234"); err == nil {
 		t.Fatal("Remove accepted a container with another ownership label")

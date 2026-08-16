@@ -26,7 +26,7 @@ The repository and SQLite record survive a normal Stop. A ready workspace restor
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, trusted host Git operations, setup detection, change inspection, and publish flow.
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
-- `internal/githubapp` owns GitHub user authorization, installed-repository discovery, branches, branch creation, draft pull requests, and the private credential file.
+- `internal/githubapp` owns GitHub user authorization, installed-repository discovery, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns the one-tool prompt, shared messages, and sequential 20-decision loop.
 - `internal/fireworks` owns the single Fireworks request format.
@@ -43,7 +43,7 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: repository, branch, local path, sandbox name, setup command, lifecycle status, failure, and pull-request identity.
+- `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
@@ -54,7 +54,7 @@ Sessions share one workspace clone, branch, sandbox, environment, and diff. They
 
 ## Sandbox lifecycle
 
-Initialization first clones or opens the repository with trusted host Git. It then creates `ayati-workspace-<id>` from the fixed local image and mounts only the clone at `/workspace`. Dependency setup runs through the same shell contract later used by the agent. The container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
+Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Ayati then creates `ayati-workspace-<id>` with a writable preparation mount and runs dependency setup through the same bounded shell contract later used by the agent. Before an Explore workspace becomes ready, the controller removes that container, recreates `/workspace` read-only, verifies Docker's effective mount metadata, and records it. Develop remains read-write. The ready container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
 
 Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the owned sandbox, removes that workspace directory, and finally deletes its SQLite record. Foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
 
@@ -65,7 +65,8 @@ The container boundary includes:
 - all Linux capabilities dropped and `no-new-privileges`;
 - 256 PID, 2 GiB memory, and 2 CPU limits;
 - private temporary and home tmpfs mounts;
-- one writable bind mount for the selected repository;
+- one repository bind mount, read-only for Explore and read-write for Develop;
+- writable private `/tmp`, `/home/ayati`, and `/cache` tmpfs mounts;
 - no Docker socket, host home, GitHub token, or Fireworks key.
 
 Commands run through `docker exec -i` and a fixed launcher with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. The controller decrypts the current workspace values for each command and sends shell-quoted exports over standard input; they are never Docker command arguments or permanent container environment. Setup receives only values explicitly marked for setup. Exact configured values are redacted from captured output before tool results are recorded, though transformed values cannot be reliably recognized. Network isolation is deferred because initial dependency installation requires network access.
@@ -82,7 +83,7 @@ The model receives exactly one function:
 
 There are no file, GitHub, service, lifecycle, or database tools exposed to the model. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
 
-The composer has one Send action. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. The system prompt tells the model to respect that distinction. This is an interaction contract, while the container remains the execution boundary.
+The composer has one Send action. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Publishing and authority changes remain unavailable through the model-facing shell.
 
 ## GitHub and publish boundary
 

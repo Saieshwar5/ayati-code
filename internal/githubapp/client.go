@@ -148,20 +148,6 @@ func (c *Client) Branches(ctx context.Context, token, repository string) ([]Bran
 	return branches, nil
 }
 
-func (c *Client) CreateBranch(ctx context.Context, token, repository, base, branch string) error {
-	path, err := repositoryPath(repository)
-	if err != nil {
-		return err
-	}
-	var source Branch
-	if err := c.api(ctx, token, http.MethodGet,
-		"/repos/"+path+"/branches/"+url.PathEscape(base), nil, &source); err != nil {
-		return err
-	}
-	body := map[string]string{"ref": "refs/heads/" + branch, "sha": source.Commit.SHA}
-	return c.api(ctx, token, http.MethodPost, "/repos/"+path+"/git/refs", body, &struct{}{})
-}
-
 func (c *Client) CreatePullRequest(
 	ctx context.Context, token, repository, base, head, title, body string,
 ) (PullRequest, error) {

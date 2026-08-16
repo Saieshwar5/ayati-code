@@ -53,7 +53,9 @@ export function ChatPane(props: ChatPaneProps) {
         <div className="workspace-context">
           <p className="eyebrow">{props.workspace.repository}</p>
           <h1>{props.session.title}</h1>
-          <p className="context-branch">{props.workspace.branch}</p>
+		  <p className="context-branch">
+			{props.workspace.branch} · {props.workspace.authority === "explore" ? "Explore" : "Develop"}
+		  </p>
         </div>
         <span
           className={`status ${effectiveStatus}`}
