@@ -79,6 +79,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               view={controller.view === "create" ? "create" : "empty"}
               repositories={controller.repositories}
               repositoryError={controller.repositoryError}
+              repositoryReconnectRequired={controller.repositoryReconnectRequired}
               onShowCreate={controller.showCreate}
               onCancel={controller.closeCreate}
               onCreate={controller.createWorkspace}

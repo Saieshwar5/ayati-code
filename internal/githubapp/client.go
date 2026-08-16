@@ -86,6 +86,18 @@ func (c *Client) AuthorizeURL(state string) string {
 	return c.githubURL + "/login/oauth/authorize?" + values.Encode()
 }
 
+func (c *Client) LoginURL() string {
+	callback, err := url.Parse(c.redirectURL)
+	if err != nil {
+		return ""
+	}
+	callback.Path = "/auth/github"
+	callback.RawPath = ""
+	callback.RawQuery = ""
+	callback.Fragment = ""
+	return callback.String()
+}
+
 func (c *Client) Exchange(ctx context.Context, code string) (string, error) {
 	values := url.Values{
 		"client_id": {c.clientID}, "client_secret": {c.clientSecret},

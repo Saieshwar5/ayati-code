@@ -21,6 +21,7 @@ import (
 const maxRequestBytes = 1 << 20
 
 type githubClient interface {
+	LoginURL() string
 	AuthorizeURL(string) string
 	Exchange(context.Context, string) (string, error)
 	CurrentUser(context.Context, string) (githubapp.User, error)
