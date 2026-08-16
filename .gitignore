@@ -2,6 +2,18 @@
 /dist/
 /coverage.out
 
+# Local agent metadata
+/.agents/
+/.codex/
+
+# Local SQLite state
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
 .env
 .env.*
 !.env.example
