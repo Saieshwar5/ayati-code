@@ -20,11 +20,31 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.UpdateStatus(ctx, id, StatusInitializing, ""); err != nil {
 		return err
 	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationCloning,
+		value.Repository+" · "+value.Branch); err != nil {
+		return s.fail(ctx, id, err)
+	}
 	if err := s.prepareRepository(ctx, value); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	profile, err := AnalyzeProject(value.Path)
+	if err := s.store.UpdatePreparation(ctx, id, PreparationAnalyzing,
+		"Inspecting project metadata"); err != nil {
+		return s.fail(ctx, id, err)
+	}
+	var profile ProjectProfile
+	if value.SelectedProjectRoot == "" {
+		profile, err = AnalyzeProject(value.Path)
+	} else {
+		profile, err = AnalyzeProjectAt(value.Path, value.SelectedProjectRoot)
+	}
 	if err != nil {
+		var selection ProjectSelectionRequiredError
+		if errors.As(err, &selection) {
+			if recordErr := s.store.RequireProjectSelection(ctx, id, selection.Candidates); recordErr != nil {
+				return s.fail(ctx, id, recordErr)
+			}
+			return err
+		}
 		return s.fail(ctx, id, fmt.Errorf("understand project: %w", err))
 	}
 	if value.Setup != "" {
@@ -50,12 +70,20 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.fail(ctx, id, err)
 	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
+		profilePreparationDetail(profile)); err != nil {
+		return s.fail(ctx, id, err)
+	}
 	preparation := s.sandboxSpec(value, sandbox.MountReadWrite)
 	if _, err := s.environment.Ensure(ctx, preparation); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("start sandbox: %w", err))
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
+		return s.failActivePreparation(ctx, value, err)
+	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
+		"Checking the Git baseline"); err != nil {
 		return s.failActivePreparation(ctx, value, err)
 	}
 	after, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
@@ -76,6 +104,10 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.failActivePreparation(ctx, value, err)
 	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationSealing,
+		"Applying "+string(value.Authority)+" protection"); err != nil {
+		return s.failActivePreparation(ctx, value, err)
+	}
 	ready := s.sandboxSpec(value, value.Authority.MountMode())
 	if ready.MountMode == sandbox.MountReadOnly {
 		if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
@@ -94,7 +126,7 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	return s.store.UpdateStatus(ctx, id, StatusReady, "")
+	return s.store.CompletePreparation(ctx, id)
 }
 
 func (s *Service) failActivePreparation(ctx context.Context, value Workspace, cause error) error {

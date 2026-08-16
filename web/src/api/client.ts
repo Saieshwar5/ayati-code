@@ -43,6 +43,11 @@ export const api = {
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
   initializeWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/initialize`, { method: "POST" }),
+  configureWorkspace: (id: string, projectRoot: string) =>
+    request<void>(`/api/workspaces/${id}/configure`, {
+      method: "POST",
+      body: JSON.stringify({ project_root: projectRoot }),
+    }),
   stopWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/stop`, { method: "POST" }),
   deleteWorkspace: (id: string) =>

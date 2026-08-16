@@ -54,9 +54,11 @@ export function WorkspaceNavigationItem(props: WorkspaceNavigationItemProps) {
         <details className="workspace-menu">
           <summary aria-label="Workspace actions">•••</summary>
           <div className="context-menu">
-            <button type="button" onClick={props.onCreateSession}>
-              New session
-            </button>
+            {workspace.status === "ready" && (
+              <button type="button" onClick={props.onCreateSession}>
+                New session
+              </button>
+            )}
             {(["initialization_failed", "stopped"] as const).includes(workspace.status as never) && (
               <button type="button" onClick={() => props.onAction("initialize")}>
                 Resume environment
@@ -83,9 +85,11 @@ export function WorkspaceNavigationItem(props: WorkspaceNavigationItemProps) {
 
       {expanded && (
         <div className="session-navigation">
-          <button className="inline-new-session" type="button" onClick={props.onCreateSession}>
-            ＋ New session
-          </button>
+          {workspace.status === "ready" && (
+            <button className="inline-new-session" type="button" onClick={props.onCreateSession}>
+              ＋ New session
+            </button>
+          )}
           <p className="session-heading">Sessions</p>
           <div className="session-list">
             {sessions.map((session) => (

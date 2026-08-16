@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -118,6 +119,13 @@ func TestAnalyzeProjectRequiresSelectionForMultipleProjects(t *testing.T) {
 	_, err := AnalyzeProject(root)
 	if err == nil || !strings.Contains(err.Error(), "apps/api, apps/web") {
 		t.Fatalf("AnalyzeProject error = %v", err)
+	}
+	var selection ProjectSelectionRequiredError
+	if !errors.As(err, &selection) || len(selection.Candidates) != 2 ||
+		selection.Candidates[1].ProjectRoot != "apps/web" ||
+		!reflect.DeepEqual(selection.Candidates[1].Languages, []string{"Node.js"}) ||
+		!reflect.DeepEqual(selection.Candidates[1].PackageManagers, []string{"npm"}) {
+		t.Fatalf("selection = %#v", selection)
 	}
 }
 

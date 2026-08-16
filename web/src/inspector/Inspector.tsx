@@ -8,8 +8,9 @@ import type {
 } from "../api/contracts";
 import { EnvironmentPanel } from "./EnvironmentPanel";
 import { PublishPanel } from "./PublishPanel";
+import { WorkspaceProfilePanel } from "./WorkspaceProfilePanel";
 
-type InspectorPanel = "activity" | "changes" | "environment" | "publish";
+type InspectorPanel = "workspace" | "activity" | "changes" | "environment" | "publish";
 
 interface InspectorProps {
   collapsed: boolean;
@@ -25,7 +26,7 @@ interface InspectorProps {
 }
 
 export function Inspector(props: InspectorProps) {
-  const [panel, setPanel] = useState<InspectorPanel>("activity");
+  const [panel, setPanel] = useState<InspectorPanel>("workspace");
 
   function selectPanel(next: InspectorPanel) {
     setPanel(next);
@@ -50,19 +51,21 @@ export function Inspector(props: InspectorProps) {
         </button>
       </div>
 
-      {!props.workspace || !props.session ? (
+      {!props.workspace ? (
         <div className="inspector-empty">
           <p>Select a workspace to inspect agent activity and changes.</p>
         </div>
       ) : (
         <div className="inspector-content">
           <div className="inspector-tabs" role="tablist" aria-label="Workspace details">
+            <InspectorTab name="workspace" selected={panel} onSelect={selectPanel} subtitle="Profile" />
             <InspectorTab name="activity" selected={panel} onSelect={selectPanel} subtitle="Session" />
             <InspectorTab name="changes" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
             <InspectorTab name="environment" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
             <InspectorTab name="publish" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
           </div>
-          {panel === "activity" && (
+          {panel === "workspace" && <WorkspaceProfilePanel workspace={props.workspace} />}
+          {panel === "activity" && props.session && (
             <ActivityPanel workspace={props.workspace} session={props.session} messages={props.messages} />
           )}
           {panel === "changes" && (

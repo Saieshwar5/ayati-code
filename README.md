@@ -55,7 +55,7 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 1. Sign in through the GitHub App.
 2. Choose an installed repository, starting branch, and workspace authority. Explore is the protected default; Develop additionally asks for a working branch.
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
-4. Create the workspace. Ayati encrypts its environment, clones the branch, deterministically records the project profile and clean Git commit, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. Explore is sealed only when setup leaves tracked and non-ignored project files unchanged, then recreated with `/workspace` read-only before the agent can run.
+4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and authority sealing. Ayati encrypts its environment, deterministically records the project profile and clean Git commit, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. If several applications are detected, preparation pauses for a project-root choice and continues after that choice. Explore is sealed only when setup leaves tracked and non-ignored project files unchanged, then recreated with `/workspace` read-only before the agent can run.
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes.
 6. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project using its single `shell(command)` tool.
 7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree.
@@ -64,6 +64,8 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
 Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python project files. It records the project root, runtimes, package managers, lockfiles, useful verification commands, manifest fingerprint, setup result, and baseline commit in SQLite. One nested project root is selected automatically; multiple roots stop with an explicit selection requirement instead of guessing. A workspace can supply an explicit setup command instead. Rust preparation is reported as unsupported until the sandbox includes a compatible Rust toolchain.
+
+Preparation progress, the selected project root, actionable failure stage, and configuration candidates are durable SQLite state. Reloading the browser therefore reconstructs the truthful readiness view instead of guessing from an in-memory task. Chat and additional sessions become available only after the workspace reaches `ready`; failed preparation can be retried without losing the clone or original session.
 
 ## Local data and security
 

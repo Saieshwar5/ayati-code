@@ -43,19 +43,21 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, failure, and pull-request identity.
+- `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
 
-Workspace lifecycle values describe only the environment: `creating`, `initializing`, `initialization_failed`, `ready`, and `stopped`. Session lifecycle values describe agent work: `idle`, `working`, `review`, and `failed`. Existing workspace conversations are migrated into an `Original session` without losing messages.
+Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, and `failed`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
 Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. The controller rejects a second agent run while another session in the same workspace is active. Changes, environment, and publishing are therefore workspace-scoped, while conversation and internal activity are session-scoped.
 
 ## Sandbox lifecycle
 
 Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Fixed rules inspect regular metadata files, resolve the repository root or one nested project, and derive Go, Node, and Python setup and verification commands. Multiple nested roots require a later user selection rather than an AI guess. The controller records the current commit and requires a clean Git status before setup.
+
+Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, environment metadata, and sessions.
 
 Ayati then creates `ayati-workspace-<id>` with a writable preparation mount and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller removes that writable container, recreates `/workspace` read-only, verifies Docker's effective mount metadata, and records it. Develop remains read-write. The ready container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
 

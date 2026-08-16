@@ -153,7 +153,7 @@ func (s *Service) prepareRepository(ctx context.Context, value Workspace) error 
 }
 
 func (s *Service) fail(ctx context.Context, id string, cause error) error {
-	if err := s.store.UpdateStatus(ctx, id, StatusInitializationFailed, boundedMessage(cause.Error())); err != nil {
+	if err := s.store.FailPreparation(ctx, id, boundedMessage(cause.Error())); err != nil {
 		return fmt.Errorf("%v; record failure: %w", cause, err)
 	}
 	return cause
