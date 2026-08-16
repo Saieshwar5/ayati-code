@@ -38,10 +38,11 @@ func (f *fakeRunner) RunInput(_ context.Context, input string, arguments ...stri
 
 func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "repo")
+	cache := filepath.Join(filepath.Dir(path), "cache")
 	runner := &fakeRunner{
 		results: []commandResult{
 			{stderr: "No such container"}, {}, {},
-			{stdout: "true|1234|ayati:test|" + path + "|false\n"},
+			{stdout: "true|1234|ayati:test|" + path + "|false|" + cache + "\n"},
 		},
 		errors: []error{errors.New("missing")},
 	}
@@ -61,7 +62,7 @@ func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
 	}
 	joined := strings.Join(create, " ")
 	for _, expected := range []string{
-		"--read-only", "--cap-drop ALL", "dst=/workspace,readonly", "--pids-limit 256", "/cache:rw",
+		"--read-only", "--cap-drop ALL", "dst=/workspace,readonly", "--pids-limit 256", "dst=/cache",
 	} {
 		if !strings.Contains(joined, expected) {
 			t.Fatalf("create call %q does not contain %q", joined, expected)
@@ -71,7 +72,10 @@ func TestManagerCreatesOnePersistentSandbox(t *testing.T) {
 
 func TestManagerReusesRunningSandbox(t *testing.T) {
 	path := t.TempDir()
-	runner := &fakeRunner{results: []commandResult{{stdout: "true|1234|ayati:test|" + path + "|false\n"}}}
+	cache := filepath.Join(filepath.Dir(path), "cache")
+	runner := &fakeRunner{results: []commandResult{{
+		stdout: "true|1234|ayati:test|" + path + "|false|" + cache + "\n",
+	}}}
 	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
 	if _, err := manager.Ensure(context.Background(), Spec{
 		Name: "ayati-workspace-1234", Path: path, MountMode: MountReadOnly,
@@ -85,10 +89,11 @@ func TestManagerReusesRunningSandbox(t *testing.T) {
 
 func TestManagerRecreatesSandboxWhenMountModeDiffers(t *testing.T) {
 	path := t.TempDir()
+	cache := filepath.Join(filepath.Dir(path), "cache")
 	runner := &fakeRunner{results: []commandResult{
-		{stdout: "true|1234|ayati:test|" + path + "|true\n"},
+		{stdout: "true|1234|ayati:test|" + path + "|true|" + cache + "\n"},
 		{}, {}, {},
-		{stdout: "true|1234|ayati:test|" + path + "|false\n"},
+		{stdout: "true|1234|ayati:test|" + path + "|false|" + cache + "\n"},
 	}}
 	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
 	mode, err := manager.Ensure(context.Background(), Spec{
@@ -100,6 +105,37 @@ func TestManagerRecreatesSandboxWhenMountModeDiffers(t *testing.T) {
 	if len(runner.calls) != 5 || runner.calls[1][0] != "rm" || runner.calls[2][0] != "create" ||
 		!strings.Contains(strings.Join(runner.calls[2], " "), "dst=/workspace,readonly") {
 		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
+func TestManagerRecreatesSandboxWhenCachePathDiffers(t *testing.T) {
+	path := t.TempDir()
+	cache := filepath.Join(filepath.Dir(path), "cache")
+	runner := &fakeRunner{results: []commandResult{
+		{stdout: "true|1234|ayati:test|" + path + "|false|/tmp/old-cache\n"},
+		{}, {}, {},
+		{stdout: "true|1234|ayati:test|" + path + "|false|" + cache + "\n"},
+	}}
+	manager := &Manager{docker: "docker", image: "ayati:test", runner: runner}
+	if _, err := manager.Ensure(context.Background(), Spec{
+		Name: "ayati-workspace-1234", Path: path, MountMode: MountReadOnly,
+	}); err != nil {
+		t.Fatalf("Ensure: %v", err)
+	}
+	if len(runner.calls) != 5 || runner.calls[1][0] != "rm" || runner.calls[2][0] != "create" {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
+func TestManagerRejectsWritableCacheInsideExploreProject(t *testing.T) {
+	path := t.TempDir()
+	manager := &Manager{runner: &fakeRunner{}}
+	_, err := manager.Ensure(context.Background(), Spec{
+		Name: "ayati-workspace-1234", Path: path,
+		CachePath: filepath.Join(path, ".cache"), MountMode: MountReadOnly,
+	})
+	if err == nil || !strings.Contains(err.Error(), "outside the project") {
+		t.Fatalf("Ensure error = %v", err)
 	}
 }
 
@@ -160,7 +196,7 @@ func TestManagerRejectsUnsafeEnvironmentName(t *testing.T) {
 
 func TestManagerDoesNotRemoveContainerWithoutOwnershipLabel(t *testing.T) {
 	runner := &fakeRunner{results: []commandResult{{
-		stdout: "true|someone-else|ayati:test|/tmp/project|true\n",
+		stdout: "true|someone-else|ayati:test|/tmp/project|true|/tmp/cache\n",
 	}}}
 	manager := &Manager{runner: runner}
 	if err := manager.Remove(context.Background(), "ayati-workspace-1234"); err == nil {

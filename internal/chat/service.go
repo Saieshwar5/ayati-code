@@ -77,15 +77,27 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		return agent.Completion{}, err
 	}
 	observer := &observer{}
+	workspaceContext := agent.WorkspaceContext{
+		Repository: currentWorkspace.Repository,
+		Branch:     currentWorkspace.Branch, Authority: string(currentWorkspace.Authority),
+	}
+	if profile := currentWorkspace.Profile; profile != nil {
+		workspaceContext.ProjectRoot = profile.ProjectRoot
+		workspaceContext.Languages = profile.Languages
+		workspaceContext.RuntimeVersions = profile.RuntimeVersions
+		workspaceContext.PackageManagers = profile.PackageManagers
+		workspaceContext.SetupResult = profile.SetupResult
+		workspaceContext.BaselineCommit = profile.BaselineCommit
+		workspaceContext.TestCommand = profile.TestCommand
+		workspaceContext.LintCommand = profile.LintCommand
+		workspaceContext.TypecheckCommand = profile.TypecheckCommand
+		workspaceContext.BuildCommand = profile.BuildCommand
+	}
 	loop := agent.Loop{
 		Provider: s.provider, Shell: shell,
 		Recorder: recorder{ctx: runCtx, store: s.store, sessionID: sessionID},
 		Observer: observer, Model: s.model,
-		Prompt: agent.WorkspacePrompt(agent.WorkspaceContext{
-			Repository: currentWorkspace.Repository,
-			Branch:     currentWorkspace.Branch,
-			Authority:  string(currentWorkspace.Authority),
-		}),
+		Prompt: agent.WorkspacePrompt(workspaceContext),
 	}
 	completion, err := loop.Run(runCtx, &history, text)
 	if err != nil {

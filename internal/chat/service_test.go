@@ -64,6 +64,11 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 	if err := store.UpdateStatus(context.Background(), value.ID, workspace.StatusReady, ""); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
+	value.Profile = &workspace.ProjectProfile{
+		ProjectRoot: "apps/web", Languages: []string{"Node.js"},
+		RuntimeVersions: []string{"Node 22"}, PackageManagers: []string{"pnpm"},
+		SetupResult: "passed", BaselineCommit: "abc123", TestCommand: "corepack pnpm run test",
+	}
 	sessions, err := store.ListSessions(context.Background(), value.ID)
 	if err != nil || len(sessions) != 1 {
 		t.Fatalf("sessions = %#v, error = %v", sessions, err)
@@ -84,7 +89,8 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 		t.Fatalf("completion = %#v, commands = %#v, error = %v", completion, shell.commands, err)
 	}
 	if len(provider.requests) == 0 ||
-		!strings.Contains(provider.requests[0].SystemPrompt, "physically mounted read-only") {
+		!strings.Contains(provider.requests[0].SystemPrompt, "physically mounted read-only") ||
+		!strings.Contains(provider.requests[0].SystemPrompt, "Project root: apps/web") {
 		t.Fatalf("system prompt = %q", provider.requests[0].SystemPrompt)
 	}
 	messages, err := service.Messages(context.Background(), value.ID, sessions[0].ID)

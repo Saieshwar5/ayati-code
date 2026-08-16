@@ -41,12 +41,14 @@ type Manager struct {
 type Spec struct {
 	Name      string
 	Path      string
+	CachePath string
 	MountMode MountMode
 }
 
 type containerInfo struct {
 	running   bool
 	path      string
+	cachePath string
 	mountMode MountMode
 	image     string
 }
@@ -63,7 +65,7 @@ func New(image string) (*Manager, error) {
 }
 
 func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
-	path, err := validateSpec(spec)
+	path, cachePath, err := validateSpec(spec)
 	if err != nil {
 		return "", err
 	}
@@ -75,7 +77,8 @@ func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
 		if filepath.Clean(container.path) != filepath.Clean(path) {
 			return "", fmt.Errorf("sandbox %s is mounted from a different workspace", spec.Name)
 		}
-		if container.mountMode != spec.MountMode || container.image != m.image {
+		if filepath.Clean(container.cachePath) != filepath.Clean(cachePath) ||
+			container.mountMode != spec.MountMode || container.image != m.image {
 			if _, err := m.run(ctx, "rm", "--force", "--volumes", spec.Name); err != nil {
 				return "", fmt.Errorf("replace sandbox: %w", err)
 			}
@@ -91,7 +94,11 @@ func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
 	if err := os.MkdirAll(path, 0o700); err != nil {
 		return "", fmt.Errorf("create workspace directory: %w", err)
 	}
+	if err := os.MkdirAll(cachePath, 0o700); err != nil {
+		return "", fmt.Errorf("create workspace cache: %w", err)
+	}
 	mount := "type=bind,src=" + path + ",dst=/workspace" + spec.MountMode.DockerOption()
+	cacheMount := "type=bind,src=" + cachePath + ",dst=/cache"
 	_, err = m.run(ctx,
 		"create", "--name", spec.Name,
 		"--label", "ayati.workspace="+strings.TrimPrefix(spec.Name, "ayati-workspace-"),
@@ -99,8 +106,7 @@ func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
 		"--pids-limit", "256", "--memory", "2g", "--cpus", "2",
 		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m",
 		"--tmpfs", "/home/ayati:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--tmpfs", "/cache:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--mount", mount,
+		"--mount", mount, "--mount", cacheMount,
 		"--workdir", "/workspace", m.image,
 	)
 	if err != nil {
@@ -160,11 +166,11 @@ func (m *Manager) inspect(ctx context.Context, name string) (containerInfo, bool
 	if err := validateName(name); err != nil {
 		return containerInfo{}, false, err
 	}
-	format := `{{.State.Running}}|{{index .Config.Labels "ayati.workspace"}}|{{.Config.Image}}|{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}|{{.RW}}{{end}}{{end}}`
+	format := `{{.State.Running}}|{{index .Config.Labels "ayati.workspace"}}|{{.Config.Image}}|{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}|{{.RW}}{{end}}{{end}}|{{range .Mounts}}{{if eq .Destination "/cache"}}{{.Source}}{{end}}{{end}}`
 	result, err := m.runner.Run(ctx, "container", "inspect", "--format", format, name)
 	if err == nil {
-		parts := strings.SplitN(strings.TrimSpace(result.stdout), "|", 5)
-		if len(parts) != 5 {
+		parts := strings.SplitN(strings.TrimSpace(result.stdout), "|", 6)
+		if len(parts) != 6 {
 			return containerInfo{}, false, errors.New("inspect sandbox: invalid Docker metadata")
 		}
 		wantLabel := strings.TrimPrefix(name, "ayati-workspace-")
@@ -176,7 +182,8 @@ func (m *Manager) inspect(ctx context.Context, name string) (containerInfo, bool
 			return containerInfo{}, false, err
 		}
 		return containerInfo{
-			running: parts[0] == "true", image: parts[2], path: parts[3], mountMode: mountMode,
+			running: parts[0] == "true", image: parts[2], path: parts[3],
+			mountMode: mountMode, cachePath: parts[5],
 		}, true, nil
 	}
 	if strings.Contains(result.stderr, "No such container") || strings.Contains(result.stderr, "No such object") {
@@ -247,18 +254,30 @@ func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.S
 	return result
 }
 
-func validateSpec(spec Spec) (string, error) {
+func validateSpec(spec Spec) (string, string, error) {
 	if err := validateName(spec.Name); err != nil {
-		return "", err
+		return "", "", err
 	}
 	path, err := filepath.Abs(strings.TrimSpace(spec.Path))
 	if err != nil || strings.TrimSpace(spec.Path) == "" {
-		return "", errors.New("workspace path is required")
+		return "", "", errors.New("workspace path is required")
 	}
 	if !spec.MountMode.Valid() {
-		return "", errors.New("workspace mount mode must be ro or rw")
+		return "", "", errors.New("workspace mount mode must be ro or rw")
 	}
-	return path, nil
+	cacheValue := strings.TrimSpace(spec.CachePath)
+	if cacheValue == "" {
+		cacheValue = filepath.Join(filepath.Dir(path), "cache")
+	}
+	cachePath, err := filepath.Abs(cacheValue)
+	if err != nil {
+		return "", "", errors.New("workspace cache path is invalid")
+	}
+	relative, err := filepath.Rel(path, cachePath)
+	if err != nil || relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
+		return "", "", errors.New("workspace cache must be outside the project directory")
+	}
+	return path, cachePath, nil
 }
 
 func validateName(name string) error {

@@ -75,6 +75,7 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 	for _, input := range []EnvironmentInput{
 		{Name: "INVALID-NAME", Value: "value"},
 		{Name: "PATH", Value: "/tmp"},
+		{Name: "GOCACHE", Value: "/project/cache"},
 		{Name: "AYATI_GITHUB_TOKEN", Value: "value"},
 		{Name: "NULL_VALUE", Value: "bad\x00value"},
 	} {

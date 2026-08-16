@@ -10,7 +10,7 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 
 - `cmd/ayati/`: process entry point and signal setup only.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
-- `internal/workspace/`: SQLite state, lifecycle, trusted Git, setup, review, and publish.
+- `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
 - `internal/sandbox/`: persistent Docker containers and bounded shell execution.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
@@ -44,7 +44,7 @@ The controller owns GitHub, Git, SQLite, Docker lifecycle, and Fireworks credent
 
 Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or Fireworks credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
 
-Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, and private temporary/home/cache mounts. Explore mounts the selected workspace read-only; Develop mounts it read-write. Preserve command, output, timeout, workspace, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
+Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, and a managed cache outside the repository. Explore mounts the selected workspace read-only; Develop mounts it read-write. Preserve command, output, timeout, workspace, cache, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
 
 Each workspace keeps one named sandbox until the user stops it. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
 

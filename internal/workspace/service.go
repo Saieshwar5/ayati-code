@@ -21,6 +21,7 @@ type environment interface {
 type gitClient interface {
 	Run(context.Context, ...string) error
 	AuthenticatedRun(context.Context, ...string) error
+	Output(context.Context, ...string) (string, error)
 }
 
 type Service struct {
@@ -47,61 +48,6 @@ func NewService(store *Store, environment environment, token func() (string, err
 		return nil, err
 	}
 	return &Service{store: store, environment: environment, git: git, root: filepath.Clean(root)}, nil
-}
-
-func (s *Service) Initialize(ctx context.Context, id string) error {
-	value, err := s.store.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	if err := s.store.UpdateStatus(ctx, id, StatusInitializing, ""); err != nil {
-		return err
-	}
-	if err := s.prepareRepository(ctx, value); err != nil {
-		return s.fail(ctx, id, err)
-	}
-	preparation := sandbox.Spec{
-		Name: value.SandboxName, Path: value.Path, MountMode: sandbox.MountReadWrite,
-	}
-	if _, err := s.environment.Ensure(ctx, preparation); err != nil {
-		return s.fail(ctx, id, fmt.Errorf("start sandbox: %w", err))
-	}
-	setup := value.Setup
-	if setup == "" {
-		setup = DetectSetup(value.Path)
-		if err := s.store.UpdateSetup(ctx, id, setup); err != nil {
-			return s.fail(ctx, id, err)
-		}
-	}
-	if setup != "" {
-		variables, err := s.store.EnvironmentValues(ctx, id, true)
-		if err != nil {
-			return s.fail(ctx, id, err)
-		}
-		shell, err := s.environment.Open(value.SandboxName, variables)
-		if err != nil {
-			return s.fail(ctx, id, err)
-		}
-		result := shell.Execute(ctx, agent.ShellRequest{Command: setup})
-		if result.ExitCode != 0 || result.Error != "" {
-			message := strings.TrimSpace(strings.Join([]string{result.Error, result.Stderr, result.Stdout}, "\n"))
-			return s.fail(ctx, id, fmt.Errorf("setup failed: %s", boundedMessage(message)))
-		}
-	}
-	ready := sandbox.Spec{Name: value.SandboxName, Path: value.Path, MountMode: value.Authority.MountMode()}
-	if ready.MountMode == sandbox.MountReadOnly {
-		if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-			return s.fail(ctx, id, fmt.Errorf("seal sandbox: %w", err))
-		}
-	}
-	mode, err := s.environment.Ensure(ctx, ready)
-	if err != nil {
-		return s.fail(ctx, id, fmt.Errorf("start protected sandbox: %w", err))
-	}
-	if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
-		return s.fail(ctx, id, err)
-	}
-	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
 
 func (s *Service) Stop(ctx context.Context, id string) error {
@@ -156,7 +102,8 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 		return nil, Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
 	mode, err := s.environment.Ensure(ctx, sandbox.Spec{
-		Name: value.SandboxName, Path: value.Path, MountMode: value.Authority.MountMode(),
+		Name: value.SandboxName, Path: value.Path, CachePath: workspaceCachePath(value.Path),
+		MountMode: value.Authority.MountMode(),
 	})
 	if err != nil {
 		return nil, Workspace{}, fmt.Errorf("restore sandbox: %w", err)
@@ -171,7 +118,7 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if err != nil {
 		return nil, Workspace{}, err
 	}
-	shell, err := s.environment.Open(value.SandboxName, variables)
+	shell, err := s.environment.Open(value.SandboxName, runtimeEnvironment(variables))
 	return shell, value, err
 }
 
@@ -210,35 +157,6 @@ func (s *Service) fail(ctx context.Context, id string, cause error) error {
 		return fmt.Errorf("%v; record failure: %w", cause, err)
 	}
 	return cause
-}
-
-func DetectSetup(path string) string {
-	var commands []string
-	if fileExists(path, "go.mod") {
-		commands = append(commands, "go mod download")
-	}
-	switch {
-	case fileExists(path, "pnpm-lock.yaml"):
-		commands = append(commands, "corepack pnpm install --frozen-lockfile")
-	case fileExists(path, "yarn.lock"):
-		commands = append(commands, "corepack yarn install --immutable")
-	case fileExists(path, "package-lock.json"):
-		commands = append(commands, "npm ci")
-	case fileExists(path, "package.json"):
-		commands = append(commands, "npm install")
-	}
-	switch {
-	case fileExists(path, "requirements.txt"):
-		commands = append(commands, "python3 -m venv .venv && .venv/bin/pip install -r requirements.txt")
-	case fileExists(path, "pyproject.toml"):
-		commands = append(commands, "python3 -m venv .venv && .venv/bin/pip install .")
-	}
-	return strings.Join(commands, " && ")
-}
-
-func fileExists(root, name string) bool {
-	info, err := os.Stat(filepath.Join(root, name))
-	return err == nil && !info.IsDir()
 }
 
 func boundedMessage(value string) string {

@@ -37,6 +37,7 @@ func TestDockerPersistentWorkspaceIntegration(t *testing.T) {
 		`command -v git`, `command -v go`, `command -v node`, `command -v npm`,
 		`command -v python3`, `command -v rg`,
 		`test "$AYATI_TEST_VALUE" = sandbox-secret`,
+		`printf cached > /cache/prepared`,
 		`git init -q`, `git config user.name Ayati`, `git config user.email ayati@example.test`,
 		`printf persistent > .ayati-integration`, `git add .ayati-integration`, `git commit -qm baseline`,
 	}, " && ")
@@ -75,7 +76,7 @@ func TestDockerPersistentWorkspaceIntegration(t *testing.T) {
 	}
 	result = shell.Execute(ctx, agent.ShellRequest{Command: strings.Join([]string{
 		`rg persistent .ayati-integration`, `grep persistent .ayati-integration`, `cat .ayati-integration`,
-		`git log -1 --oneline`, `touch /tmp/allowed`, `touch /cache/allowed`,
+		`git log -1 --oneline`, `touch /tmp/allowed`, `test "$(cat /cache/prepared)" = cached`, `touch /cache/allowed`,
 		`! touch blocked`, `! sh -c 'printf changed > .ayati-integration'`,
 		`! sed -i s/persistent/changed/ .ayati-integration`, `! rm .ayati-integration`,
 		`! git commit --allow-empty -m blocked`, `test -z "$(git status --porcelain)"`,

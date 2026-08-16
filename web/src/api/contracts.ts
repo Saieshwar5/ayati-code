@@ -8,6 +8,26 @@ export type WorkspaceStatus =
 export type SessionStatus = "idle" | "working" | "review" | "failed";
 export type WorkspaceAuthority = "explore" | "develop";
 
+export interface ProjectProfile {
+  project_root: string;
+  languages: string[];
+  runtime_versions: string[];
+  package_managers: string[];
+  lockfiles: string[];
+  setup_command: string;
+  test_command?: string;
+  lint_command?: string;
+  typecheck_command?: string;
+  build_command?: string;
+  instructions_file?: string;
+  manifest_fingerprint: string;
+  baseline_commit?: string;
+  setup_result: "pending" | "skipped" | "passed" | "failed";
+  baseline_result: "pending" | "clean" | "changed" | "dirty";
+  cache_path: string;
+  prepared_at?: string;
+}
+
 export interface User {
   id: number;
   login: string;
@@ -42,6 +62,7 @@ export interface Workspace {
   create_branch: boolean;
   authority: WorkspaceAuthority;
   effective_mount_mode?: "ro" | "rw";
+  project_profile?: ProjectProfile;
   setup_command: string;
   path: string;
   sandbox_name: string;
