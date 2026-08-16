@@ -5,6 +5,7 @@ import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { Inspector } from "../inspector/Inspector";
 import { Sidebar } from "../workspaces/Sidebar";
 import { WorkspaceHome } from "../workspaces/WorkspaceHome";
+import { WorkspaceReadiness } from "../workspaces/WorkspaceReadiness";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 interface WorkspaceApplicationProps {
@@ -31,8 +32,10 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     }
   }, []);
 
+  const selectedWorkspace =
+    controller.view === "workspace" ? controller.activeWorkspace : undefined;
   const showingWorkspace =
-    controller.view === "workspace" && controller.activeWorkspace && controller.activeSession;
+    selectedWorkspace?.status === "ready" && controller.activeSession;
 
   return (
     <main>
@@ -48,6 +51,13 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               error={detail.messageError}
               sending={detail.sending}
               onSend={detail.sendMessage}
+            />
+          ) : selectedWorkspace ? (
+            <WorkspaceReadiness
+              workspace={selectedWorkspace}
+              onConfigure={(root) => controller.configureProjectRoot(selectedWorkspace.id, root)}
+              onRetry={() => controller.workspaceAction(selectedWorkspace.id, "initialize")}
+              onDelete={() => controller.deleteWorkspace(selectedWorkspace)}
             />
           ) : controller.loading ? (
             <section className="workspace-home">
@@ -76,10 +86,10 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
         </section>
         <Inspector
           collapsed={inspectorCollapsed}
-          workspace={showingWorkspace ? controller.activeWorkspace : undefined}
-          session={showingWorkspace ? controller.activeSession : undefined}
+          workspace={selectedWorkspace}
+          session={selectedWorkspace ? controller.activeSession : undefined}
           workspaceSessions={
-            showingWorkspace ? controller.sessions[controller.activeWorkspace!.id] || [] : []
+            selectedWorkspace ? controller.sessions[selectedWorkspace.id] || [] : []
           }
           messages={detail.messages}
           changes={detail.changes}

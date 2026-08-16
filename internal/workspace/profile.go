@@ -46,6 +46,15 @@ func AnalyzeProject(root string) (ProjectProfile, error) {
 	if err != nil {
 		return ProjectProfile{}, err
 	}
+	return AnalyzeProjectAt(root, projectRoot)
+}
+
+func AnalyzeProjectAt(root, projectRoot string) (ProjectProfile, error) {
+	projectRoot = filepath.ToSlash(filepath.Clean(strings.TrimSpace(projectRoot)))
+	if projectRoot == "" || projectRoot == ".." || strings.HasPrefix(projectRoot, "../") ||
+		filepath.IsAbs(projectRoot) {
+		return ProjectProfile{}, errors.New("project root must stay inside the repository")
+	}
 	analysisRoot := filepath.Join(root, filepath.FromSlash(projectRoot))
 	profile := ProjectProfile{
 		ProjectRoot: projectRoot, Languages: []string{}, RuntimeVersions: []string{},

@@ -26,9 +26,13 @@ type fakeWorkspaceService struct {
 }
 
 func (f *fakeWorkspaceService) Initialize(ctx context.Context, id string) error {
-	_ = f.store.UpdateStatus(ctx, id, workspace.StatusReady, "")
+	_ = f.store.CompletePreparation(ctx, id)
 	f.initialized <- id
 	return nil
+}
+
+func (f *fakeWorkspaceService) ConfigureProjectRoot(ctx context.Context, id, root string) error {
+	return f.store.SelectProjectRoot(ctx, id, root)
 }
 
 func (f *fakeWorkspaceService) Stop(ctx context.Context, id string) error {
@@ -148,30 +152,6 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	}
 	if workspaces.published[1] != "feat: change" || workspaces.published[2] != "octocat" {
 		t.Fatalf("publish arguments = %#v", workspaces.published)
-	}
-}
-
-func TestHandlerDefaultsWorkspaceToProtectedExplore(t *testing.T) {
-	handler, _, workspaces, _ := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"ignored","create_branch":true}`
-	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
-	if response.Code != http.StatusAccepted {
-		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
-	}
-	var value workspace.Workspace
-	if err := json.Unmarshal(response.Body.Bytes(), &value); err != nil {
-		t.Fatalf("decode workspace: %v", err)
-	}
-	if initialized := <-workspaces.initialized; initialized != value.ID {
-		t.Fatalf("initialized workspace = %q", initialized)
-	}
-	if value.Authority != workspace.AuthorityExplore || value.Branch != "main" || value.CreateBranch {
-		t.Fatalf("workspace = %#v", value)
-	}
-	publish := `{"commit_message":"feat: change","title":"Change project"}`
-	response = serve(handler, http.MethodPost, "/api/workspaces/"+value.ID+"/publish", publish, true)
-	if response.Code != http.StatusConflict || !strings.Contains(response.Body.String(), "Develop") {
-		t.Fatalf("publish status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
 

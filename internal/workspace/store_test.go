@@ -30,7 +30,8 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if created.Status != StatusCreating || !created.CreateBranch || created.Authority != AuthorityExplore ||
+	if created.Status != StatusCreating || created.PreparationStage != PreparationPending ||
+		len(created.ConfigurationCandidates) != 0 || !created.CreateBranch || created.Authority != AuthorityExplore ||
 		created.SandboxName != "ayati-workspace-"+created.ID {
 		t.Fatalf("workspace = %#v", created)
 	}

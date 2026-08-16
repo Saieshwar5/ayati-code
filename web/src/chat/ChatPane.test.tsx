@@ -13,6 +13,8 @@ const workspace: Workspace = {
   create_branch: false,
 	authority: "develop",
 	effective_mount_mode: "rw",
+  preparation_stage: "ready",
+  configuration_candidates: [],
   setup_command: "go mod download",
   path: "/workspace",
   sandbox_name: "ayati-workspace-1",

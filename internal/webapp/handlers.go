@@ -152,6 +152,20 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 				s.logger.Printf("initialize workspace %s: %v", parts[0], runErr)
 			}
 		}()
+	case "configure":
+		var input struct {
+			ProjectRoot string `json:"project_root"`
+		}
+		if !s.decode(writer, request, &input) {
+			return
+		}
+		if err = s.workspaces.ConfigureProjectRoot(request.Context(), parts[0], input.ProjectRoot); err == nil {
+			go func() {
+				if runErr := s.workspaces.Initialize(s.ctx, parts[0]); runErr != nil {
+					s.logger.Printf("initialize configured workspace %s: %v", parts[0], runErr)
+				}
+			}()
+		}
 	case "stop":
 		if s.chat != nil {
 			s.chat.CancelAndWait(parts[0])

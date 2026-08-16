@@ -13,6 +13,9 @@ const workspace: Workspace = {
   create_branch: false,
   authority: "develop",
   effective_mount_mode: "rw",
+  preparation_stage: "cloning",
+  preparation_detail: "owner/project · ayati/react-ui",
+  configuration_candidates: [],
   setup_command: "go mod download",
   path: "/workspace",
   sandbox_name: "ayati-workspace-1",
@@ -75,7 +78,7 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByLabelText("During setup"));
     await user.click(screen.getByRole("button", { name: "Create and initialize" }));
 
-    expect(await screen.findByRole("heading", { name: "Original session" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Preparing project" })).toBeTruthy();
     expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",

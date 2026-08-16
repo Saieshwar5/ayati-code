@@ -2,11 +2,28 @@ export type WorkspaceStatus =
   | "creating"
   | "initializing"
   | "initialization_failed"
+  | "needs_configuration"
   | "ready"
   | "stopped";
 
 export type SessionStatus = "idle" | "working" | "review" | "failed";
 export type WorkspaceAuthority = "explore" | "develop";
+export type PreparationStage =
+  | "pending"
+  | "cloning"
+  | "analyzing"
+  | "installing"
+  | "verifying"
+  | "sealing"
+  | "needs_configuration"
+  | "ready"
+  | "failed";
+
+export interface ProjectCandidate {
+  project_root: string;
+  languages: string[];
+  package_managers: string[];
+}
 
 export interface ProjectProfile {
   project_root: string;
@@ -62,6 +79,11 @@ export interface Workspace {
   create_branch: boolean;
   authority: WorkspaceAuthority;
   effective_mount_mode?: "ro" | "rw";
+  preparation_stage: PreparationStage;
+  preparation_detail?: string;
+  preparation_failed_stage?: PreparationStage;
+  selected_project_root?: string;
+  configuration_candidates: ProjectCandidate[];
   project_profile?: ProjectProfile;
   setup_command: string;
   path: string;

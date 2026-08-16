@@ -16,6 +16,11 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	create_branch INTEGER NOT NULL,
 	authority TEXT NOT NULL DEFAULT 'explore' CHECK (authority IN ('explore', 'develop')),
 	effective_mount_mode TEXT NOT NULL DEFAULT '',
+	preparation_stage TEXT NOT NULL DEFAULT 'pending',
+	preparation_detail TEXT NOT NULL DEFAULT '',
+	preparation_failed_stage TEXT NOT NULL DEFAULT '',
+	selected_project_root TEXT NOT NULL DEFAULT '',
+	configuration_candidates TEXT NOT NULL DEFAULT '[]',
 	setup_command TEXT NOT NULL,
 	path TEXT NOT NULL UNIQUE,
 	sandbox_name TEXT NOT NULL UNIQUE,
@@ -70,7 +75,10 @@ func (s *Store) configure() error {
 	if err := s.migrateWorkspaceAuthority(context.Background()); err != nil {
 		return err
 	}
-	return s.migrateProjectProfiles(context.Background())
+	if err := s.migrateProjectProfiles(context.Background()); err != nil {
+		return err
+	}
+	return s.migrateWorkspaceReadiness(context.Background())
 }
 
 func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {

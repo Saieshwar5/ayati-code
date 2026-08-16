@@ -17,34 +17,40 @@ const (
 	StatusCreating             = "creating"
 	StatusInitializing         = "initializing"
 	StatusInitializationFailed = "initialization_failed"
+	StatusNeedsConfiguration   = "needs_configuration"
 	StatusReady                = "ready"
 	StatusStopped              = "stopped"
 )
 
 var statuses = map[string]bool{
 	StatusCreating: true, StatusInitializing: true, StatusInitializationFailed: true,
-	StatusReady: true, StatusStopped: true,
+	StatusNeedsConfiguration: true, StatusReady: true, StatusStopped: true,
 }
 
 type Workspace struct {
-	ID                 string          `json:"id"`
-	Repository         string          `json:"repository"`
-	CloneURL           string          `json:"clone_url"`
-	BaseBranch         string          `json:"base_branch"`
-	Branch             string          `json:"branch"`
-	CreateBranch       bool            `json:"create_branch"`
-	Authority          Authority       `json:"authority"`
-	EffectiveMountMode string          `json:"effective_mount_mode,omitempty"`
-	Profile            *ProjectProfile `json:"project_profile,omitempty"`
-	Setup              string          `json:"setup_command"`
-	Path               string          `json:"path"`
-	SandboxName        string          `json:"sandbox_name"`
-	Status             string          `json:"status"`
-	Error              string          `json:"error,omitempty"`
-	PullRequestNumber  int             `json:"pull_request_number,omitempty"`
-	PullRequestURL     string          `json:"pull_request_url,omitempty"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
+	ID                      string             `json:"id"`
+	Repository              string             `json:"repository"`
+	CloneURL                string             `json:"clone_url"`
+	BaseBranch              string             `json:"base_branch"`
+	Branch                  string             `json:"branch"`
+	CreateBranch            bool               `json:"create_branch"`
+	Authority               Authority          `json:"authority"`
+	EffectiveMountMode      string             `json:"effective_mount_mode,omitempty"`
+	PreparationStage        string             `json:"preparation_stage"`
+	PreparationDetail       string             `json:"preparation_detail,omitempty"`
+	PreparationFailedStage  string             `json:"preparation_failed_stage,omitempty"`
+	SelectedProjectRoot     string             `json:"selected_project_root,omitempty"`
+	ConfigurationCandidates []ProjectCandidate `json:"configuration_candidates"`
+	Profile                 *ProjectProfile    `json:"project_profile,omitempty"`
+	Setup                   string             `json:"setup_command"`
+	Path                    string             `json:"path"`
+	SandboxName             string             `json:"sandbox_name"`
+	Status                  string             `json:"status"`
+	Error                   string             `json:"error,omitempty"`
+	PullRequestNumber       int                `json:"pull_request_number,omitempty"`
+	PullRequestURL          string             `json:"pull_request_url,omitempty"`
+	CreatedAt               time.Time          `json:"created_at"`
+	UpdatedAt               time.Time          `json:"updated_at"`
 }
 
 type Create struct {
@@ -144,9 +150,10 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	value := Workspace{
 		ID: id, Repository: input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
-		CreateBranch: input.CreateBranch,
-		Authority:    input.Authority,
-		Path:         path, SandboxName: "ayati-workspace-" + id, Status: StatusCreating,
+		CreateBranch:     input.CreateBranch,
+		Authority:        input.Authority,
+		PreparationStage: PreparationPending, ConfigurationCandidates: []ProjectCandidate{},
+		Path: path, SandboxName: "ayati-workspace-" + id, Status: StatusCreating,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -216,21 +223,28 @@ func (s *Store) List(ctx context.Context) ([]Workspace, error) {
 }
 
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
-	create_branch, authority, effective_mount_mode, setup_command, path, sandbox_name, status, error,
+	create_branch, authority, effective_mount_mode, preparation_stage, preparation_detail, preparation_failed_stage,
+	selected_project_root, configuration_candidates, setup_command, path, sandbox_name, status, error,
 	pull_request_number, pull_request_url, created_at, updated_at FROM workspaces`
 
 type scanner interface{ Scan(...any) error }
 
 func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
-	var createdAt, updatedAt string
+	var createdAt, updatedAt, candidates string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
-		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode, &value.Setup,
+		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode,
+		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
+		&value.SelectedProjectRoot, &candidates, &value.Setup,
 		&value.Path, &value.SandboxName, &value.Status, &value.Error,
 		&value.PullRequestNumber, &value.PullRequestURL,
 		&createdAt, &updatedAt,
 	)
+	if err != nil {
+		return Workspace{}, err
+	}
+	value.ConfigurationCandidates, err = decodeProjectCandidates(candidates)
 	if err != nil {
 		return Workspace{}, err
 	}

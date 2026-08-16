@@ -161,12 +161,28 @@ export function useWorkspaceController(user: User) {
   const workspaceAction = useCallback(
     async (workspaceID: string, action: "initialize" | "stop") => {
       try {
-        if (action === "initialize") await api.initializeWorkspace(workspaceID);
-        else await api.stopWorkspace(workspaceID);
-        await refreshWorkspaces();
+        if (action === "initialize") {
+          await api.initializeWorkspace(workspaceID);
+          setWorkspaces((current) => current.map((workspace) =>
+            workspace.id === workspaceID
+              ? { ...workspace, status: "initializing", preparation_stage: "pending", error: undefined }
+              : workspace,
+          ));
+        } else {
+          await api.stopWorkspace(workspaceID);
+          await refreshWorkspaces();
+        }
       } catch (error) {
         window.alert((error as Error).message);
       }
+    },
+    [refreshWorkspaces],
+  );
+
+  const configureProjectRoot = useCallback(
+    async (workspaceID: string, projectRoot: string) => {
+      await api.configureWorkspace(workspaceID, projectRoot);
+      await refreshWorkspaces();
     },
     [refreshWorkspaces],
   );
@@ -238,6 +254,7 @@ export function useWorkspaceController(user: User) {
     renameSession,
     deleteSession,
     workspaceAction,
+    configureProjectRoot,
     deleteWorkspace,
     refreshWorkspaces,
     loadSessions,
