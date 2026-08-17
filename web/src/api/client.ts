@@ -12,6 +12,7 @@ import type {
   PublishInput,
   ProviderDefinition,
   ProviderConnectionInput,
+  ProviderModel,
   Repository,
   SessionResponse,
   SkillDefinition,
@@ -52,6 +53,8 @@ export const api = {
   archivedAgents: () => request<AgentDefinition[]>("/api/agents?archived=true"),
   agent: (id: string) => request<AgentDefinition>(`/api/agents/${id}`),
   providers: () => request<ProviderDefinition[]>("/api/providers"),
+  providerModels: (id: string) =>
+    request<ProviderModel[]>(`/api/providers/${encodeURIComponent(id)}/models`),
   configureProvider: (id: string, input: ProviderConnectionInput) =>
     request<ProviderDefinition>(`/api/providers/${encodeURIComponent(id)}`, {
       method: "PUT", body: JSON.stringify(input),

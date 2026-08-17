@@ -83,6 +83,45 @@ func TestClientChecksModelsEndpointAndHidesErrorBody(t *testing.T) {
 	}
 }
 
+func TestClientListsModelsFromEnvelopeAndDirectArray(t *testing.T) {
+	responses := []string{
+		`{"data":[{"id":"model-b"},{"id":"model-a"}]}`,
+		`[{"id":"model-c"}]`,
+	}
+	client := testClient(t, MaxTokens, false, func(request *http.Request) *http.Response {
+		if request.Method != http.MethodGet || request.URL.Path != "/models" {
+			t.Errorf("request = %s %s", request.Method, request.URL.Path)
+		}
+		body := responses[0]
+		responses = responses[1:]
+		return response(http.StatusOK, body)
+	})
+	models, err := client.Models(context.Background())
+	if err != nil || len(models) != 2 || models[0] != "model-b" {
+		t.Fatalf("envelope models = %#v, error = %v", models, err)
+	}
+	models, err = client.Models(context.Background())
+	if err != nil || len(models) != 1 || models[0] != "model-c" {
+		t.Fatalf("array models = %#v, error = %v", models, err)
+	}
+}
+
+func TestClientBoundsAndValidatesModelResponses(t *testing.T) {
+	for name, body := range map[string]string{
+		"malformed": `{`,
+		"oversized": strings.Repeat("x", maxResponseBytes+1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			client := testClient(t, MaxTokens, false, func(*http.Request) *http.Response {
+				return response(http.StatusOK, body)
+			})
+			if _, err := client.Models(context.Background()); err == nil {
+				t.Fatal("Models accepted an invalid response")
+			}
+		})
+	}
+}
+
 func TestClientRejectsInvalidOptions(t *testing.T) {
 	for _, options := range []Options{
 		{},

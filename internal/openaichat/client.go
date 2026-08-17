@@ -91,6 +91,43 @@ func (c *Client) Check(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) Models(ctx context.Context) ([]string, error) {
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, c.endpoint+"/models", nil)
+	if err != nil {
+		return nil, fmt.Errorf("create %s models request: %w", c.providerName, err)
+	}
+	c.authorize(request)
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("list %s models: %w", c.providerName, err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		return nil, fmt.Errorf("%s returned %s", c.providerName, response.Status)
+	}
+	data, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read %s models: %w", c.providerName, err)
+	}
+	if len(data) > maxResponseBytes {
+		return nil, fmt.Errorf("%s models response exceeds %d bytes", c.providerName, maxResponseBytes)
+	}
+	var envelope struct {
+		Data []modelItem `json:"data"`
+	}
+	items := []modelItem(nil)
+	if err := json.Unmarshal(data, &envelope); err == nil && envelope.Data != nil {
+		items = envelope.Data
+	} else if err := json.Unmarshal(data, &items); err != nil {
+		return nil, fmt.Errorf("decode %s models response: %w", c.providerName, err)
+	}
+	models := make([]string, 0, len(items))
+	for _, item := range items {
+		models = append(models, item.ID)
+	}
+	return models, nil
+}
+
 func (c *Client) Next(ctx context.Context, request agent.Request) (agent.Message, error) {
 	if strings.TrimSpace(request.Model) == "" {
 		return agent.Message{}, fmt.Errorf("%s model is required", c.providerName)
@@ -192,6 +229,10 @@ type chatResponse struct {
 			ToolCalls []agent.ToolCall `json:"tool_calls"`
 		} `json:"message"`
 	} `json:"choices"`
+}
+
+type modelItem struct {
+	ID string `json:"id"`
 }
 
 func shellTool() chatTool {

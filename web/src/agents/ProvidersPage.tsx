@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { ProviderConnectionInput, ProviderDefinition } from "../api/contracts";
 import type { AgentController } from "./useAgentController";
+import { ModelField } from "./ModelField";
 
 const emptyConnection: ProviderConnectionInput = { api_key: "", default_model: "" };
 
@@ -118,7 +119,7 @@ function ConnectionEditor(props: {
     <header><div><p className="eyebrow">Provider connection</p><h2>{props.provider.name}</h2></div><button className="quiet compact" type="button" onClick={props.onClose}>Close</button></header>
     <label>API key<input type="password" autoComplete="off" value={input.api_key} placeholder={props.provider.configured ? "Leave blank to keep the saved key" : "Required"} onChange={(event) => setInput({ ...input, api_key: event.target.value })} /></label>
     <p className="agent-field-note">The saved key is never sent back to this page.</p>
-    <label>Default model<input value={input.default_model} placeholder="Model ID" onChange={(event) => setInput({ ...input, default_model: event.target.value })} /></label>
+    <ModelField provider={props.provider} label="Default model" value={input.default_model} placeholder="Default model ID" onChange={(default_model) => setInput({ ...input, default_model })} />
     {error && <div className="error" role="alert">{error}</div>}
     {verified && <div className="provider-verified" role="status">Connection verified</div>}
     <div className="provider-editor-actions">

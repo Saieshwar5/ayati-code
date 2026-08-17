@@ -5,8 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/config"
@@ -19,11 +22,17 @@ type ConnectionInput struct {
 
 type Factory func(string) (agent.Provider, error)
 type Verifier func(context.Context, string, string) error
+type ModelLister func(context.Context, string) ([]string, error)
+
+type Model struct {
+	ID string `json:"id"`
+}
 
 type Specification struct {
 	Definition Definition
 	Factory    Factory
 	Verifier   Verifier
+	Models     ModelLister
 }
 
 type Connections struct {
@@ -47,6 +56,7 @@ func NewConnections(path string, specifications ...Specification) (*Connections,
 		definition := specification.Definition
 		definition.Configurable = specification.Factory != nil
 		definition.SupportsTest = specification.Verifier != nil
+		definition.SupportsModels = specification.Models != nil
 		specification.Definition = definition
 		registration := Registration{Definition: definition}
 		if settings, exists := values.Provider(definition.ID); exists {
@@ -104,6 +114,35 @@ func (c *Connections) Test(ctx context.Context, id string, input ConnectionInput
 		return fmt.Errorf("provider %q does not support connection tests", specification.Definition.ID)
 	}
 	return specification.Verifier(ctx, settings.APIKey, settings.DefaultModel)
+}
+
+func (c *Connections) Models(ctx context.Context, id string) ([]Model, error) {
+	c.mu.Lock()
+	id = strings.TrimSpace(id)
+	specification, exists := c.specs[id]
+	if !exists {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("provider %q is not available", id)
+	}
+	if specification.Models == nil {
+		c.mu.Unlock()
+		return nil, fmt.Errorf("provider %q does not support model discovery", id)
+	}
+	values, err := loadValues(c.path)
+	if err != nil {
+		c.mu.Unlock()
+		return nil, err
+	}
+	settings, configured := values.Provider(id)
+	c.mu.Unlock()
+	if !configured || strings.TrimSpace(settings.APIKey) == "" {
+		return nil, fmt.Errorf("provider %q is not configured", id)
+	}
+	ids, err := specification.Models(ctx, settings.APIKey)
+	if err != nil {
+		return nil, err
+	}
+	return normalizeModels(ids)
 }
 
 func (c *Connections) Remove(id string) error {
@@ -170,4 +209,32 @@ func loadValues(path string) (config.Values, error) {
 		return config.Values{Version: config.CurrentVersion, Providers: map[string]config.ProviderValues{}}, nil
 	}
 	return values, err
+}
+
+func normalizeModels(ids []string) ([]Model, error) {
+	if len(ids) > 10_000 {
+		return nil, errors.New("provider returned more than 10000 models")
+	}
+	unique := make(map[string]struct{}, len(ids))
+	for _, raw := range ids {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if !utf8.ValidString(id) || utf8.RuneCountInString(id) > 200 {
+			return nil, errors.New("provider returned an invalid model ID")
+		}
+		for _, character := range id {
+			if unicode.IsControl(character) {
+				return nil, errors.New("provider returned an invalid model ID")
+			}
+		}
+		unique[id] = struct{}{}
+	}
+	values := make([]Model, 0, len(unique))
+	for id := range unique {
+		values = append(values, Model{ID: id})
+	}
+	sort.Slice(values, func(left, right int) bool { return values[left].ID < values[right].ID })
+	return values, nil
 }

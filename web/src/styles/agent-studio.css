@@ -89,6 +89,13 @@
 .provider-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .provider-verified { padding: 10px 12px; border: 1px solid #c8ddca; border-radius: 9px; background: #e7f3e8; color: #286134; font-size: 10px; font-weight: 700; }
 .provider-remove { justify-self: start; margin-top: 2px; }
+.model-field { min-width: 0; display: grid; gap: 6px; }
+.model-field > label { font-size: inherit; font-weight: inherit; }
+.model-field-input { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
+.model-field-input input { min-width: 0; }
+.model-field-input button { white-space: nowrap; }
+.model-field > small { color: #89867e; font-size: 9px; font-weight: 450; line-height: 1.45; }
+.model-field > small.error-text { color: #9b342f; }
 .provider-foundation-note { margin-top: 20px; padding: 16px 18px; border: 1px dashed #c9c6bc; border-radius: 12px; background: #fbfaf7; }
 .provider-foundation-note p { margin: 4px 0 0; color: #77736b; font-size: 10px; line-height: 1.5; }
 .skill-heading-actions { display: flex; align-items: center; gap: 8px; }

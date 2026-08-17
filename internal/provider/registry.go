@@ -11,13 +11,14 @@ import (
 )
 
 type Definition struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	Protocol     string `json:"protocol"`
-	Configured   bool   `json:"configured"`
-	Configurable bool   `json:"configurable"`
-	SupportsTest bool   `json:"supports_test"`
-	DefaultModel string `json:"default_model,omitempty"`
+	ID             string `json:"id"`
+	Name           string `json:"name"`
+	Protocol       string `json:"protocol"`
+	Configured     bool   `json:"configured"`
+	Configurable   bool   `json:"configurable"`
+	SupportsTest   bool   `json:"supports_test"`
+	SupportsModels bool   `json:"supports_models"`
+	DefaultModel   string `json:"default_model,omitempty"`
 }
 
 type Registration struct {

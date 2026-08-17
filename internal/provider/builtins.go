@@ -53,5 +53,15 @@ func compatibleSpecification(
 		Verifier: func(ctx context.Context, key, _ string) error {
 			return openaichat.Verify(ctx, name, endpoint, key)
 		},
+		Models: func(ctx context.Context, key string) ([]string, error) {
+			client, err := openaichat.New(openaichat.Options{
+				ProviderName: name, Endpoint: endpoint, APIKey: key, TokenLimitField: tokenLimitField,
+				SupportsParallelToolControl: parallelToolControl,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return client.Models(ctx)
+		},
 	}
 }
