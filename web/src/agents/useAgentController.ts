@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AgentDefinition, AgentInput } from "../api/contracts";
+import type { AgentDefinition, AgentInput, ProviderDefinition } from "../api/contracts";
 import { api } from "../api/client";
 
 export function useAgentController(enabled: boolean) {
   const [agents, setAgents] = useState<AgentDefinition[]>([]);
   const [archivedAgents, setArchivedAgents] = useState<AgentDefinition[]>([]);
+  const [providers, setProviders] = useState<ProviderDefinition[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const refresh = useCallback(async () => {
     setError("");
-    const [active, archived] = await Promise.all([api.agents(), api.archivedAgents()]);
+    const [active, archived, availableProviders] = await Promise.all([
+      api.agents(), api.archivedAgents(), api.providers(),
+    ]);
     setAgents(active);
     setArchivedAgents(archived);
+    setProviders(availableProviders);
     return active;
   }, []);
 
@@ -20,11 +24,12 @@ export function useAgentController(enabled: boolean) {
     if (!enabled) return;
     let current = true;
     setLoading(true);
-    Promise.all([api.agents(), api.archivedAgents()])
-      .then(([active, archived]) => {
+    Promise.all([api.agents(), api.archivedAgents(), api.providers()])
+      .then(([active, archived, availableProviders]) => {
         if (!current) return;
         setAgents(active);
         setArchivedAgents(archived);
+        setProviders(availableProviders);
         setError("");
       })
       .catch((reason: Error) => {
@@ -76,7 +81,7 @@ export function useAgentController(enabled: boolean) {
   }, [refresh]);
 
   return {
-    agents, archivedAgents, loading, error, refresh,
+    agents, archivedAgents, providers, loading, error, refresh,
     create, update, makeDefault, duplicate, archive, restore,
   };
 }

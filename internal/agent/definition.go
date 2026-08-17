@@ -14,6 +14,7 @@ const (
 	maxAgentNameRunes   = 60
 	maxAgentEmojiRunes  = 8
 	maxDescriptionRunes = 200
+	maxProviderIDRunes  = 64
 	maxModelRunes       = 200
 	maxInstructions     = 32 << 10
 )
@@ -90,6 +91,7 @@ func NormalizeDefinition(input DefinitionInput) (DefinitionInput, error) {
 		{"agent name", input.Name, maxAgentNameRunes},
 		{"agent emoji", input.Emoji, maxAgentEmojiRunes},
 		{"agent description", input.Description, maxDescriptionRunes},
+		{"agent provider", input.ProviderID, maxProviderIDRunes},
 		{"agent model", input.Model, maxModelRunes},
 	} {
 		if utf8.RuneCountInString(field.value) > field.limit {
@@ -99,8 +101,8 @@ func NormalizeDefinition(input DefinitionInput) (DefinitionInput, error) {
 	if input.Name == "" {
 		return DefinitionInput{}, errors.New("agent name is required")
 	}
-	if input.ProviderID != FireworksProviderID {
-		return DefinitionInput{}, fmt.Errorf("provider %q is not available", input.ProviderID)
+	if !validProviderID(input.ProviderID) {
+		return DefinitionInput{}, fmt.Errorf("provider id %q is invalid", input.ProviderID)
 	}
 	if input.MaxSteps < 1 || input.MaxSteps > MaxSteps {
 		return DefinitionInput{}, fmt.Errorf("agent step limit must be between 1 and %d", MaxSteps)
@@ -109,6 +111,17 @@ func NormalizeDefinition(input DefinitionInput) (DefinitionInput, error) {
 		return DefinitionInput{}, fmt.Errorf("agent instructions exceed %d bytes", maxInstructions)
 	}
 	return input, nil
+}
+
+func validProviderID(value string) bool {
+	for index, character := range value {
+		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' ||
+			index > 0 && (character == '-' || character == '_' || character == '.') {
+			continue
+		}
+		return false
+	}
+	return value != ""
 }
 
 func DefinitionPrompt(base string, definition Definition) string {

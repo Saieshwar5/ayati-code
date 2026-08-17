@@ -34,6 +34,7 @@ export function AgentsPage({ controller, onNavigate }: AgentsPageProps) {
               <AgentCard
                 key={definition.id}
                 definition={definition}
+                providerName={controller.providers.find((provider) => provider.id === definition.provider_id)?.name || definition.provider_id}
                 archived={showArchived}
                 onOpen={() => onNavigate(`/agents/${encodeURIComponent(definition.id)}`)}
                 onDefault={() => void controller.makeDefault(definition.id)}
@@ -56,6 +57,7 @@ export function AgentsPage({ controller, onNavigate }: AgentsPageProps) {
 
 function AgentCard(props: {
   definition: AgentDefinition;
+  providerName: string;
   archived: boolean;
   onOpen: () => void;
   onDefault: () => void;
@@ -74,7 +76,7 @@ function AgentCard(props: {
         </span>
         <strong>{agent.name}</strong>
         <span className="agent-card-description">{agent.description || "Custom coding agent"}</span>
-        <span className="agent-card-runtime">Fireworks · {agent.max_steps} steps</span>
+        <span className="agent-card-runtime">{props.providerName} · {agent.max_steps} steps</span>
         <span className="agent-card-capability">{agent.shell_enabled ? "Shell enabled" : "Conversation only"}</span>
       </button>
       <div className="agent-card-actions">

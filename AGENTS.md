@@ -15,8 +15,9 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
 - `internal/agent/`: agent definitions, prompt composition, shared messages, and sequential loop.
-- `internal/config/`: private Fireworks configuration and setup command.
-- `internal/fireworks/`: Fireworks HTTP request and response handling.
+- `internal/provider/`: provider definitions, registration, discovery, and runtime resolution.
+- `internal/config/`: versioned private provider configuration and setup command.
+- `internal/fireworks/`: Fireworks protocol adapter.
 - `docs/`: architecture and important design decisions.
 
 Keep logic in the package that owns the responsibility. `internal/webapp` may connect packages, but infrastructure packages should not depend on it.
@@ -40,9 +41,9 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 ## Security and runtime rules
 
-The controller owns GitHub, Git, SQLite, Docker lifecycle, and Fireworks credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
+The controller owns GitHub, Git, SQLite, Docker lifecycle, and model-provider credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
 
-Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or Fireworks credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
+Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or model-provider credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
 
 Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, and a managed cache outside the repository. Explore mounts the selected workspace read-only; Develop mounts it read-write. Preserve command, output, timeout, workspace, cache, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
 

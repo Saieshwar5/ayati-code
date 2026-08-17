@@ -1,6 +1,7 @@
 import type { AppRoute } from "../app/useAppRoute";
 import { AgentsPage } from "./AgentsPage";
 import { AgentEditor } from "./AgentEditor";
+import { ProvidersPage } from "./ProvidersPage";
 import type { AgentController } from "./useAgentController";
 
 interface AgentStudioProps {
@@ -26,7 +27,7 @@ export function AgentStudio(props: AgentStudioProps) {
     return <AgentEditor creating={false} definition={definition} controller={props.controller} onNavigate={props.onNavigate} />;
   }
   if (props.route.page === "agent-providers") {
-    return <UpcomingPage eyebrow="Model access" title="Providers" glyph="◎" description="Fireworks is Ayati’s configured provider. Write-only provider management will be implemented in its own focused branch." action="1 provider available" />;
+    return <ProvidersPage controller={props.controller} />;
   }
   return <UpcomingPage eyebrow="Reusable instructions" title="Skills" glyph="◇" description="Create, import and attach managed Markdown skills from this global library in the next focused branch." action="Markdown skills planned" />;
 }

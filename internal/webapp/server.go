@@ -15,6 +15,7 @@ import (
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
 )
 
@@ -56,6 +57,7 @@ type Server struct {
 	store           *workspace.Store
 	workspaces      workspaceService
 	chat            chatService
+	providers       *modelprovider.Registry
 	github          githubClient
 	credentialsPath string
 	workspaceRoot   string
@@ -68,6 +70,7 @@ type Options struct {
 	Store           *workspace.Store
 	Workspaces      workspaceService
 	Chat            chatService
+	Providers       *modelprovider.Registry
 	GitHub          githubClient
 	CredentialsPath string
 	WorkspaceRoot   string
@@ -75,8 +78,8 @@ type Options struct {
 }
 
 func New(options Options) (*Server, error) {
-	if options.Store == nil || options.Workspaces == nil {
-		return nil, errors.New("workspace store and service are required")
+	if options.Store == nil || options.Workspaces == nil || options.Providers == nil {
+		return nil, errors.New("workspace store, service, and provider registry are required")
 	}
 	if strings.TrimSpace(options.CredentialsPath) == "" || strings.TrimSpace(options.WorkspaceRoot) == "" {
 		return nil, errors.New("credential path and workspace root are required")
@@ -93,7 +96,8 @@ func New(options Options) (*Server, error) {
 	}
 	return &Server{
 		ctx: options.Context, store: options.Store, workspaces: options.Workspaces, chat: options.Chat,
-		github: options.GitHub, credentialsPath: options.CredentialsPath,
+		providers: options.Providers,
+		github:    options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
 		assets: http.FileServer(http.FS(static)),
 	}, nil
@@ -113,6 +117,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/agents", s.mutate(s.createAgent))
 	mux.HandleFunc("POST /api/agents/", s.mutate(s.agentAction))
 	mux.HandleFunc("PATCH /api/agents/", s.mutate(s.updateAgent))
+	mux.HandleFunc("GET /api/providers", s.listProviders)
 	mux.HandleFunc("GET /api/workspaces", s.listWorkspaces)
 	mux.HandleFunc("GET /api/workspaces/", s.workspaceRead)
 	mux.HandleFunc("POST /api/workspaces", s.mutate(s.createWorkspace))

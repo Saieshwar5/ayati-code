@@ -15,6 +15,7 @@ import (
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
 )
 
@@ -256,12 +257,33 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	}
 	server, err := New(Options{
 		Store: store, Workspaces: workspaces, Chat: fakeChat{}, GitHub: github,
+		Providers:       testProviderRegistry(t),
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	return server.Handler(), store, workspaces, github
+}
+
+func testProviderRegistry(t *testing.T) *modelprovider.Registry {
+	t.Helper()
+	registry, err := modelprovider.New(modelprovider.Registration{
+		Definition: modelprovider.Definition{
+			ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
+		},
+		Client: scriptedWebProvider{}, DefaultModel: "test-model",
+	})
+	if err != nil {
+		t.Fatalf("provider.New: %v", err)
+	}
+	return registry
+}
+
+type scriptedWebProvider struct{}
+
+func (scriptedWebProvider) Next(context.Context, agent.Request) (agent.Message, error) {
+	return agent.Message{Role: "assistant", Content: "done"}, nil
 }
 
 type fakeChat struct{}

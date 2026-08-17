@@ -56,7 +56,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     <main>
       <section className={`app-shell${sessionView ? " session-view" : ""}${agentStudioView ? " agent-studio-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
         <Sidebar controller={controller} route={route} onNavigate={navigate} />
-        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} onNavigate={navigate} />}
+        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} providerCount={agents.providers.length} onNavigate={navigate} />}
         <section className="conversation-pane">
           {controller.loading ? (
             <LoadingPage title="Loading workspaces…" />

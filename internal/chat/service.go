@@ -15,23 +15,26 @@ type workspaceRuntime interface {
 	Shell(context.Context, string) (agent.Shell, workspace.Workspace, error)
 }
 
-type Service struct {
-	store    *workspace.Store
-	runtime  workspaceRuntime
-	provider agent.Provider
-	model    string
-	locksMu  sync.Mutex
-	locks    map[string]*sync.Mutex
-	runsMu   sync.Mutex
-	runs     map[string]context.CancelFunc
+type providerResolver interface {
+	Resolve(string) (agent.Provider, string, error)
 }
 
-func New(store *workspace.Store, runtime workspaceRuntime, provider agent.Provider, model string) (*Service, error) {
-	if store == nil || runtime == nil || provider == nil || strings.TrimSpace(model) == "" {
-		return nil, errors.New("chat store, workspace runtime, provider, and model are required")
+type Service struct {
+	store     *workspace.Store
+	runtime   workspaceRuntime
+	providers providerResolver
+	locksMu   sync.Mutex
+	locks     map[string]*sync.Mutex
+	runsMu    sync.Mutex
+	runs      map[string]context.CancelFunc
+}
+
+func New(store *workspace.Store, runtime workspaceRuntime, providers providerResolver) (*Service, error) {
+	if store == nil || runtime == nil || providers == nil {
+		return nil, errors.New("chat store, workspace runtime, and provider registry are required")
 	}
 	return &Service{
-		store: store, runtime: runtime, provider: provider, model: strings.TrimSpace(model),
+		store: store, runtime: runtime, providers: providers,
 		locks: make(map[string]*sync.Mutex), runs: make(map[string]context.CancelFunc),
 	}, nil
 }
@@ -66,8 +69,9 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 	if definition.ArchivedAt != nil {
 		return agent.Completion{}, errors.New("the selected agent is archived; choose another agent")
 	}
-	if definition.ProviderID != agent.FireworksProviderID {
-		return agent.Completion{}, fmt.Errorf("agent provider %q is not available", definition.ProviderID)
+	selectedProvider, defaultModel, err := s.providers.Resolve(definition.ProviderID)
+	if err != nil {
+		return agent.Completion{}, err
 	}
 	runCtx, cancel := context.WithCancel(ctx)
 	s.setRun(workspaceID, cancel)
@@ -108,14 +112,14 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 	}
 	model := strings.TrimSpace(definition.Model)
 	if model == "" {
-		model = s.model
+		model = defaultModel
 	}
 	attribution := definition.Attribution(model)
 	if !definition.ShellEnabled {
 		shell = nil
 	}
 	loop := agent.Loop{
-		Provider: s.provider, Shell: shell,
+		Provider: selectedProvider, Shell: shell,
 		Recorder: recorder{
 			ctx: runCtx, store: s.store, sessionID: sessionID, attribution: &attribution,
 		},
