@@ -120,6 +120,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/agents/", s.mutate(s.agentAction))
 	mux.HandleFunc("PATCH /api/agents/", s.mutate(s.updateAgent))
 	mux.HandleFunc("GET /api/providers", s.listProviders)
+	mux.HandleFunc("GET /api/providers/", s.listProviderModels)
 	mux.HandleFunc("PUT /api/providers/", s.mutate(s.configureProvider))
 	mux.HandleFunc("POST /api/providers/", s.mutate(s.testProvider))
 	mux.HandleFunc("DELETE /api/providers/", s.mutate(s.removeProvider))

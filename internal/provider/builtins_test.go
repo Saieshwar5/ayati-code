@@ -19,7 +19,9 @@ func TestBuiltinSpecificationsRegisterSixProviders(t *testing.T) {
 		"openai": true, "openrouter": true, "together": true,
 	}
 	for _, value := range values {
-		if !want[value.ID] || !value.Configurable || value.Configured {
+		if !want[value.ID] || !value.Configurable || value.Configured ||
+			(value.ID == "fireworks" && value.SupportsModels) ||
+			(value.ID != "fireworks" && !value.SupportsModels) {
 			t.Errorf("provider = %#v", value)
 		}
 		delete(want, value.ID)

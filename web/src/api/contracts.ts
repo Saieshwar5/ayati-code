@@ -171,7 +171,12 @@ export interface ProviderDefinition {
   configured: boolean;
   configurable: boolean;
   supports_test: boolean;
+  supports_models: boolean;
   default_model?: string;
+}
+
+export interface ProviderModel {
+  id: string;
 }
 
 export interface ProviderConnectionInput {

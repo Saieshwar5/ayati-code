@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { AgentDefinition, AgentInput, SkillDefinition } from "../api/contracts";
 import type { AgentController } from "./useAgentController";
 import type { SkillController } from "./useSkillController";
+import { ModelField } from "./ModelField";
 
 const emptyAgent: AgentInput = {
   name: "",
@@ -28,6 +29,7 @@ export function AgentEditor(props: AgentEditorProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const readOnly = Boolean(props.definition?.built_in || props.definition?.archived_at);
+  const selectedProvider = props.controller.providers.find((provider) => provider.id === input.provider_id);
 
   useEffect(() => {
     if (!props.definition) {
@@ -84,8 +86,8 @@ export function AgentEditor(props: AgentEditorProps) {
           </EditorSection>
           <EditorSection eyebrow="Runtime" title="Model and execution budget">
             <div className="agent-runtime-fields">
-              <label>Provider<select value={input.provider_id} disabled={readOnly} onChange={(event) => setInput({ ...input, provider_id: event.target.value })}>{props.controller.providers.map((provider) => <option key={provider.id} value={provider.id} disabled={!provider.configured && input.provider_id !== provider.id}>{provider.name}{provider.configured ? "" : " · Not configured"}</option>)}</select></label>
-              <label>Model<input value={input.model} disabled={readOnly} placeholder="Use configured default model" onChange={(event) => setInput({ ...input, model: event.target.value })} /></label>
+              <label>Provider<select value={input.provider_id} disabled={readOnly} onChange={(event) => setInput({ ...input, provider_id: event.target.value, model: "" })}>{props.controller.providers.map((provider) => <option key={provider.id} value={provider.id} disabled={!provider.configured && input.provider_id !== provider.id}>{provider.name}{provider.configured ? "" : " · Not configured"}</option>)}</select></label>
+              <ModelField provider={selectedProvider} value={input.model} disabled={readOnly} placeholder="Use configured default model" onChange={(model) => setInput({ ...input, model })} />
               <label>Step limit<input type="number" min={1} max={20} value={input.max_steps} disabled={readOnly} onChange={(event) => setInput({ ...input, max_steps: Number(event.target.value) })} /></label>
             </div>
           </EditorSection>

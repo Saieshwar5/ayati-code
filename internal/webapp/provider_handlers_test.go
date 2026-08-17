@@ -19,6 +19,11 @@ func TestHandlerConfiguresTestsAndRemovesProviderWithoutExposingKey(t *testing.T
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"verified":true`) {
 		t.Fatalf("test status = %d, body = %s", response.Code, response.Body.String())
 	}
+	response = serve(handler, http.MethodGet, "/api/providers/openai/models", "", false)
+	if response.Code != http.StatusOK || response.Body.String() != "[{\"id\":\"gpt-a\"},{\"id\":\"gpt-z\"}]\n" ||
+		strings.Contains(response.Body.String(), "private-openai-key") {
+		t.Fatalf("models status = %d, body = %s", response.Code, response.Body.String())
+	}
 	response = serve(handler, http.MethodDelete, "/api/providers/openai", "", true)
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("remove status = %d, body = %s", response.Code, response.Body.String())
@@ -41,5 +46,9 @@ func TestHandlerProtectsProviderMutationsAndRejectsUnknownProvider(t *testing.T)
 	response = serve(handler, http.MethodPut, "/api/providers/missing", input, true)
 	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "not available") {
 		t.Fatalf("unknown provider status = %d, body = %s", response.Code, response.Body.String())
+	}
+	response = serve(handler, http.MethodGet, "/api/providers/missing/models", "", false)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "not available") {
+		t.Fatalf("unknown models status = %d, body = %s", response.Code, response.Body.String())
 	}
 }

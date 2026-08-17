@@ -288,6 +288,9 @@ func testProviderConnections(t *testing.T, root string) *modelprovider.Connectio
 			Definition: modelprovider.Definition{ID: "openai", Name: "OpenAI", Protocol: "openai-chat"},
 			Factory:    func(string) (agent.Provider, error) { return scriptedWebProvider{}, nil },
 			Verifier:   func(context.Context, string, string) error { return nil },
+			Models: func(context.Context, string) ([]string, error) {
+				return []string{"gpt-z", "gpt-a", "gpt-a"}, nil
+			},
 		},
 	)
 	if err != nil {

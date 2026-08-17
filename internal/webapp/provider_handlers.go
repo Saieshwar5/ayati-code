@@ -12,7 +12,7 @@ func (s *Server) listProviders(writer http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) configureProvider(writer http.ResponseWriter, request *http.Request) {
-	id, ok := providerID(request.URL.Path, false)
+	id, ok := providerPath(request.URL.Path, "")
 	if !ok {
 		http.NotFound(writer, request)
 		return
@@ -34,7 +34,7 @@ func (s *Server) configureProvider(writer http.ResponseWriter, request *http.Req
 }
 
 func (s *Server) testProvider(writer http.ResponseWriter, request *http.Request) {
-	id, ok := providerID(request.URL.Path, true)
+	id, ok := providerPath(request.URL.Path, "test")
 	if !ok {
 		http.NotFound(writer, request)
 		return
@@ -55,7 +55,7 @@ func (s *Server) testProvider(writer http.ResponseWriter, request *http.Request)
 }
 
 func (s *Server) removeProvider(writer http.ResponseWriter, request *http.Request) {
-	id, ok := providerID(request.URL.Path, false)
+	id, ok := providerPath(request.URL.Path, "")
 	if !ok {
 		http.NotFound(writer, request)
 		return
@@ -71,12 +71,33 @@ func (s *Server) removeProvider(writer http.ResponseWriter, request *http.Reques
 	writer.WriteHeader(http.StatusNoContent)
 }
 
-func providerID(path string, test bool) (string, bool) {
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/providers"), "/"), "/")
-	if test {
-		return firstProviderPart(parts, len(parts) == 2 && parts[1] == "test")
+func (s *Server) listProviderModels(writer http.ResponseWriter, request *http.Request) {
+	id, ok := providerPath(request.URL.Path, "models")
+	if !ok {
+		http.NotFound(writer, request)
+		return
 	}
-	return firstProviderPart(parts, len(parts) == 1)
+	if s.connections == nil {
+		s.writeError(writer, http.StatusNotImplemented, "provider model discovery is unavailable")
+		return
+	}
+	models, err := s.connections.Models(request.Context(), id)
+	if err != nil {
+		s.writeError(writer, http.StatusBadRequest, err.Error())
+		return
+	}
+	if models == nil {
+		models = []modelprovider.Model{}
+	}
+	s.writeJSON(writer, http.StatusOK, models)
+}
+
+func providerPath(path, action string) (string, bool) {
+	parts := strings.Split(strings.Trim(strings.TrimPrefix(path, "/api/providers"), "/"), "/")
+	if action == "" {
+		return firstProviderPart(parts, len(parts) == 1)
+	}
+	return firstProviderPart(parts, len(parts) == 2 && parts[1] == action)
 }
 
 func firstProviderPart(parts []string, valid bool) (string, bool) {

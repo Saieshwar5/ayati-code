@@ -47,7 +47,7 @@ describe("AgentStudio", () => {
       if (path === "/api/workspaces?archived=true") return json([]);
       if (path === "/api/providers") return json([{
         id: "fireworks", name: "Fireworks", protocol: "openai-chat", configured: true,
-        configurable: true, supports_test: false, default_model: "test-model",
+        configurable: true, supports_test: false, supports_models: false, default_model: "test-model",
       }]);
       if (path === "/api/agents?archived=true") return json([]);
       if (path === "/api/skills?archived=true") return json([]);
@@ -114,7 +114,7 @@ describe("AgentStudio", () => {
     window.history.replaceState({}, "", "/agents/providers");
     let provider: ProviderDefinition = {
       id: "openai", name: "OpenAI", protocol: "openai-chat", configured: false,
-      configurable: true, supports_test: true,
+      configurable: true, supports_test: true, supports_models: true,
     };
     let tested: unknown;
     let saved: unknown;
@@ -130,6 +130,9 @@ describe("AgentStudio", () => {
       if (path === "/api/providers/openai/test" && init?.method === "POST") {
         tested = JSON.parse(String(init.body));
         return json({ verified: true });
+      }
+      if (path === "/api/providers/openai/models") {
+        return json([{ id: "gpt-a" }, { id: "gpt-z" }]);
       }
       if (path === "/api/providers/openai" && init?.method === "PUT") {
         saved = JSON.parse(String(init.body));
@@ -153,6 +156,9 @@ describe("AgentStudio", () => {
     expect(saved).toEqual(tested);
     expect(screen.queryByDisplayValue("private-key")).toBeNull();
     expect(await screen.findByText("Default · gpt-test")).toBeTruthy();
+    await user.click(screen.getByLabelText("Default model"));
+    expect(await screen.findByText("2 models available · manual entry remains available.")).toBeTruthy();
+    expect(document.querySelector('option[value="gpt-a"]')).toBeTruthy();
   });
 
   it("creates reusable Markdown guidance from the Skills page", async () => {
