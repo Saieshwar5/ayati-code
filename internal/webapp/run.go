@@ -88,7 +88,8 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
-	providers, providerConnections, conversation, err := modelServices(store, workspaces)
+	events := NewEventBroker()
+	providers, providerConnections, conversation, err := modelServices(store, workspaces, events)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
@@ -98,6 +99,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
 		Providers: providers, ProviderConnections: providerConnections, GitHub: github,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
+		Events: events,
 	})
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
@@ -134,7 +136,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 }
 
 func modelServices(
-	store *workspace.Store, runtime *workspace.Service,
+	store *workspace.Store, runtime *workspace.Service, events *EventBroker,
 ) (*modelprovider.Registry, *modelprovider.Connections, *chat.Service, error) {
 	path, err := config.DefaultPath()
 	if err != nil {
@@ -145,7 +147,7 @@ func modelServices(
 		return nil, nil, nil, err
 	}
 	providers := connections.Registry()
-	conversation, err := chat.New(store, runtime, providers)
+	conversation, err := chat.New(store, runtime, providers, events)
 	if err != nil {
 		return nil, nil, nil, err
 	}

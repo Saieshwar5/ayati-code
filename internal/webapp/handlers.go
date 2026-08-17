@@ -129,15 +129,15 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		if !s.decode(writer, request, &input) {
 			return
 		}
-		completion, err := s.chat.Send(request.Context(), parts[0], parts[2], input.Text)
+		run, err := s.chat.Start(s.ctx, parts[0], parts[2], input.Text)
 		if err != nil {
 			s.writeError(writer, http.StatusConflict, err.Error())
 			return
 		}
-		s.writeJSON(writer, http.StatusOK, completion)
+		s.writeJSON(writer, http.StatusAccepted, run)
 		return
 	}
-	if len(parts) == 4 && parts[1] == "sessions" && parts[3] == "cancel" {
+	if len(parts) == 6 && parts[1] == "sessions" && parts[3] == "runs" && parts[5] == "cancel" {
 		if s.chat == nil {
 			s.writeError(writer, http.StatusServiceUnavailable, "agent chat is not configured")
 			return
@@ -149,8 +149,15 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			s.writeError(writer, http.StatusInternalServerError, "load session")
 			return
 		}
-		if !s.chat.CancelSession(parts[0], parts[2]) {
-			s.writeError(writer, http.StatusConflict, "session is not running")
+		if _, err := s.store.AgentRun(request.Context(), parts[0], parts[2], parts[4]); errors.Is(err, sql.ErrNoRows) {
+			s.writeError(writer, http.StatusNotFound, "agent run not found")
+			return
+		} else if err != nil {
+			s.writeError(writer, http.StatusInternalServerError, "load agent run")
+			return
+		}
+		if !s.chat.CancelRun(parts[0], parts[2], parts[4]) {
+			s.writeError(writer, http.StatusConflict, "agent run is not active")
 			return
 		}
 		writer.WriteHeader(http.StatusNoContent)

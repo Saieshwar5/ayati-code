@@ -19,10 +19,15 @@ type providerResolver interface {
 	Resolve(string) (agent.Provider, string, error)
 }
 
+type Notifier interface {
+	SessionChanged(workspaceID, sessionID, runID string)
+}
+
 type Service struct {
 	store     *workspace.Store
 	runtime   workspaceRuntime
 	providers providerResolver
+	notifier  Notifier
 	locksMu   sync.Mutex
 	locks     map[string]*sync.Mutex
 	runsMu    sync.Mutex
@@ -30,19 +35,31 @@ type Service struct {
 }
 
 type activeRun struct {
+	id        string
 	sessionID string
 	cancel    context.CancelFunc
 	canceled  bool
 }
 
-func New(store *workspace.Store, runtime workspaceRuntime, providers providerResolver) (*Service, error) {
+type runResult struct {
+	completion agent.Completion
+	err        error
+}
+
+func New(
+	store *workspace.Store, runtime workspaceRuntime, providers providerResolver, notifiers ...Notifier,
+) (*Service, error) {
 	if store == nil || runtime == nil || providers == nil {
 		return nil, errors.New("chat store, workspace runtime, and provider registry are required")
 	}
-	return &Service{
+	service := &Service{
 		store: store, runtime: runtime, providers: providers,
 		locks: make(map[string]*sync.Mutex), runs: make(map[string]*activeRun),
-	}, nil
+	}
+	if len(notifiers) > 0 {
+		service.notifier = notifiers[0]
+	}
+	return service, nil
 }
 
 func (s *Service) Messages(
@@ -55,129 +72,91 @@ func (s *Service) Messages(
 }
 
 func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string) (agent.Completion, error) {
+	_, result, err := s.start(ctx, workspaceID, sessionID, text)
+	if err != nil {
+		return agent.Completion{}, err
+	}
+	completed := <-result
+	return completed.completion, completed.err
+}
+
+// Start accepts a durable run and executes it independently of the HTTP request.
+func (s *Service) Start(
+	ownerCtx context.Context, workspaceID, sessionID, text string,
+) (workspace.AgentRun, error) {
+	run, _, err := s.start(ownerCtx, workspaceID, sessionID, text)
+	return run, err
+}
+
+func (s *Service) start(
+	ownerCtx context.Context, workspaceID, sessionID, text string,
+) (workspace.AgentRun, <-chan runResult, error) {
 	text = strings.TrimSpace(text)
 	if text == "" {
-		return agent.Completion{}, errors.New("message is required")
+		return workspace.AgentRun{}, nil, errors.New("message is required")
+	}
+	if err := ownerCtx.Err(); err != nil {
+		return workspace.AgentRun{}, nil, err
 	}
 	lock := s.lock(workspaceID)
 	if !lock.TryLock() {
-		return agent.Completion{}, errors.New("another session is already running in this workspace")
+		return workspace.AgentRun{}, nil, workspace.ErrAgentRunActive
 	}
-	defer lock.Unlock()
-	session, err := s.store.GetSession(ctx, workspaceID, sessionID)
+	currentWorkspace, err := s.store.Get(ownerCtx, workspaceID)
 	if err != nil {
-		return agent.Completion{}, fmt.Errorf("load session: %w", err)
+		lock.Unlock()
+		return workspace.AgentRun{}, nil, fmt.Errorf("load workspace: %w", err)
 	}
-	definition, err := s.store.GetAgent(ctx, session.SelectedAgentID)
+	if currentWorkspace.Status != workspace.StatusReady {
+		lock.Unlock()
+		return workspace.AgentRun{}, nil, errors.New("workspace is not ready")
+	}
+	run, err := s.store.BeginAgentRun(ownerCtx, workspaceID, sessionID, text)
 	if err != nil {
-		return agent.Completion{}, fmt.Errorf("load selected agent: %w", err)
+		lock.Unlock()
+		return workspace.AgentRun{}, nil, err
 	}
-	if definition.ArchivedAt != nil {
-		return agent.Completion{}, errors.New("the selected agent is archived; choose another agent")
-	}
-	selectedProvider, defaultModel, err := s.providers.Resolve(definition.ProviderID)
-	if err != nil {
-		return agent.Completion{}, err
-	}
-	skills, err := s.store.AgentSkills(ctx, definition.ID)
-	if err != nil {
-		return agent.Completion{}, fmt.Errorf("load selected agent skills: %w", err)
-	}
-	runCtx, cancel := context.WithCancel(ctx)
-	run := s.setRun(workspaceID, sessionID, cancel)
-	finished := false
-	defer func() {
-		cancel()
-		if !finished {
-			s.finishRun(workspaceID, run)
-		}
+	runCtx, cancel := context.WithCancel(ownerCtx)
+	active := s.setRun(workspaceID, run.ID, sessionID, cancel)
+	result := make(chan runResult, 1)
+	s.notify(workspaceID, sessionID, run.ID)
+	go func() {
+		defer lock.Unlock()
+		var completed runResult
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				active.cancel()
+				s.finishRun(run.WorkspaceID, active)
+				message := "agent run stopped unexpectedly"
+				_ = s.store.FinishAgentRun(context.Background(), run.ID,
+					workspace.AgentRunStatusFailed, workspace.SessionStatusFailed, message)
+				s.notify(run.WorkspaceID, run.SessionID, run.ID)
+				completed.err = errors.New(message)
+			}
+			result <- completed
+			close(result)
+		}()
+		completed.completion, completed.err = s.execute(runCtx, run, active)
 	}()
-	shell, currentWorkspace, err := s.runtime.Shell(runCtx, workspaceID)
-	if err != nil {
-		return agent.Completion{}, err
-	}
-	history, err := s.store.Messages(runCtx, sessionID)
-	if err != nil {
-		return agent.Completion{}, err
-	}
-	if err := s.store.TitleSessionFromMessage(runCtx, sessionID, text); err != nil {
-		return agent.Completion{}, fmt.Errorf("title session: %w", err)
-	}
-	if err := s.store.UpdateSessionStatus(runCtx, sessionID, workspace.SessionStatusWorking, ""); err != nil {
-		return agent.Completion{}, err
-	}
-	observer := &observer{}
-	workspaceContext := agent.WorkspaceContext{
-		Repository: currentWorkspace.Repository,
-		Branch:     currentWorkspace.Branch, Authority: string(currentWorkspace.Authority),
-	}
-	if profile := currentWorkspace.Profile; profile != nil {
-		workspaceContext.ProjectRoot = profile.ProjectRoot
-		workspaceContext.Languages = profile.Languages
-		workspaceContext.RuntimeVersions = profile.RuntimeVersions
-		workspaceContext.PackageManagers = profile.PackageManagers
-		workspaceContext.SetupResult = profile.SetupResult
-		workspaceContext.BaselineCommit = profile.BaselineCommit
-		workspaceContext.TestCommand = profile.TestCommand
-		workspaceContext.LintCommand = profile.LintCommand
-		workspaceContext.TypecheckCommand = profile.TypecheckCommand
-		workspaceContext.BuildCommand = profile.BuildCommand
-	}
-	model := strings.TrimSpace(definition.Model)
-	if model == "" {
-		model = defaultModel
-	}
-	attribution := definition.Attribution(model, skills...)
-	if !definition.ShellEnabled {
-		shell = nil
-	}
-	loop := agent.Loop{
-		Provider: selectedProvider, Shell: shell,
-		Recorder: recorder{
-			ctx: runCtx, store: s.store, sessionID: sessionID, attribution: &attribution,
-		},
-		Observer: observer, Model: model, StepLimit: definition.MaxSteps,
-		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition, skills...),
-	}
-	completion, err := loop.Run(runCtx, &history, text)
-	canceled := s.finishRun(workspaceID, run)
-	finished = true
-	if canceled && err == nil {
-		_ = s.store.UpdateSessionStatus(context.Background(), sessionID, workspace.SessionStatusCanceled, "")
-		return completion, context.Canceled
-	}
-	if err != nil {
-		message := err.Error()
-		status := workspace.SessionStatusFailed
-		if canceled || errors.Is(err, context.Canceled) {
-			status = workspace.SessionStatusCanceled
-			message = ""
-		}
-		_ = s.store.UpdateSessionStatus(context.Background(), sessionID, status, message)
-		return completion, err
-	}
-	status := workspace.SessionStatusIdle
-	if observer.shellCalls > 0 {
-		status = workspace.SessionStatusReview
-	}
-	if err := s.store.UpdateSessionStatus(context.Background(), sessionID, status, ""); err != nil {
-		return completion, err
-	}
-	return completion, nil
+	return run, result, nil
 }
 
 func (s *Service) Cancel(workspaceID string) {
-	s.cancelRun(workspaceID, "")
+	s.cancelRun(workspaceID, "", "")
 }
 
 func (s *Service) CancelSession(workspaceID, sessionID string) bool {
-	return s.cancelRun(workspaceID, sessionID)
+	return s.cancelRun(workspaceID, sessionID, "")
 }
 
-func (s *Service) cancelRun(workspaceID, sessionID string) bool {
+func (s *Service) CancelRun(workspaceID, sessionID, runID string) bool {
+	return s.cancelRun(workspaceID, sessionID, runID)
+}
+
+func (s *Service) cancelRun(workspaceID, sessionID, runID string) bool {
 	s.runsMu.Lock()
 	run := s.runs[workspaceID]
-	if run == nil || sessionID != "" && run.sessionID != sessionID {
+	if run == nil || sessionID != "" && run.sessionID != sessionID || runID != "" && run.id != runID {
 		s.runsMu.Unlock()
 		return false
 	}
@@ -206,12 +185,18 @@ func (s *Service) WithWorkspaceIdle(workspaceID string, action func() error) err
 	return action()
 }
 
-func (s *Service) setRun(workspaceID, sessionID string, cancel context.CancelFunc) *activeRun {
+func (s *Service) setRun(workspaceID, runID, sessionID string, cancel context.CancelFunc) *activeRun {
 	s.runsMu.Lock()
 	defer s.runsMu.Unlock()
-	run := &activeRun{sessionID: sessionID, cancel: cancel}
+	run := &activeRun{id: runID, sessionID: sessionID, cancel: cancel}
 	s.runs[workspaceID] = run
 	return run
+}
+
+func (s *Service) notify(workspaceID, sessionID, runID string) {
+	if s.notifier != nil {
+		s.notifier.SessionChanged(workspaceID, sessionID, runID)
+	}
 }
 
 func (s *Service) finishRun(workspaceID string, run *activeRun) bool {
@@ -237,11 +222,17 @@ type recorder struct {
 	store       *workspace.Store
 	sessionID   string
 	attribution *agent.Attribution
+	notifier    Notifier
+	workspaceID string
+	runID       string
 }
 
 func (r recorder) Append(message agent.Message) error {
 	if err := r.store.AppendAttributedMessage(r.ctx, r.sessionID, message, r.attribution); err != nil {
 		return fmt.Errorf("record conversation: %w", err)
+	}
+	if r.notifier != nil {
+		r.notifier.SessionChanged(r.workspaceID, r.sessionID, r.runID)
 	}
 	return nil
 }

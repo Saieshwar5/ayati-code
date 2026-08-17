@@ -1,6 +1,7 @@
 import type {
   AgentDefinition,
   AgentInput,
+  AgentRun,
   Branch,
   AuthorityChangeInput,
   Changes,
@@ -146,12 +147,12 @@ export const api = {
   messages: (workspaceID: string, sessionID: string) =>
     request<Message[]>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/messages`),
   sendMessage: (workspaceID: string, sessionID: string, text: string) =>
-    request<unknown>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/messages`, {
+    request<AgentRun>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/messages`, {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
-  cancelRun: (workspaceID: string, sessionID: string) =>
-    request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/cancel`, {
+  cancelRun: (workspaceID: string, sessionID: string, runID: string) =>
+    request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/runs/${runID}/cancel`, {
       method: "POST",
     }),
   changes: (workspaceID: string) =>

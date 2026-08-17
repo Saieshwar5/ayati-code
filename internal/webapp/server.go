@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
 	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
@@ -47,8 +46,8 @@ type workspaceService interface {
 
 type chatService interface {
 	Messages(context.Context, string, string) ([]workspace.ConversationMessage, error)
-	Send(context.Context, string, string, string) (agent.Completion, error)
-	CancelSession(string, string) bool
+	Start(context.Context, string, string, string) (workspace.AgentRun, error)
+	CancelRun(string, string, string) bool
 	CancelAndWait(string)
 	WithWorkspaceIdle(string, func() error) error
 }
@@ -65,6 +64,7 @@ type Server struct {
 	workspaceRoot   string
 	logger          *log.Logger
 	assets          http.Handler
+	events          *EventBroker
 }
 
 type Options struct {
@@ -78,6 +78,7 @@ type Options struct {
 	CredentialsPath     string
 	WorkspaceRoot       string
 	Logger              *log.Logger
+	Events              *EventBroker
 }
 
 func New(options Options) (*Server, error) {
@@ -93,6 +94,9 @@ func New(options Options) (*Server, error) {
 	if options.Logger == nil {
 		options.Logger = log.New(io.Discard, "", 0)
 	}
+	if options.Events == nil {
+		options.Events = NewEventBroker()
+	}
 	static, err := fs.Sub(assets, "dist")
 	if err != nil {
 		return nil, err
@@ -102,7 +106,7 @@ func New(options Options) (*Server, error) {
 		providers: options.Providers, connections: options.ProviderConnections,
 		github: options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
-		assets: http.FileServer(http.FS(static)),
+		assets: http.FileServer(http.FS(static)), events: options.Events,
 	}, nil
 }
 
@@ -110,6 +114,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET /api/session", s.session)
+	mux.HandleFunc("GET /api/events", s.eventStream)
 	mux.HandleFunc("GET /auth/github", s.githubLogin)
 	mux.HandleFunc("GET /auth/github/callback", s.githubCallback)
 	mux.HandleFunc("POST /api/logout", s.mutate(s.logout))
