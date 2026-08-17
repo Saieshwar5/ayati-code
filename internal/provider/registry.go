@@ -5,15 +5,19 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
 )
 
 type Definition struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Protocol   string `json:"protocol"`
-	Configured bool   `json:"configured"`
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Protocol     string `json:"protocol"`
+	Configured   bool   `json:"configured"`
+	Configurable bool   `json:"configurable"`
+	SupportsTest bool   `json:"supports_test"`
+	DefaultModel string `json:"default_model,omitempty"`
 }
 
 type Registration struct {
@@ -23,6 +27,7 @@ type Registration struct {
 }
 
 type Registry struct {
+	mu            sync.RWMutex
 	registrations map[string]Registration
 }
 
@@ -53,6 +58,8 @@ func (r *Registry) Has(id string) bool {
 	if r == nil {
 		return false
 	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	_, exists := r.registrations[strings.TrimSpace(id)]
 	return exists
 }
@@ -61,10 +68,15 @@ func (r *Registry) List() []Definition {
 	if r == nil {
 		return []Definition{}
 	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	values := make([]Definition, 0, len(r.registrations))
 	for _, registration := range r.registrations {
 		definition := registration.Definition
 		definition.Configured = registration.Client != nil && registration.DefaultModel != ""
+		if definition.Configured {
+			definition.DefaultModel = registration.DefaultModel
+		}
 		values = append(values, definition)
 	}
 	sort.Slice(values, func(left, right int) bool {
@@ -75,6 +87,8 @@ func (r *Registry) List() []Definition {
 
 func (r *Registry) Resolve(id string) (agent.Provider, string, error) {
 	id = strings.TrimSpace(id)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	registration, exists := r.registrations[id]
 	if !exists {
 		return nil, "", fmt.Errorf("provider %q is not available", id)
@@ -83,6 +97,37 @@ func (r *Registry) Resolve(id string) (agent.Provider, string, error) {
 		return nil, "", fmt.Errorf("provider %q is not configured", id)
 	}
 	return registration.Client, registration.DefaultModel, nil
+}
+
+func (r *Registry) Configure(id string, client agent.Provider, defaultModel string) error {
+	id, defaultModel = strings.TrimSpace(id), strings.TrimSpace(defaultModel)
+	if client == nil || defaultModel == "" {
+		return errors.New("provider client and default model are required")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	registration, exists := r.registrations[id]
+	if !exists {
+		return fmt.Errorf("provider %q is not available", id)
+	}
+	registration.Client = client
+	registration.DefaultModel = defaultModel
+	r.registrations[id] = registration
+	return nil
+}
+
+func (r *Registry) Clear(id string) error {
+	id = strings.TrimSpace(id)
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	registration, exists := r.registrations[id]
+	if !exists {
+		return fmt.Errorf("provider %q is not available", id)
+	}
+	registration.Client = nil
+	registration.DefaultModel = ""
+	r.registrations[id] = registration
+	return nil
 }
 
 func validID(value string) bool {

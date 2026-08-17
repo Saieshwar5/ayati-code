@@ -31,6 +31,7 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
 - `internal/provider` owns validated provider definitions, registration, discovery, and runtime resolution.
 - `internal/fireworks` owns the Fireworks request format and implements the shared agent-provider contract.
+- `internal/openai` owns the OpenAI Chat Completions request format and model connection verification.
 - `internal/config` owns versioned private provider configuration, legacy Fireworks migration, and the terminal setup command.
 
 Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
@@ -94,7 +95,7 @@ Agent Studio has a global catalog containing one immutable built-in Ayati agent,
 
 Agent definitions and skills do not store conversation or workspace context. Skill Markdown is inert prompt guidance stored in SQLite; browser import and export provide `.md` interchange without allowing executable skill scripts. At the start of a run, `internal/chat` loads the session's selected agent and its ordered skills, snapshots their revisions, resolves the agent's provider through the registry, resolves an empty model to that provider's private configured default, combines the non-overridable workspace prompt with custom instructions and skill Markdown, loads the session history, and runs the model. Editing an agent or skill affects future runs only. Historical assistant messages keep the producing agent, provider, model, and skill revision snapshot. Attachment count and combined Markdown size are bounded before storage.
 
-Provider definitions are non-secret metadata. The registry exposes only identity, protocol, and configured state to the browser. Credentials remain in the private controller configuration file. Built-in adapters are compiled Go code; Ayati does not load native libraries, scripts, downloaded packages, or arbitrary headers as provider plugins. Fireworks is the only runtime adapter in the provider-foundation milestone. Additional providers must implement the same request contract and pass the shared shell-call conformance tests.
+Provider definitions are non-secret metadata. The registry exposes identity, protocol, capability flags, configured state, and the non-secret default model to the browser. Credentials remain in the private `0600` controller configuration file and are accepted write-only through mutation endpoints. Leaving the key field blank preserves an existing key; removal clears the saved connection and immediately disables runtime resolution. Fireworks and OpenAI are compiled adapters, and OpenAI model verification returns only success or a bounded status error. Ayati does not load native libraries, scripts, downloaded packages, arbitrary endpoints, or arbitrary headers as provider plugins. Additional providers must register a compiled specification, implement the shared request contract, and pass the shell-call conformance tests.
 
 The model receives exactly one function:
 

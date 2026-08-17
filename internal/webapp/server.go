@@ -58,6 +58,7 @@ type Server struct {
 	workspaces      workspaceService
 	chat            chatService
 	providers       *modelprovider.Registry
+	connections     *modelprovider.Connections
 	github          githubClient
 	credentialsPath string
 	workspaceRoot   string
@@ -66,15 +67,16 @@ type Server struct {
 }
 
 type Options struct {
-	Context         context.Context
-	Store           *workspace.Store
-	Workspaces      workspaceService
-	Chat            chatService
-	Providers       *modelprovider.Registry
-	GitHub          githubClient
-	CredentialsPath string
-	WorkspaceRoot   string
-	Logger          *log.Logger
+	Context             context.Context
+	Store               *workspace.Store
+	Workspaces          workspaceService
+	Chat                chatService
+	Providers           *modelprovider.Registry
+	ProviderConnections *modelprovider.Connections
+	GitHub              githubClient
+	CredentialsPath     string
+	WorkspaceRoot       string
+	Logger              *log.Logger
 }
 
 func New(options Options) (*Server, error) {
@@ -96,8 +98,8 @@ func New(options Options) (*Server, error) {
 	}
 	return &Server{
 		ctx: options.Context, store: options.Store, workspaces: options.Workspaces, chat: options.Chat,
-		providers: options.Providers,
-		github:    options.GitHub, credentialsPath: options.CredentialsPath,
+		providers: options.Providers, connections: options.ProviderConnections,
+		github: options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
 		assets: http.FileServer(http.FS(static)),
 	}, nil
@@ -118,6 +120,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/agents/", s.mutate(s.agentAction))
 	mux.HandleFunc("PATCH /api/agents/", s.mutate(s.updateAgent))
 	mux.HandleFunc("GET /api/providers", s.listProviders)
+	mux.HandleFunc("PUT /api/providers/", s.mutate(s.configureProvider))
+	mux.HandleFunc("POST /api/providers/", s.mutate(s.testProvider))
+	mux.HandleFunc("DELETE /api/providers/", s.mutate(s.removeProvider))
 	mux.HandleFunc("GET /api/skills", s.skillsRead)
 	mux.HandleFunc("GET /api/skills/", s.skillsRead)
 	mux.HandleFunc("POST /api/skills", s.mutate(s.createSkill))

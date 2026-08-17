@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/ayati-code/internal/config"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
 	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
@@ -255,9 +256,10 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	}); err != nil {
 		t.Fatalf("SaveCredentials: %v", err)
 	}
+	connections := testProviderConnections(t, root)
 	server, err := New(Options{
 		Store: store, Workspaces: workspaces, Chat: fakeChat{}, GitHub: github,
-		Providers:       testProviderRegistry(t),
+		Providers: connections.Registry(), ProviderConnections: connections,
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {
@@ -266,18 +268,32 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	return server.Handler(), store, workspaces, github
 }
 
-func testProviderRegistry(t *testing.T) *modelprovider.Registry {
+func testProviderConnections(t *testing.T, root string) *modelprovider.Connections {
 	t.Helper()
-	registry, err := modelprovider.New(modelprovider.Registration{
-		Definition: modelprovider.Definition{
-			ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
-		},
-		Client: scriptedWebProvider{}, DefaultModel: "test-model",
-	})
-	if err != nil {
-		t.Fatalf("provider.New: %v", err)
+	path := filepath.Join(root, "providers.json")
+	if err := config.Save(path, config.Values{Version: config.CurrentVersion,
+		Providers: map[string]config.ProviderValues{
+			agent.FireworksProviderID: {APIKey: "test-key", DefaultModel: "test-model"},
+		}}); err != nil {
+		t.Fatalf("config.Save: %v", err)
 	}
-	return registry
+	connections, err := modelprovider.NewConnections(path,
+		modelprovider.Specification{
+			Definition: modelprovider.Definition{
+				ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
+			},
+			Factory: func(string) (agent.Provider, error) { return scriptedWebProvider{}, nil },
+		},
+		modelprovider.Specification{
+			Definition: modelprovider.Definition{ID: "openai", Name: "OpenAI", Protocol: "openai-chat"},
+			Factory:    func(string) (agent.Provider, error) { return scriptedWebProvider{}, nil },
+			Verifier:   func(context.Context, string, string) error { return nil },
+		},
+	)
+	if err != nil {
+		t.Fatalf("provider.NewConnections: %v", err)
+	}
+	return connections
 }
 
 type scriptedWebProvider struct{}
