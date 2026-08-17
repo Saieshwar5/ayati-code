@@ -9,6 +9,8 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 ## Package ownership
 
 - `cmd/ayati/`: process entry point and signal setup only.
+- `internal/database/`: the shared SQLite connection and connection-level safety configuration.
+- `internal/environment/`: reusable compute definitions, availability, and exclusive workspace leases.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
 - `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
 - `internal/sandbox/`: persistent Docker containers and bounded shell execution.
@@ -42,7 +44,7 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 ## Security and runtime rules
 
-The controller owns GitHub, Git, SQLite, Docker lifecycle, and model-provider credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
+The controller owns GitHub, Git, SQLite, environment leases, Docker lifecycle, and model-provider credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
 
 Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or model-provider credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
 

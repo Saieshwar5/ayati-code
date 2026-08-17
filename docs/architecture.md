@@ -23,6 +23,8 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 
 - `cmd/ayati` owns signal handling and selects the web server or the small `config` command.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
+- `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
+- `internal/environment` owns reusable compute definitions and exclusive, generation-checked workspace leases.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
@@ -55,6 +57,13 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `application_settings`: the single global default-agent reference.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
+- `environments`: reusable runtime configuration, resolved image identity, resource policy, provisioning health, and lease generation.
+- `environment_leases`: durable acquiring, active, releasing, released, or failed assignments with unique active environment and workspace constraints.
+
+The environment tables are the first migration slice. Workspace lifecycle still uses its existing
+named container until the Docker runtime and workspace lifecycle are moved behind leases in the
+next slice. Keeping this transition explicit prevents the persistence foundation from claiming
+runtime behavior it does not yet control.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 

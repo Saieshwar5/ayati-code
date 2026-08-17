@@ -84,7 +84,6 @@ const environmentSchema = `CREATE TABLE IF NOT EXISTS workspace_environment (
 
 func (s *Store) configure() error {
 	for _, statement := range []string{
-		`PRAGMA journal_mode = WAL`, `PRAGMA foreign_keys = ON`, `PRAGMA busy_timeout = 5000`,
 		workspaceSchema, environmentSchema,
 	} {
 		if _, err := s.db.Exec(statement); err != nil {

@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	_ "modernc.org/sqlite"
+	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
 )
 
 const (
@@ -68,8 +68,9 @@ type Create struct {
 }
 
 type Store struct {
-	db     *sql.DB
-	sealer *environmentSealer
+	db       *sql.DB
+	sealer   *environmentSealer
+	database *appdatabase.Database
 }
 
 func DefaultPath() (string, error) {
@@ -81,42 +82,45 @@ func DefaultPath() (string, error) {
 }
 
 func Open(path string) (*Store, error) {
-	if strings.TrimSpace(path) == "" {
-		return nil, errors.New("database path is required")
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return nil, fmt.Errorf("create database directory: %w", err)
-	}
-	db, err := sql.Open("sqlite", path)
+	database, err := appdatabase.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("open database: %w", err)
+		return nil, err
 	}
-	db.SetMaxOpenConns(1)
+	store, err := NewStore(database)
+	if err != nil {
+		database.Close()
+		return nil, err
+	}
+	store.database = database
+	return store, nil
+}
+
+func NewStore(database *appdatabase.Database) (*Store, error) {
+	if database == nil || database.SQL() == nil {
+		return nil, errors.New("database is required")
+	}
+	db := database.SQL()
 	var schemaVersion int
 	if err := db.QueryRow(`PRAGMA user_version`).Scan(&schemaVersion); err != nil {
-		db.Close()
 		return nil, fmt.Errorf("inspect database version: %w", err)
 	}
-	sealer, err := newEnvironmentSealer(path, schemaVersion >= 2)
+	sealer, err := newEnvironmentSealer(database.Path(), schemaVersion >= 2)
 	if err != nil {
-		db.Close()
 		return nil, err
 	}
 	store := &Store{db: db, sealer: sealer}
 	if err := store.configure(); err != nil {
-		db.Close()
 		return nil, err
-	}
-	if path != ":memory:" {
-		if err := os.Chmod(path, 0o600); err != nil {
-			db.Close()
-			return nil, fmt.Errorf("secure database: %w", err)
-		}
 	}
 	return store, nil
 }
 
-func (s *Store) Close() error { return s.db.Close() }
+func (s *Store) Close() error {
+	if s.database == nil {
+		return nil
+	}
+	return s.database.Close()
+}
 
 func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	input.Repository = strings.TrimSpace(input.Repository)
