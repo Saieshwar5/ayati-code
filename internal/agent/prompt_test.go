@@ -32,3 +32,17 @@ func TestWorkspacePromptKeepsDevelopImplementationContract(t *testing.T) {
 		t.Fatalf("prompt = %s", prompt)
 	}
 }
+
+func TestDefinitionPromptKeepsCustomInstructionsSubordinate(t *testing.T) {
+	prompt := DefinitionPrompt("controller policy", Definition{
+		Name: "Reviewer", Instructions: "Focus on architecture risks.",
+	})
+	for _, expected := range []string{
+		"controller policy", "subordinate to Ayati's workspace authority", "Agent name: Reviewer",
+		"Focus on architecture risks.",
+	} {
+		if !strings.Contains(prompt, expected) {
+			t.Fatalf("prompt does not contain %q: %s", expected, prompt)
+		}
+	}
+}

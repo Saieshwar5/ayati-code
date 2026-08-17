@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "../api/contracts";
+import { AgentStudio } from "../agents/AgentStudio";
+import { AgentStudioSidebar } from "../agents/AgentStudioSidebar";
+import { useAgentController } from "../agents/useAgentController";
 import { ChatPane } from "../chat/ChatPane";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { Inspector } from "../inspector/Inspector";
@@ -9,7 +12,7 @@ import { Sidebar } from "../workspaces/Sidebar";
 import { WorkspaceHome } from "../workspaces/WorkspaceHome";
 import { WorkspaceIndex } from "../workspaces/WorkspaceIndex";
 import { WorkspacePage } from "../workspaces/WorkspacePage";
-import { sessionPath, useAppRoute, workspacePath } from "./useAppRoute";
+import { isAgentRoute, sessionPath, useAppRoute, workspacePath } from "./useAppRoute";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 interface WorkspaceApplicationProps {
@@ -19,6 +22,9 @@ interface WorkspaceApplicationProps {
 export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const controller = useWorkspaceController(user);
   const { route, navigate } = useAppRoute();
+  const sessionView = route.page === "session";
+  const agentStudioView = isAgentRoute(route);
+  const agents = useAgentController(agentStudioView || sessionView);
   const [inspectorCollapsed, setInspectorCollapsedState] = useState(initialInspectorState);
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
   const sessionID = route.page === "session" ? route.sessionID : "";
@@ -46,11 +52,11 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     }
   }, []);
 
-  const sessionView = route.page === "session";
   return (
     <main>
-      <section className={`app-shell${sessionView ? " session-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
+      <section className={`app-shell${sessionView ? " session-view" : ""}${agentStudioView ? " agent-studio-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
         <Sidebar controller={controller} route={route} onNavigate={navigate} />
+        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} onNavigate={navigate} />}
         <section className="conversation-pane">
           {controller.loading ? (
             <LoadingPage title="Loading workspaces…" />
@@ -104,12 +110,16 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               messages={detail.messages}
               error={detail.messageError}
               sending={detail.sending}
+              agents={agents.agents}
               onSend={detail.sendMessage}
+              onSelectAgent={async (agentID) => {
+                await controller.selectSessionAgent(workspace.id, session.id, agentID);
+              }}
             />
           ) : route.page === "archived" ? (
             <ArchivedWorkspaces workspaces={controller.archivedWorkspaces} onRestore={async (id) => { await controller.restoreWorkspace(id); navigate(workspacePath(id)); }} />
-          ) : route.page === "agents" ? (
-            <PlaceholderPage eyebrow="Custom behavior" title="Agents" description="Create focused agents with their own instructions and responsibilities. This navigation is ready; agent configuration comes in a separate implementation." />
+          ) : agentStudioView ? (
+            <AgentStudio route={route} controller={agents} onNavigate={navigate} />
           ) : route.page === "environments" ? (
             <PlaceholderPage eyebrow="Shared configuration" title="Environments" description="Reusable environment configuration will live here. No environment functionality has been added in this redesign." />
           ) : (

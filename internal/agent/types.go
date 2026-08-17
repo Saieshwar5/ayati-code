@@ -33,6 +33,7 @@ type Request struct {
 	Model        string
 	SystemPrompt string
 	Messages     []Message
+	DisableShell bool
 }
 
 type Provider interface {

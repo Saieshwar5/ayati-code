@@ -1,5 +1,5 @@
 import type { AppRoute } from "../app/useAppRoute";
-import { workspacePath } from "../app/useAppRoute";
+import { isAgentRoute, workspacePath } from "../app/useAppRoute";
 import type { WorkspaceController } from "../app/useWorkspaceController";
 import { WorkspaceNavigationItem } from "./WorkspaceNavigationItem";
 
@@ -26,7 +26,7 @@ export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
 
       <nav className="product-navigation" aria-label="Product">
         <NavButton label="Workspaces" icon="◇" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
-        <NavButton label="Agents" icon="✦" active={route.page === "agents"} onClick={() => onNavigate("/agents")} />
+        <NavButton label="Agents" icon="✦" active={isAgentRoute(route)} onClick={() => onNavigate("/agents")} />
         <NavButton label="Environments" icon="⌁" active={route.page === "environments"} onClick={() => onNavigate("/environments")} />
       </nav>
 

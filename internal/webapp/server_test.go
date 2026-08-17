@@ -266,10 +266,14 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 
 type fakeChat struct{}
 
-func (fakeChat) Messages(context.Context, string, string) ([]agent.Message, error) { return nil, nil }
-func (fakeChat) Cancel(string)                                                     {}
-func (fakeChat) CancelAndWait(string)                                              {}
-func (fakeChat) WithWorkspaceIdle(_ string, action func() error) error             { return action() }
+func (fakeChat) Messages(
+	context.Context, string, string,
+) ([]workspace.ConversationMessage, error) {
+	return nil, nil
+}
+func (fakeChat) Cancel(string)                                         {}
+func (fakeChat) CancelAndWait(string)                                  {}
+func (fakeChat) WithWorkspaceIdle(_ string, action func() error) error { return action() }
 func (fakeChat) Send(context.Context, string, string, string) (agent.Completion, error) {
 	return agent.Completion{Text: "done"}, nil
 }

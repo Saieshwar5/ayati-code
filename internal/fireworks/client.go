@@ -44,9 +44,16 @@ func (c *Client) Next(ctx context.Context, request agent.Request) (agent.Message
 		messages = append(messages, agent.Message{Role: "system", Content: request.SystemPrompt})
 	}
 	messages = append(messages, request.Messages...)
+	tools := []chatTool(nil)
+	var parallelToolCalls *bool
+	if !request.DisableShell {
+		tools = []chatTool{shellTool()}
+		disabled := false
+		parallelToolCalls = &disabled
+	}
 	body, err := json.Marshal(chatRequest{
-		Model: request.Model, Messages: messages, Tools: []chatTool{shellTool()},
-		ParallelToolCalls: false, MaxTokens: maxOutputTokens, Stream: false,
+		Model: request.Model, Messages: messages, Tools: tools,
+		ParallelToolCalls: parallelToolCalls, MaxTokens: maxOutputTokens, Stream: false,
 	})
 	if err != nil {
 		return agent.Message{}, fmt.Errorf("encode Fireworks request: %w", err)
@@ -92,8 +99,8 @@ func (c *Client) Next(ctx context.Context, request agent.Request) (agent.Message
 type chatRequest struct {
 	Model             string          `json:"model"`
 	Messages          []agent.Message `json:"messages"`
-	Tools             []chatTool      `json:"tools"`
-	ParallelToolCalls bool            `json:"parallel_tool_calls"`
+	Tools             []chatTool      `json:"tools,omitempty"`
+	ParallelToolCalls *bool           `json:"parallel_tool_calls,omitempty"`
 	MaxTokens         int             `json:"max_tokens"`
 	Stream            bool            `json:"stream"`
 }

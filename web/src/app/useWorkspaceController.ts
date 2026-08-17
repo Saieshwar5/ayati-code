@@ -95,6 +95,20 @@ export function useWorkspaceController(user: User) {
     }));
   }, []);
 
+  const selectSessionAgent = useCallback(async (
+    workspaceID: string,
+    sessionID: string,
+    agentID: string,
+  ) => {
+    const updated = await api.selectSessionAgent(workspaceID, sessionID, agentID);
+    setSessions((current) => ({
+      ...current,
+      [workspaceID]: (current[workspaceID] || []).map((item) =>
+        item.id === updated.id ? updated : item),
+    }));
+    return updated;
+  }, []);
+
   const deleteSession = useCallback(async (workspaceID: string, session: WorkspaceSession) => {
     const confirmed = window.confirm(
       `Delete “${session.title}”?\n\nThis removes its conversation and activity history. Workspace files and changes are not reverted.`,
@@ -190,7 +204,7 @@ export function useWorkspaceController(user: User) {
   return {
     user, repositories, repositoryError, repositoryReconnectRequired,
     workspaces, archivedWorkspaces, sessions, loading, loadError,
-    createWorkspace, createNewProject, createSession, renameSession, deleteSession,
+    createWorkspace, createNewProject, createSession, renameSession, selectSessionAgent, deleteSession,
     workspaceAction, configureProjectRoot, changeWorkspaceAuthority,
     archiveWorkspace, restoreWorkspace, deleteWorkspace,
     refreshWorkspaces, loadSessions, updateSession, updateWorkspace, logout,

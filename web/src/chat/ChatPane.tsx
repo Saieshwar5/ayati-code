@@ -1,6 +1,6 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
-import type { Message, Workspace, WorkspaceSession } from "../api/contracts";
+import type { AgentDefinition, Message, Workspace, WorkspaceSession } from "../api/contracts";
 import { statusLabel } from "../app/format";
 
 interface ChatPaneProps {
@@ -10,7 +10,9 @@ interface ChatPaneProps {
   messages: Message[];
   error: string;
   sending: boolean;
+  agents: AgentDefinition[];
   onSend: (text: string) => Promise<boolean>;
+  onSelectAgent: (agentID: string) => Promise<void>;
 }
 
 export function ChatPane(props: ChatPaneProps) {
@@ -77,12 +79,30 @@ export function ChatPane(props: ChatPaneProps) {
           </div>
         )}
         {visibleMessages.map((message, index) => (
-          <div className={`message ${message.role}`} key={`${message.role}-${index}`}>
-            {message.content}
+          <div className={`message-entry ${message.role}`} key={`${message.role}-${index}`}>
+            {message.role === "assistant" && message.agent && (
+              <div className="message-agent"><span aria-hidden="true">{message.agent.emoji}</span><strong>{message.agent.name}</strong></div>
+            )}
+            <div className={`message ${message.role}`}>{message.content}</div>
           </div>
         ))}
       </div>
       <form className="composer" onSubmit={(event) => void submit(event)}>
+        <label className="agent-picker">
+          <span className="sr-only">Agent</span>
+          <select
+            aria-label="Agent"
+            value={props.session.selected_agent_id}
+            disabled={!enabled || props.agents.length === 0}
+            onChange={(event) => void props.onSelectAgent(event.target.value)}
+          >
+            {props.agents.map((definition) => (
+              <option key={definition.id} value={definition.id}>
+                {definition.emoji} {definition.name}{definition.default ? " · Default" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
         <textarea
           ref={textarea}
           rows={1}

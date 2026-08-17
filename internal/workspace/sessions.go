@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Saieshwar5/ayati-code/internal/agent"
 )
 
 const (
@@ -22,13 +24,14 @@ var sessionStatuses = map[string]bool{
 }
 
 type Session struct {
-	ID          string    `json:"id"`
-	WorkspaceID string    `json:"workspace_id"`
-	Title       string    `json:"title"`
-	Status      string    `json:"status"`
-	Error       string    `json:"error,omitempty"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID              string    `json:"id"`
+	WorkspaceID     string    `json:"workspace_id"`
+	Title           string    `json:"title"`
+	Status          string    `json:"status"`
+	Error           string    `json:"error,omitempty"`
+	SelectedAgentID string    `json:"selected_agent_id"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
 type sessionExecutor interface {
@@ -45,7 +48,11 @@ func (s *Store) CreateSession(ctx context.Context, workspaceID, title string) (S
 		return Session{}, err
 	}
 	now := time.Now().UTC()
-	value, err := createSession(ctx, s.db, workspaceID, title, now)
+	defaultAgent, err := s.DefaultAgent(ctx)
+	if err != nil {
+		return Session{}, fmt.Errorf("load default agent: %w", err)
+	}
+	value, err := createSession(ctx, s.db, workspaceID, title, defaultAgent.ID, now)
 	if err != nil {
 		return Session{}, err
 	}
@@ -56,9 +63,13 @@ func (s *Store) CreateSession(ctx context.Context, workspaceID, title string) (S
 }
 
 func createSession(
-	ctx context.Context, executor sessionExecutor, workspaceID, title string, now time.Time,
+	ctx context.Context, executor sessionExecutor, workspaceID, title, agentID string, now time.Time,
 ) (Session, error) {
 	workspaceID, title = strings.TrimSpace(workspaceID), strings.TrimSpace(title)
+	agentID = strings.TrimSpace(agentID)
+	if agentID == "" {
+		agentID = agent.BuiltinAgentID
+	}
 	if workspaceID == "" {
 		return Session{}, errors.New("session workspace is required")
 	}
@@ -71,12 +82,13 @@ func createSession(
 	}
 	value := Session{
 		ID: id, WorkspaceID: workspaceID, Title: title, Status: SessionStatusIdle,
-		CreatedAt: now, UpdatedAt: now,
+		SelectedAgentID: agentID,
+		CreatedAt:       now, UpdatedAt: now,
 	}
 	_, err = executor.ExecContext(ctx, `INSERT INTO sessions (
-		id, workspace_id, title, status, error, created_at, updated_at
-	) VALUES (?, ?, ?, ?, '', ?, ?)`, value.ID, value.WorkspaceID, value.Title,
-		value.Status, formatTime(value.CreatedAt), formatTime(value.UpdatedAt))
+		id, workspace_id, title, status, error, selected_agent_id, created_at, updated_at
+	) VALUES (?, ?, ?, ?, '', ?, ?, ?)`, value.ID, value.WorkspaceID, value.Title,
+		value.Status, value.SelectedAgentID, formatTime(value.CreatedAt), formatTime(value.UpdatedAt))
 	if err != nil {
 		return Session{}, fmt.Errorf("create session: %w", err)
 	}
@@ -242,13 +254,14 @@ func (s *Store) touchWorkspaceForSession(ctx context.Context, sessionID string, 
 	return requireOneRow(result)
 }
 
-const selectSession = `SELECT id, workspace_id, title, status, error, created_at, updated_at FROM sessions`
+const selectSession = `SELECT id, workspace_id, title, status, error, selected_agent_id,
+	created_at, updated_at FROM sessions`
 
 func scanSession(row scanner) (Session, error) {
 	var value Session
 	var createdAt, updatedAt string
 	if err := row.Scan(&value.ID, &value.WorkspaceID, &value.Title, &value.Status,
-		&value.Error, &createdAt, &updatedAt); err != nil {
+		&value.Error, &value.SelectedAgentID, &createdAt, &updatedAt); err != nil {
 		return Session{}, err
 	}
 	var err error

@@ -148,6 +148,10 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		return Workspace{}, fmt.Errorf("resolve workspace path: %w", err)
 	}
 	now := time.Now().UTC()
+	defaultAgent, err := s.DefaultAgent(ctx)
+	if err != nil {
+		return Workspace{}, fmt.Errorf("load default agent: %w", err)
+	}
 	value := Workspace{
 		ID: id, Repository: input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
@@ -174,7 +178,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	if err != nil {
 		return Workspace{}, fmt.Errorf("create workspace: %w", err)
 	}
-	if _, err := createSession(ctx, tx, value.ID, "Original session", now); err != nil {
+	if _, err := createSession(ctx, tx, value.ID, "Original session", defaultAgent.ID, now); err != nil {
 		return Workspace{}, err
 	}
 	if err := s.insertEnvironment(ctx, tx, value.ID, input.Environment, now); err != nil {

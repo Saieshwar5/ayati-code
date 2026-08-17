@@ -207,3 +207,55 @@ func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 		t.Fatal("first run did not stop")
 	}
 }
+
+func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	value, err := store.Create(context.Background(), workspace.Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), value.ID, workspace.StatusReady, ""); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	definition, err := store.CreateAgent(context.Background(), agent.DefinitionInput{
+		Name: "Reviewer", Emoji: "🔍", ProviderID: agent.FireworksProviderID,
+		Model: "review-model", MaxSteps: 4, ShellEnabled: false,
+		Instructions: "Focus on architecture risks.",
+	})
+	if err != nil {
+		t.Fatalf("CreateAgent: %v", err)
+	}
+	sessions, err := store.ListSessions(context.Background(), value.ID)
+	if err != nil || len(sessions) != 1 {
+		t.Fatalf("sessions = %#v, error = %v", sessions, err)
+	}
+	if _, err := store.SelectSessionAgent(context.Background(), value.ID, sessions[0].ID, definition.ID); err != nil {
+		t.Fatalf("SelectSessionAgent: %v", err)
+	}
+	provider := &scriptedProvider{messages: []agent.Message{{Role: "assistant", Content: "reviewed"}}}
+	service, err := New(store, fakeRuntime{shell: &fakeShell{}, workspace: value}, provider, "default-model")
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	completion, err := service.Send(context.Background(), value.ID, sessions[0].ID, "review this")
+	if err != nil || completion.Text != "reviewed" {
+		t.Fatalf("completion = %#v, error = %v", completion, err)
+	}
+	if len(provider.requests) != 1 || provider.requests[0].Model != "review-model" ||
+		!provider.requests[0].DisableShell ||
+		!strings.Contains(provider.requests[0].SystemPrompt, "Focus on architecture risks.") {
+		t.Fatalf("provider request = %#v", provider.requests)
+	}
+	messages, err := service.Messages(context.Background(), value.ID, sessions[0].ID)
+	if err != nil || len(messages) != 2 || messages[1].Agent == nil ||
+		messages[1].Agent.ID != definition.ID || messages[1].Agent.Model != "review-model" {
+		t.Fatalf("messages = %#v, error = %v", messages, err)
+	}
+}

@@ -1,4 +1,6 @@
 import type {
+  AgentDefinition,
+  AgentInput,
   Branch,
   AuthorityChangeInput,
   Changes,
@@ -42,6 +44,24 @@ export const api = {
     request<Branch[]>(`/api/repositories/${repository}/branches`),
   workspaces: () => request<Workspace[]>("/api/workspaces"),
   archivedWorkspaces: () => request<Workspace[]>("/api/workspaces?archived=true"),
+  agents: () => request<AgentDefinition[]>("/api/agents"),
+  archivedAgents: () => request<AgentDefinition[]>("/api/agents?archived=true"),
+  agent: (id: string) => request<AgentDefinition>(`/api/agents/${id}`),
+  createAgent: (input: AgentInput) =>
+    request<AgentDefinition>("/api/agents", { method: "POST", body: JSON.stringify(input) }),
+  updateAgent: (id: string, input: AgentInput) =>
+    request<AgentDefinition>(`/api/agents/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  setDefaultAgent: (id: string) =>
+    request<AgentDefinition>(`/api/agents/${id}/default`, { method: "POST" }),
+  duplicateAgent: (id: string) =>
+    request<AgentDefinition>(`/api/agents/${id}/duplicate`, { method: "POST" }),
+  archiveAgent: (id: string) =>
+    request<void>(`/api/agents/${id}/archive`, { method: "POST" }),
+  restoreAgent: (id: string) =>
+    request<AgentDefinition>(`/api/agents/${id}/restore`, { method: "POST" }),
   createWorkspace: (input: CreateWorkspaceInput) =>
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
   createNewProject: (input: CreateNewProjectInput) =>
@@ -84,6 +104,11 @@ export const api = {
     request<WorkspaceSession>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, {
       method: "PATCH",
       body: JSON.stringify({ title }),
+    }),
+  selectSessionAgent: (workspaceID: string, sessionID: string, agentID: string) =>
+    request<WorkspaceSession>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, {
+      method: "PATCH",
+      body: JSON.stringify({ agent_id: agentID }),
     }),
   deleteSession: (workspaceID: string, sessionID: string) =>
     request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, { method: "DELETE" }),

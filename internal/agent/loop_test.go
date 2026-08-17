@@ -73,6 +73,41 @@ func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	}
 }
 
+func TestLoopHonorsCustomStepLimit(t *testing.T) {
+	messages := make([]Message, 3)
+	for index := range messages {
+		messages[index] = Message{Role: "assistant", ToolCalls: []ToolCall{{
+			ID: fmt.Sprintf("call-%d", index), Type: "function",
+			Function: FunctionCall{Name: "shell", Arguments: `{"command":"true"}`},
+		}}}
+	}
+	provider := &scriptedProvider{messages: messages}
+	history := []Message{}
+	completion, err := (Loop{
+		Provider: provider, Shell: &fixedShell{}, Recorder: &memoryRecorder{},
+		Model: "test", StepLimit: 3,
+	}).Run(context.Background(), &history, "work")
+	if !errors.Is(err, ErrStepLimit) || completion.Steps != 3 || !completion.Exhausted {
+		t.Fatalf("completion = %#v, error = %v", completion, err)
+	}
+}
+
+func TestLoopRejectsShellCallWhenCapabilityIsDisabled(t *testing.T) {
+	provider := &scriptedProvider{messages: []Message{
+		{Role: "assistant", ToolCalls: []ToolCall{{
+			ID: "call-1", Type: "function",
+			Function: FunctionCall{Name: "shell", Arguments: `{"command":"pwd"}`},
+		}}},
+	}}
+	history := []Message{}
+	_, err := (Loop{
+		Provider: provider, Recorder: &memoryRecorder{}, Model: "test",
+	}).Run(context.Background(), &history, "inspect")
+	if err == nil || err.Error() != "provider returned a shell call for an agent without shell capability" {
+		t.Fatalf("error = %v", err)
+	}
+}
+
 func TestParseShellCallRequiresCommand(t *testing.T) {
 	_, err := parseShellCall(ToolCall{
 		ID: "call-1", Type: "function",

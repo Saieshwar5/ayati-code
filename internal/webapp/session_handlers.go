@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
 )
 
@@ -66,7 +65,7 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 			return
 		}
 		if messages == nil {
-			messages = []agent.Message{}
+			messages = []workspace.ConversationMessage{}
 		}
 		s.writeJSON(writer, http.StatusOK, messages)
 	default:
@@ -105,12 +104,32 @@ func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *h
 	switch request.Method {
 	case http.MethodPatch:
 		var input struct {
-			Title string `json:"title"`
+			Title   *string `json:"title"`
+			AgentID *string `json:"agent_id"`
 		}
 		if !s.decode(writer, request, &input) {
 			return
 		}
-		value, err := s.store.RenameSession(request.Context(), parts[0], parts[2], input.Title)
+		if (input.Title == nil) == (input.AgentID == nil) {
+			s.writeError(writer, http.StatusBadRequest, "provide exactly one session change")
+			return
+		}
+		var value workspace.Session
+		var err error
+		if input.Title != nil {
+			value, err = s.store.RenameSession(request.Context(), parts[0], parts[2], *input.Title)
+		} else {
+			selectAgent := func() error {
+				var selectErr error
+				value, selectErr = s.store.SelectSessionAgent(request.Context(), parts[0], parts[2], *input.AgentID)
+				return selectErr
+			}
+			if s.chat != nil {
+				err = s.chat.WithWorkspaceIdle(parts[0], selectAgent)
+			} else {
+				err = selectAgent()
+			}
+		}
 		if err != nil {
 			s.writeError(writer, http.StatusBadRequest, err.Error())
 			return

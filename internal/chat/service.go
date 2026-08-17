@@ -36,11 +36,13 @@ func New(store *workspace.Store, runtime workspaceRuntime, provider agent.Provid
 	}, nil
 }
 
-func (s *Service) Messages(ctx context.Context, workspaceID, sessionID string) ([]agent.Message, error) {
+func (s *Service) Messages(
+	ctx context.Context, workspaceID, sessionID string,
+) ([]workspace.ConversationMessage, error) {
 	if _, err := s.store.GetSession(ctx, workspaceID, sessionID); err != nil {
 		return nil, fmt.Errorf("load session: %w", err)
 	}
-	return s.store.Messages(ctx, sessionID)
+	return s.store.ConversationMessages(ctx, sessionID)
 }
 
 func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string) (agent.Completion, error) {
@@ -48,14 +50,25 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 	if text == "" {
 		return agent.Completion{}, errors.New("message is required")
 	}
-	if _, err := s.store.GetSession(ctx, workspaceID, sessionID); err != nil {
-		return agent.Completion{}, fmt.Errorf("load session: %w", err)
-	}
 	lock := s.lock(workspaceID)
 	if !lock.TryLock() {
 		return agent.Completion{}, errors.New("another session is already running in this workspace")
 	}
 	defer lock.Unlock()
+	session, err := s.store.GetSession(ctx, workspaceID, sessionID)
+	if err != nil {
+		return agent.Completion{}, fmt.Errorf("load session: %w", err)
+	}
+	definition, err := s.store.GetAgent(ctx, session.SelectedAgentID)
+	if err != nil {
+		return agent.Completion{}, fmt.Errorf("load selected agent: %w", err)
+	}
+	if definition.ArchivedAt != nil {
+		return agent.Completion{}, errors.New("the selected agent is archived; choose another agent")
+	}
+	if definition.ProviderID != agent.FireworksProviderID {
+		return agent.Completion{}, fmt.Errorf("agent provider %q is not available", definition.ProviderID)
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	s.setRun(workspaceID, cancel)
 	defer func() {
@@ -93,11 +106,21 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		workspaceContext.TypecheckCommand = profile.TypecheckCommand
 		workspaceContext.BuildCommand = profile.BuildCommand
 	}
+	model := strings.TrimSpace(definition.Model)
+	if model == "" {
+		model = s.model
+	}
+	attribution := definition.Attribution(model)
+	if !definition.ShellEnabled {
+		shell = nil
+	}
 	loop := agent.Loop{
 		Provider: s.provider, Shell: shell,
-		Recorder: recorder{ctx: runCtx, store: s.store, sessionID: sessionID},
-		Observer: observer, Model: s.model,
-		Prompt: agent.WorkspacePrompt(workspaceContext),
+		Recorder: recorder{
+			ctx: runCtx, store: s.store, sessionID: sessionID, attribution: &attribution,
+		},
+		Observer: observer, Model: model, StepLimit: definition.MaxSteps,
+		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition),
 	}
 	completion, err := loop.Run(runCtx, &history, text)
 	if err != nil {
@@ -168,13 +191,14 @@ func (s *Service) lock(id string) *sync.Mutex {
 }
 
 type recorder struct {
-	ctx       context.Context
-	store     *workspace.Store
-	sessionID string
+	ctx         context.Context
+	store       *workspace.Store
+	sessionID   string
+	attribution *agent.Attribution
 }
 
 func (r recorder) Append(message agent.Message) error {
-	if err := r.store.AppendMessage(r.ctx, r.sessionID, message); err != nil {
+	if err := r.store.AppendAttributedMessage(r.ctx, r.sessionID, message, r.attribution); err != nil {
 		return fmt.Errorf("record conversation: %w", err)
 	}
 	return nil
