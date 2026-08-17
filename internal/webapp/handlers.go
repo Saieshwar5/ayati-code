@@ -11,7 +11,13 @@ import (
 )
 
 func (s *Server) listWorkspaces(writer http.ResponseWriter, request *http.Request) {
-	values, err := s.store.List(request.Context())
+	var values []workspace.Workspace
+	var err error
+	if request.URL.Query().Get("archived") == "true" {
+		values, err = s.store.ListArchived(request.Context())
+	} else {
+		values, err = s.store.List(request.Context())
+	}
 	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "list workspaces")
 		return
@@ -188,6 +194,15 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		err = s.workspaces.Stop(request.Context(), parts[0])
 	case "resume":
 		err = s.workspaces.Resume(request.Context(), parts[0])
+	case "archive":
+		archive := func() error { return s.workspaces.Archive(request.Context(), parts[0]) }
+		if s.chat != nil {
+			err = s.chat.WithWorkspaceIdle(parts[0], archive)
+		} else {
+			err = archive()
+		}
+	case "restore":
+		err = s.workspaces.RestoreArchived(request.Context(), parts[0])
 	case "publish":
 		credentials, ok := s.requireCredentials(writer)
 		if !ok {

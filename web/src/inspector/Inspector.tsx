@@ -1,46 +1,25 @@
-import { useState } from "react";
 import type {
-  AuthorityChangeInput,
   Message,
-  PublishInput,
   ToolCall,
   Workspace,
   WorkspaceSession,
 } from "../api/contracts";
-import { EnvironmentPanel } from "./EnvironmentPanel";
-import { PublishPanel } from "./PublishPanel";
-import { WorkspaceProfilePanel } from "./WorkspaceProfilePanel";
-
-type InspectorPanel = "workspace" | "activity" | "changes" | "environment" | "publish";
 
 interface InspectorProps {
   collapsed: boolean;
   workspace?: Workspace;
   session?: WorkspaceSession;
-  workspaceSessions: WorkspaceSession[];
   messages: Message[];
-  changes: string;
-  publishing: boolean;
   onCollapsedChange: (collapsed: boolean) => void;
-  onRefreshChanges: () => Promise<void>;
-  onPublish: (input: PublishInput) => Promise<boolean>;
-  onAuthorityChange: (input: AuthorityChangeInput) => Promise<void>;
 }
 
 export function Inspector(props: InspectorProps) {
-  const [panel, setPanel] = useState<InspectorPanel>("workspace");
-
-  function selectPanel(next: InspectorPanel) {
-    setPanel(next);
-    if (next === "changes") void props.onRefreshChanges();
-  }
-
   return (
-    <aside className="inspector" aria-label="Workspace activity">
+    <aside className="inspector" aria-label="Session activity">
       <div className="inspector-heading">
         <div className="inspector-title">
           <p className="eyebrow">Internal work</p>
-          <h2>{panel[0].toUpperCase() + panel.slice(1)}</h2>
+          <h2>Activity</h2>
         </div>
         <button
           className="icon-button"
@@ -53,84 +32,16 @@ export function Inspector(props: InspectorProps) {
         </button>
       </div>
 
-      {!props.workspace ? (
+      {!props.workspace || !props.session ? (
         <div className="inspector-empty">
-          <p>Select a workspace to inspect agent activity and changes.</p>
+          <p>Open a session to inspect shell commands and verification.</p>
         </div>
       ) : (
         <div className="inspector-content">
-          <div className="inspector-tabs" role="tablist" aria-label="Workspace details">
-            <InspectorTab name="workspace" selected={panel} onSelect={selectPanel} subtitle="Profile" />
-            <InspectorTab name="activity" selected={panel} onSelect={selectPanel} subtitle="Session" />
-            <InspectorTab name="changes" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
-            <InspectorTab name="environment" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
-            <InspectorTab name="publish" selected={panel} onSelect={selectPanel} subtitle="Workspace" />
-          </div>
-          {panel === "workspace" && (
-            <WorkspaceProfilePanel
-              workspace={props.workspace}
-              agentWorking={props.workspaceSessions.some((session) => session.status === "working")}
-              onAuthorityChange={props.onAuthorityChange}
-            />
-          )}
-          {panel === "activity" && props.session && (
-            <ActivityPanel workspace={props.workspace} session={props.session} messages={props.messages} />
-          )}
-          {panel === "changes" && (
-            <section className="inspector-panel active" role="tabpanel">
-              <div className="section-heading">
-                <div>
-                  <p className="eyebrow">Review</p>
-                  <h3>Workspace changes</h3>
-                </div>
-                <button
-                  className="quiet compact"
-                  type="button"
-                  onClick={() => void props.onRefreshChanges()}
-                >
-                  Refresh
-                </button>
-              </div>
-              <p className="scope-note">Changes are shared by every session in this workspace.</p>
-              <pre className="changes-output">{props.changes}</pre>
-            </section>
-          )}
-          {panel === "environment" && (
-            <EnvironmentPanel workspace={props.workspace} sessions={props.workspaceSessions} />
-          )}
-          {panel === "publish" && (
-            <PublishPanel
-              workspace={props.workspace}
-              publishing={props.publishing}
-              onPublish={props.onPublish}
-            />
-          )}
+          <ActivityPanel workspace={props.workspace} session={props.session} messages={props.messages} />
         </div>
       )}
     </aside>
-  );
-}
-
-interface InspectorTabProps {
-  name: InspectorPanel;
-  selected: InspectorPanel;
-  subtitle: string;
-  onSelect: (name: InspectorPanel) => void;
-}
-
-function InspectorTab({ name, selected, subtitle, onSelect }: InspectorTabProps) {
-  const active = selected === name;
-  return (
-    <button
-      className={`inspector-tab${active ? " active" : ""}`}
-      type="button"
-      role="tab"
-      aria-selected={active}
-      onClick={() => onSelect(name)}
-    >
-      {name[0].toUpperCase() + name.slice(1)}
-      <span>{subtitle}</span>
-    </button>
   );
 }
 

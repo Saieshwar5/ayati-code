@@ -1,6 +1,6 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Workspace, WorkspaceSession } from "../api/contracts";
 import { WorkspaceApplication } from "./WorkspaceApplication";
 
@@ -34,6 +34,7 @@ const session: WorkspaceSession = {
 };
 
 afterEach(() => vi.restoreAllMocks());
+beforeEach(() => window.history.replaceState({}, "", "/workspaces"));
 
 describe("WorkspaceApplication", () => {
   it("offers GitHub reconnection when repository authorization expires", async () => {
@@ -43,6 +44,7 @@ describe("WorkspaceApplication", () => {
         return json({ error: "GitHub authorization expired; reconnect GitHub" }, 401);
       }
       if (path === "/api/workspaces") return json([]);
+      if (path === "/api/workspaces?archived=true") return json([]);
       throw new Error(`Unexpected request: GET ${path}`);
     });
 
@@ -71,6 +73,7 @@ describe("WorkspaceApplication", () => {
         return json(workspace, 202);
       }
       if (path === "/api/workspaces") return json(created ? [workspace] : []);
+      if (path === "/api/workspaces?archived=true") return json([]);
       if (path === "/api/repositories/owner/project/branches") {
         return json([{ name: "main", commit: { sha: "abc123" } }]);
       }
@@ -85,8 +88,8 @@ describe("WorkspaceApplication", () => {
         user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
       />,
     );
-    await screen.findByRole("heading", { name: "Select a workspace" });
-    await user.click(screen.getByRole("button", { name: /new workspace/i }));
+    await screen.findByRole("heading", { name: "Workspaces" });
+    await user.click(screen.getByRole("button", { name: "New workspace" }));
     await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
     await waitFor(() =>
       expect((screen.getByLabelText("Starting branch") as HTMLSelectElement).value).toBe("main"),
@@ -99,7 +102,7 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByLabelText("During setup"));
     await user.click(screen.getByRole("button", { name: "Create and initialize" }));
 
-    expect(await screen.findByRole("heading", { name: "Preparing project" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
     expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
@@ -125,6 +128,7 @@ describe("WorkspaceApplication", () => {
         return json({ ...workspace, authority: "explore", branch: "main", create_branch: false }, 202);
       }
       if (path === "/api/workspaces") return json([]);
+      if (path === "/api/workspaces?archived=true") return json([]);
       if (path === "/api/repositories/owner/project/branches") {
         return json([{ name: "main", commit: { sha: "abc123" } }]);
       }
@@ -139,8 +143,8 @@ describe("WorkspaceApplication", () => {
         user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
       />,
     );
-    await screen.findByRole("heading", { name: "Select a workspace" });
-    await user.click(screen.getByRole("button", { name: /new workspace/i }));
+    await screen.findByRole("heading", { name: "Workspaces" });
+    await user.click(screen.getByRole("button", { name: "New workspace" }));
     expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
     await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
     await waitFor(() =>
@@ -178,6 +182,7 @@ describe("WorkspaceApplication", () => {
         return json(createdWorkspace, 202);
       }
       if (path === "/api/workspaces") return json(created ? [createdWorkspace] : []);
+      if (path === "/api/workspaces?archived=true") return json([]);
       if (path === `/api/workspaces/${workspace.id}/sessions`) return json([session]);
       if (path === `/api/workspaces/${workspace.id}/sessions/${session.id}/messages`) return json([]);
       throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
@@ -189,21 +194,52 @@ describe("WorkspaceApplication", () => {
         user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
       />,
     );
-    await screen.findByRole("heading", { name: "Select a workspace" });
-    await user.click(screen.getByRole("button", { name: /new workspace/i }));
+    await screen.findByRole("heading", { name: "Workspaces" });
+    await user.click(screen.getByRole("button", { name: "New workspace" }));
     await user.click(screen.getByRole("radio", { name: "New project" }));
     await user.type(screen.getByLabelText("Repository name"), "new-project");
     expect((screen.getByRole("radio", { name: "Private" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
     await user.click(screen.getByRole("button", { name: "Create and prepare" }));
 
-    expect(await screen.findByRole("heading", { name: "Preparing new-project" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "new-project", level: 1 })).toBeTruthy();
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       name: "new-project",
       private: true,
       authority: "explore",
       branch: "",
     });
+  });
+
+  it("keeps sessions in the workspace page and limits the inspector to session activity", async () => {
+    const readyWorkspace: Workspace = {
+      ...workspace,
+      status: "ready",
+      preparation_stage: "ready",
+    };
+    window.history.replaceState({}, "", `/workspaces/${workspace.id}`);
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/repositories") return json([]);
+      if (path === "/api/workspaces") return json([readyWorkspace]);
+      if (path === "/api/workspaces?archived=true") return json([]);
+      if (path === `/api/workspaces/${workspace.id}/sessions`) return json([session]);
+      if (path === `/api/workspaces/${workspace.id}/sessions/${session.id}/messages`) return json([]);
+      if (path === `/api/workspaces/${workspace.id}/changes`) return json({ status: "", diff: "" });
+      throw new Error(`Unexpected request: GET ${path}`);
+    });
+
+    const user = userEvent.setup();
+    render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
+
+    expect(await screen.findByRole("heading", { name: "Sessions" })).toBeTruthy();
+    const sidebar = screen.getByRole("complementary", { name: "Main navigation" });
+    expect(within(sidebar).queryByText("Sessions")).toBeNull();
+    expect(screen.getByRole("button", { name: "＋ New session" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: /Original session/i }));
+    expect(await screen.findByRole("complementary", { name: "Session activity" })).toBeTruthy();
+    expect(screen.queryByText("Environment variables")).toBeNull();
   });
 });
 

@@ -11,6 +11,9 @@ func (s *Service) ConfigureProjectRoot(ctx context.Context, id, root string) err
 	if err != nil {
 		return err
 	}
+	if err := requireActiveWorkspace(value); err != nil {
+		return err
+	}
 	if value.Status != StatusNeedsConfiguration {
 		return errors.New("workspace is not waiting for project configuration")
 	}

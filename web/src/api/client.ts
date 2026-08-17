@@ -41,6 +41,7 @@ export const api = {
   branches: (repository: string) =>
     request<Branch[]>(`/api/repositories/${repository}/branches`),
   workspaces: () => request<Workspace[]>("/api/workspaces"),
+  archivedWorkspaces: () => request<Workspace[]>("/api/workspaces?archived=true"),
   createWorkspace: (input: CreateWorkspaceInput) =>
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
   createNewProject: (input: CreateNewProjectInput) =>
@@ -64,6 +65,10 @@ export const api = {
     request<void>(`/api/workspaces/${id}/stop`, { method: "POST" }),
   resumeWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/resume`, { method: "POST" }),
+  archiveWorkspace: (id: string) =>
+    request<void>(`/api/workspaces/${id}/archive`, { method: "POST" }),
+  restoreWorkspace: (id: string) =>
+    request<void>(`/api/workspaces/${id}/restore`, { method: "POST" }),
   deleteWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}`, { method: "DELETE" }),
   sessions: (workspaceID: string) =>

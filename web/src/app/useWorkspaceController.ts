@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type {
   AuthorityChangeInput,
   CreateNewProjectInput,
@@ -12,20 +12,53 @@ import { api, ApiError } from "../api/client";
 import { repositoryName } from "./format";
 
 const refreshingStatuses = new Set(["creating", "initializing"]);
-export type MainView = "empty" | "create" | "workspace";
 
 export function useWorkspaceController(user: User) {
   const [repositories, setRepositories] = useState<Repository[]>([]);
   const [repositoryError, setRepositoryError] = useState("");
   const [repositoryReconnectRequired, setRepositoryReconnectRequired] = useState(false);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [archivedWorkspaces, setArchivedWorkspaces] = useState<Workspace[]>([]);
   const [sessions, setSessions] = useState<Record<string, WorkspaceSession[]>>({});
-  const [activeWorkspaceID, setActiveWorkspaceID] = useState("");
-  const [activeSessionID, setActiveSessionID] = useState("");
-  const [expandedWorkspaceID, setExpandedWorkspaceID] = useState("");
-  const [view, setView] = useState<MainView>("empty");
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+
+  const refreshWorkspaces = useCallback(async () => {
+    const [active, archived] = await Promise.all([api.workspaces(), api.archivedWorkspaces()]);
+    setWorkspaces(active);
+    setArchivedWorkspaces(archived);
+    return active;
+  }, []);
+
+  useEffect(() => {
+    let current = true;
+    Promise.allSettled([api.repositories(), api.workspaces(), api.archivedWorkspaces()]).then(
+      ([repos, active, archived]) => {
+        if (!current) return;
+        if (repos.status === "fulfilled") setRepositories(repos.value);
+        else {
+          const reason = repos.reason;
+          setRepositoryError(reason instanceof Error ? reason.message : "Repositories unavailable");
+          setRepositoryReconnectRequired(reason instanceof ApiError && reason.status === 401);
+        }
+        if (active.status === "fulfilled") setWorkspaces(active.value);
+        else setLoadError(active.reason instanceof Error ? active.reason.message : "Workspaces unavailable");
+        if (archived.status === "fulfilled") setArchivedWorkspaces(archived.value);
+        setLoading(false);
+      },
+    );
+    return () => {
+      current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!workspaces.some((workspace) => refreshingStatuses.has(workspace.status))) return;
+    const timer = window.setTimeout(() => {
+      void refreshWorkspaces().catch((error: Error) => setLoadError(error.message));
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [refreshWorkspaces, workspaces]);
 
   const loadSessions = useCallback(async (workspaceID: string) => {
     const values = await api.sessions(workspaceID);
@@ -33,228 +66,120 @@ export function useWorkspaceController(user: User) {
     return values;
   }, []);
 
-  const openWorkspace = useCallback(
-    async (workspaceID: string, preferredSessionID = "") => {
-      const values = await loadSessions(workspaceID);
-      const sessionID = preferredSessionID || values[0]?.id || "";
-      setExpandedWorkspaceID(workspaceID);
-      setActiveWorkspaceID(workspaceID);
-      setActiveSessionID(sessionID);
-      setView(sessionID ? "workspace" : "empty");
-    },
-    [loadSessions],
-  );
+  const createWorkspace = useCallback(async (input: CreateWorkspaceInput) => {
+    const created = await api.createWorkspace(input);
+    await refreshWorkspaces();
+    return created;
+  }, [refreshWorkspaces]);
 
-  useEffect(() => {
-    let current = true;
-    Promise.allSettled([api.repositories(), api.workspaces()]).then(async ([repos, spaces]) => {
-      if (!current) return;
-      if (repos.status === "fulfilled") setRepositories(repos.value);
-      else {
-        const reason = repos.reason;
-        setRepositoryError(reason instanceof Error ? reason.message : "Repositories unavailable");
-        setRepositoryReconnectRequired(reason instanceof ApiError && reason.status === 401);
-      }
-      if (spaces.status === "rejected") {
-        setLoadError(spaces.reason instanceof Error ? spaces.reason.message : "Workspaces unavailable");
-        setLoading(false);
-        return;
-      }
-      setWorkspaces(spaces.value);
-      setLoading(false);
-      const first = spaces.value[0];
-      if (first) await openWorkspace(first.id).catch((error: Error) => setLoadError(error.message));
-    });
-    return () => {
-      current = false;
-    };
-  }, [openWorkspace]);
+  const createNewProject = useCallback(async (input: CreateNewProjectInput) => {
+    const created = await api.createNewProject(input);
+    await refreshWorkspaces();
+    return created;
+  }, [refreshWorkspaces]);
 
-  useEffect(() => {
-    if (!workspaces.some((workspace) => refreshingStatuses.has(workspace.status))) return;
-    const timer = window.setTimeout(() => {
-      api.workspaces().then(setWorkspaces, (error: Error) => setLoadError(error.message));
-    }, 1200);
-    return () => window.clearTimeout(timer);
-  }, [workspaces]);
+  const createSession = useCallback(async (workspaceID: string) => {
+    const created = await api.createSession(workspaceID);
+    await loadSessions(workspaceID);
+    return created;
+  }, [loadSessions]);
 
-  const activeWorkspace = useMemo(
-    () => workspaces.find((workspace) => workspace.id === activeWorkspaceID),
-    [activeWorkspaceID, workspaces],
-  );
-  const activeSession = useMemo(
-    () => (sessions[activeWorkspaceID] || []).find((session) => session.id === activeSessionID),
-    [activeSessionID, activeWorkspaceID, sessions],
-  );
-
-  const refreshWorkspaces = useCallback(async () => {
-    const values = await api.workspaces();
-    setWorkspaces(values);
-    return values;
+  const renameSession = useCallback(async (workspaceID: string, session: WorkspaceSession) => {
+    const title = window.prompt("Rename session", session.title)?.trim();
+    if (!title || title === session.title) return;
+    const updated = await api.renameSession(workspaceID, session.id, title);
+    setSessions((current) => ({
+      ...current,
+      [workspaceID]: (current[workspaceID] || []).map((item) =>
+        item.id === updated.id ? updated : item),
+    }));
   }, []);
 
-  const toggleWorkspace = useCallback(
-    async (workspaceID: string) => {
-      if (expandedWorkspaceID === workspaceID) {
-        setExpandedWorkspaceID("");
-        return;
-      }
-      await openWorkspace(workspaceID);
-    },
-    [expandedWorkspaceID, openWorkspace],
-  );
-
-  const showCreate = useCallback(() => {
-    setActiveWorkspaceID("");
-    setActiveSessionID("");
-    setView("create");
-  }, []);
-
-  const closeCreate = useCallback(() => setView("empty"), []);
-
-  const createWorkspace = useCallback(
-    async (input: CreateWorkspaceInput) => {
-      const created = await api.createWorkspace(input);
-      const values = await refreshWorkspaces();
-      if (values.some((workspace) => workspace.id === created.id)) await openWorkspace(created.id);
-    },
-    [openWorkspace, refreshWorkspaces],
-  );
-
-  const createNewProject = useCallback(
-    async (input: CreateNewProjectInput) => {
-      const created = await api.createNewProject(input);
-      const values = await refreshWorkspaces();
-      if (values.some((workspace) => workspace.id === created.id)) await openWorkspace(created.id);
-    },
-    [openWorkspace, refreshWorkspaces],
-  );
-
-  const createSession = useCallback(
-    async (workspaceID: string) => {
-      const created = await api.createSession(workspaceID);
+  const deleteSession = useCallback(async (workspaceID: string, session: WorkspaceSession) => {
+    const confirmed = window.confirm(
+      `Delete “${session.title}”?\n\nThis removes its conversation and activity history. Workspace files and changes are not reverted.`,
+    );
+    if (!confirmed) return false;
+    try {
+      await api.deleteSession(workspaceID, session.id);
       await loadSessions(workspaceID);
-      await openWorkspace(workspaceID, created.id);
-    },
-    [loadSessions, openWorkspace],
-  );
+      return true;
+    } catch (error) {
+      window.alert((error as Error).message);
+      return false;
+    }
+  }, [loadSessions]);
 
-  const renameSession = useCallback(
-    async (workspaceID: string, session: WorkspaceSession) => {
-      const title = window.prompt("Rename session", session.title)?.trim();
-      if (!title || title === session.title) return;
-      const updated = await api.renameSession(workspaceID, session.id, title);
-      setSessions((current) => ({
-        ...current,
-        [workspaceID]: (current[workspaceID] || []).map((item) =>
-          item.id === updated.id ? updated : item,
-        ),
-      }));
-    },
-    [],
-  );
-
-  const deleteSession = useCallback(
-    async (workspaceID: string, session: WorkspaceSession) => {
-      const confirmed = window.confirm(
-        `Delete “${session.title}”?\n\nThis removes its conversation and activity history. Workspace files and changes are not reverted.`,
-      );
-      if (!confirmed) return;
-      try {
-        await api.deleteSession(workspaceID, session.id);
-        const values = await loadSessions(workspaceID);
-        if (activeSessionID === session.id) {
-          setActiveSessionID(values[0]?.id || "");
-          if (!values.length) setView("empty");
-        }
-      } catch (error) {
-        window.alert((error as Error).message);
-      }
-    },
-    [activeSessionID, loadSessions],
-  );
-
-  const workspaceAction = useCallback(
-    async (workspaceID: string, action: "initialize" | "resume" | "stop") => {
-      try {
-        if (action === "initialize") {
-          await api.initializeWorkspace(workspaceID);
-          setWorkspaces((current) => current.map((workspace) =>
-            workspace.id === workspaceID
-              ? { ...workspace, status: "initializing", preparation_stage: "pending", error: undefined }
-              : workspace,
-          ));
-        } else if (action === "resume") {
-          await api.resumeWorkspace(workspaceID);
-          await refreshWorkspaces();
-        } else {
-          await api.stopWorkspace(workspaceID);
-          await refreshWorkspaces();
-        }
-      } catch (error) {
-        window.alert((error as Error).message);
-      }
-    },
-    [refreshWorkspaces],
-  );
-
-  const configureProjectRoot = useCallback(
-    async (workspaceID: string, projectRoot: string) => {
-      await api.configureWorkspace(workspaceID, projectRoot);
+  const workspaceAction = useCallback(async (
+    workspaceID: string,
+    action: "initialize" | "resume" | "stop",
+  ) => {
+    try {
+      if (action === "initialize") await api.initializeWorkspace(workspaceID);
+      if (action === "resume") await api.resumeWorkspace(workspaceID);
+      if (action === "stop") await api.stopWorkspace(workspaceID);
       await refreshWorkspaces();
-    },
-    [refreshWorkspaces],
-  );
+    } catch (error) {
+      window.alert((error as Error).message);
+    }
+  }, [refreshWorkspaces]);
 
-  const changeWorkspaceAuthority = useCallback(
-    async (workspaceID: string, input: AuthorityChangeInput) => {
-      const updated = await api.changeWorkspaceAuthority(workspaceID, input);
-      setWorkspaces((current) => current.map((workspace) =>
-        workspace.id === updated.id ? updated : workspace,
-      ));
-    },
-    [],
-  );
+  const configureProjectRoot = useCallback(async (workspaceID: string, projectRoot: string) => {
+    await api.configureWorkspace(workspaceID, projectRoot);
+    await refreshWorkspaces();
+  }, [refreshWorkspaces]);
 
-  const deleteWorkspace = useCallback(
-    async (workspace: Workspace) => {
-      const confirmed = window.confirm(
-        `Delete workspace “${repositoryName(workspace.repository)}”?\n\nThis permanently removes its local clone, every session, and all conversation and activity history. The GitHub branch and pull request are not deleted.`,
-      );
-      if (!confirmed) return;
-      try {
-        await api.deleteWorkspace(workspace.id);
-        setSessions((current) => {
-          const next = { ...current };
-          delete next[workspace.id];
-          return next;
-        });
-        const values = await refreshWorkspaces();
-        if (activeWorkspaceID === workspace.id) {
-          setActiveWorkspaceID("");
-          setActiveSessionID("");
-          setExpandedWorkspaceID("");
-          setView("empty");
-          if (values[0]) await openWorkspace(values[0].id);
-        }
-      } catch (error) {
-        window.alert((error as Error).message);
-      }
-    },
-    [activeWorkspaceID, openWorkspace, refreshWorkspaces],
-  );
+  const changeWorkspaceAuthority = useCallback(async (
+    workspaceID: string,
+    input: AuthorityChangeInput,
+  ) => {
+    const updated = await api.changeWorkspaceAuthority(workspaceID, input);
+    updateWorkspaceIn(setWorkspaces, updated);
+  }, []);
+
+  const archiveWorkspace = useCallback(async (workspace: Workspace) => {
+    if (!window.confirm(`Archive “${repositoryName(workspace.repository)}”?\n\nIts repository, sessions, and history will be preserved.`)) return false;
+    try {
+      await api.archiveWorkspace(workspace.id);
+      await refreshWorkspaces();
+      return true;
+    } catch (error) {
+      window.alert((error as Error).message);
+      return false;
+    }
+  }, [refreshWorkspaces]);
+
+  const restoreWorkspace = useCallback(async (workspaceID: string) => {
+    await api.restoreWorkspace(workspaceID);
+    await refreshWorkspaces();
+  }, [refreshWorkspaces]);
+
+  const deleteWorkspace = useCallback(async (workspace: Workspace) => {
+    const confirmed = window.confirm(
+      `Delete workspace “${repositoryName(workspace.repository)}”?\n\nThis permanently removes its local clone, sessions, and history. The GitHub repository is not deleted.`,
+    );
+    if (!confirmed) return false;
+    try {
+      await api.deleteWorkspace(workspace.id);
+      await refreshWorkspaces();
+      return true;
+    } catch (error) {
+      window.alert((error as Error).message);
+      return false;
+    }
+  }, [refreshWorkspaces]);
 
   const updateSession = useCallback((updated: WorkspaceSession) => {
     setSessions((current) => {
-      const values = current[updated.workspace_id] || [];
-      const next = values.map((item) => (item.id === updated.id ? updated : item));
+      const next = (current[updated.workspace_id] || []).map((item) =>
+        item.id === updated.id ? updated : item);
       next.sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at));
       return { ...current, [updated.workspace_id]: next };
     });
   }, []);
 
   const updateWorkspace = useCallback((updated: Workspace) => {
-    setWorkspaces((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    updateWorkspaceIn(setWorkspaces, updated);
   }, []);
 
   const logout = useCallback(async () => {
@@ -263,37 +188,20 @@ export function useWorkspaceController(user: User) {
   }, []);
 
   return {
-    user,
-    repositories,
-    repositoryError,
-    repositoryReconnectRequired,
-    workspaces,
-    sessions,
-    activeWorkspace,
-    activeSession,
-    expandedWorkspaceID,
-    view,
-    loading,
-    loadError,
-    openWorkspace,
-    toggleWorkspace,
-    showCreate,
-    closeCreate,
-    createWorkspace,
-    createNewProject,
-    createSession,
-    renameSession,
-    deleteSession,
-    workspaceAction,
-    configureProjectRoot,
-    changeWorkspaceAuthority,
-    deleteWorkspace,
-    refreshWorkspaces,
-    loadSessions,
-    updateSession,
-    updateWorkspace,
-    logout,
+    user, repositories, repositoryError, repositoryReconnectRequired,
+    workspaces, archivedWorkspaces, sessions, loading, loadError,
+    createWorkspace, createNewProject, createSession, renameSession, deleteSession,
+    workspaceAction, configureProjectRoot, changeWorkspaceAuthority,
+    archiveWorkspace, restoreWorkspace, deleteWorkspace,
+    refreshWorkspaces, loadSessions, updateSession, updateWorkspace, logout,
   };
+}
+
+function updateWorkspaceIn(
+  setter: React.Dispatch<React.SetStateAction<Workspace[]>>,
+  updated: Workspace,
+) {
+  setter((current) => current.map((item) => (item.id === updated.id ? updated : item)));
 }
 
 export type WorkspaceController = ReturnType<typeof useWorkspaceController>;

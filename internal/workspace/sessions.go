@@ -37,8 +37,12 @@ type sessionExecutor interface {
 
 func (s *Store) CreateSession(ctx context.Context, workspaceID, title string) (Session, error) {
 	workspaceID = strings.TrimSpace(workspaceID)
-	if _, err := s.Get(ctx, workspaceID); err != nil {
+	workspace, err := s.Get(ctx, workspaceID)
+	if err != nil {
 		return Session{}, fmt.Errorf("load session workspace: %w", err)
+	}
+	if err := requireActiveWorkspace(workspace); err != nil {
+		return Session{}, err
 	}
 	now := time.Now().UTC()
 	value, err := createSession(ctx, s.db, workspaceID, title, now)

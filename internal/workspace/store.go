@@ -49,6 +49,7 @@ type Workspace struct {
 	Error                   string             `json:"error,omitempty"`
 	PullRequestNumber       int                `json:"pull_request_number,omitempty"`
 	PullRequestURL          string             `json:"pull_request_url,omitempty"`
+	ArchivedAt              *time.Time         `json:"archived_at,omitempty"`
 	CreatedAt               time.Time          `json:"created_at"`
 	UpdatedAt               time.Time          `json:"updated_at"`
 }
@@ -195,7 +196,7 @@ func (s *Store) Get(ctx context.Context, id string) (Workspace, error) {
 }
 
 func (s *Store) List(ctx context.Context) ([]Workspace, error) {
-	rows, err := s.db.QueryContext(ctx, selectWorkspace+` ORDER BY updated_at DESC`)
+	rows, err := s.db.QueryContext(ctx, selectWorkspace+` WHERE archived_at = '' ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces: %w", err)
 	}
@@ -222,16 +223,41 @@ func (s *Store) List(ctx context.Context) ([]Workspace, error) {
 	return values, nil
 }
 
+func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
+	rows, err := s.db.QueryContext(ctx, selectWorkspace+` WHERE archived_at != '' ORDER BY archived_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list archived workspaces: %w", err)
+	}
+	defer rows.Close()
+	var values []Workspace
+	for rows.Next() {
+		value, scanErr := scanWorkspace(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		values = append(values, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list archived workspaces: %w", err)
+	}
+	for index := range values {
+		if err := s.attachProfile(ctx, &values[index]); err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
 	create_branch, authority, effective_mount_mode, preparation_stage, preparation_detail, preparation_failed_stage,
 	selected_project_root, configuration_candidates, setup_command, path, sandbox_name, status, error,
-	pull_request_number, pull_request_url, created_at, updated_at FROM workspaces`
+	pull_request_number, pull_request_url, archived_at, created_at, updated_at FROM workspaces`
 
 type scanner interface{ Scan(...any) error }
 
 func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
-	var createdAt, updatedAt, candidates string
+	var archivedAt, createdAt, updatedAt, candidates string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
 		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode,
@@ -239,7 +265,7 @@ func scanWorkspace(row scanner) (Workspace, error) {
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
 		&value.Path, &value.SandboxName, &value.Status, &value.Error,
 		&value.PullRequestNumber, &value.PullRequestURL,
-		&createdAt, &updatedAt,
+		&archivedAt, &createdAt, &updatedAt,
 	)
 	if err != nil {
 		return Workspace{}, err
@@ -247,6 +273,13 @@ func scanWorkspace(row scanner) (Workspace, error) {
 	value.ConfigurationCandidates, err = decodeProjectCandidates(candidates)
 	if err != nil {
 		return Workspace{}, err
+	}
+	if archivedAt != "" {
+		archived, parseErr := time.Parse(time.RFC3339Nano, archivedAt)
+		if parseErr != nil {
+			return Workspace{}, fmt.Errorf("decode workspace archive time: %w", parseErr)
+		}
+		value.ArchivedAt = &archived
 	}
 	value.CreatedAt, err = time.Parse(time.RFC3339Nano, createdAt)
 	if err != nil {
