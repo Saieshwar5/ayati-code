@@ -242,10 +242,16 @@ func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
 	if err := store.UpdateStatus(context.Background(), value.ID, workspace.StatusReady, ""); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
+	skill, err := store.CreateSkill(context.Background(), agent.SkillInput{
+		Name: "Architecture review", Markdown: "Check dependency direction and failure boundaries.",
+	})
+	if err != nil {
+		t.Fatalf("CreateSkill: %v", err)
+	}
 	definition, err := store.CreateAgent(context.Background(), agent.DefinitionInput{
 		Name: "Reviewer", Emoji: "🔍", ProviderID: agent.FireworksProviderID,
 		Model: "review-model", MaxSteps: 4, ShellEnabled: false,
-		Instructions: "Focus on architecture risks.",
+		Instructions: "Focus on architecture risks.", SkillIDs: []string{skill.ID},
 	})
 	if err != nil {
 		t.Fatalf("CreateAgent: %v", err)
@@ -269,12 +275,14 @@ func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
 	}
 	if len(provider.requests) != 1 || provider.requests[0].Model != "review-model" ||
 		!provider.requests[0].DisableShell ||
-		!strings.Contains(provider.requests[0].SystemPrompt, "Focus on architecture risks.") {
+		!strings.Contains(provider.requests[0].SystemPrompt, "Focus on architecture risks.") ||
+		!strings.Contains(provider.requests[0].SystemPrompt, "Check dependency direction") {
 		t.Fatalf("provider request = %#v", provider.requests)
 	}
 	messages, err := service.Messages(context.Background(), value.ID, sessions[0].ID)
 	if err != nil || len(messages) != 2 || messages[1].Agent == nil ||
-		messages[1].Agent.ID != definition.ID || messages[1].Agent.Model != "review-model" {
+		messages[1].Agent.ID != definition.ID || messages[1].Agent.Model != "review-model" ||
+		len(messages[1].Agent.Skills) != 1 || messages[1].Agent.Skills[0].Revision != skill.Revision {
 		t.Fatalf("messages = %#v, error = %v", messages, err)
 	}
 }

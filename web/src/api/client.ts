@@ -13,6 +13,8 @@ import type {
   ProviderDefinition,
   Repository,
   SessionResponse,
+  SkillDefinition,
+  SkillInput,
   Workspace,
   WorkspaceSession,
 } from "./contracts";
@@ -64,6 +66,19 @@ export const api = {
     request<void>(`/api/agents/${id}/archive`, { method: "POST" }),
   restoreAgent: (id: string) =>
     request<AgentDefinition>(`/api/agents/${id}/restore`, { method: "POST" }),
+  skills: () => request<SkillDefinition[]>("/api/skills"),
+  archivedSkills: () => request<SkillDefinition[]>("/api/skills?archived=true"),
+  createSkill: (input: SkillInput) =>
+    request<SkillDefinition>("/api/skills", { method: "POST", body: JSON.stringify(input) }),
+  updateSkill: (id: string, input: SkillInput) =>
+    request<SkillDefinition>(`/api/skills/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  archiveSkill: (id: string) =>
+    request<void>(`/api/skills/${id}/archive`, { method: "POST" }),
+  restoreSkill: (id: string) =>
+    request<SkillDefinition>(`/api/skills/${id}/restore`, { method: "POST" }),
   createWorkspace: (input: CreateWorkspaceInput) =>
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
   createNewProject: (input: CreateNewProjectInput) =>

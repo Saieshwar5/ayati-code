@@ -28,7 +28,7 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
-- `internal/agent` owns agent definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
+- `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
 - `internal/provider` owns validated provider definitions, registration, discovery, and runtime resolution.
 - `internal/fireworks` owns the Fireworks request format and implements the shared agent-provider contract.
 - `internal/config` owns versioned private provider configuration, legacy Fireworks migration, and the terminal setup command.
@@ -48,6 +48,8 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `agents`: global built-in and custom execution profiles containing identity, provider and model, step budget, shell capability, instructions, revision, and archive state.
+- `skills`: global reusable Markdown guidance with revision and archive state.
+- `agent_skills`: ordered custom-agent skill attachments.
 - `application_settings`: the single global default-agent reference.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
@@ -88,9 +90,9 @@ Environment values use AES-GCM with a random local 256-bit key stored beside the
 
 ## Agent Studio, execution, and authority
 
-Agent Studio has a global catalog containing one immutable built-in Ayati agent and reusable custom agents. Exactly one active agent is the global default. A custom agent can change identity, provider, model, instructions, step limit from 1 through 20, and whether the shell tool is exposed. Archiving a non-default custom agent reassigns sessions using it to the current default; historical assistant messages keep the producing agent's identity, revision, provider, and model snapshot.
+Agent Studio has a global catalog containing one immutable built-in Ayati agent, reusable custom agents, and reusable Markdown skills. Exactly one active agent is the global default. A custom agent can change identity, provider, model, instructions, step limit from 1 through 20, whether the shell tool is exposed, and an ordered list of at most twelve active skills. Archiving a non-default custom agent reassigns sessions using it to the current default. A skill cannot be archived while any agent still references it.
 
-Agent definitions do not store conversation or workspace context. At the start of a run, `internal/chat` loads the session's selected agent, snapshots it, resolves its provider through the registry, resolves an empty model to that provider's private configured default, combines the non-overridable workspace prompt with custom instructions, loads the session history, and runs the model. Editing an agent affects future runs only. The same definition can be used in many workspaces, while the existing per-workspace lock prevents conflicting runs inside one shared working tree.
+Agent definitions and skills do not store conversation or workspace context. Skill Markdown is inert prompt guidance stored in SQLite; browser import and export provide `.md` interchange without allowing executable skill scripts. At the start of a run, `internal/chat` loads the session's selected agent and its ordered skills, snapshots their revisions, resolves the agent's provider through the registry, resolves an empty model to that provider's private configured default, combines the non-overridable workspace prompt with custom instructions and skill Markdown, loads the session history, and runs the model. Editing an agent or skill affects future runs only. Historical assistant messages keep the producing agent, provider, model, and skill revision snapshot. Attachment count and combined Markdown size are bounded before storage.
 
 Provider definitions are non-secret metadata. The registry exposes only identity, protocol, and configured state to the browser. Credentials remain in the private controller configuration file. Built-in adapters are compiled Go code; Ayati does not load native libraries, scripts, downloaded packages, or arbitrary headers as provider plugins. Fireworks is the only runtime adapter in the provider-foundation milestone. Additional providers must implement the same request contract and pass the shared shell-call conformance tests.
 
@@ -102,7 +104,7 @@ The model receives exactly one function:
 
 There are no file, GitHub, service, lifecycle, or database tools exposed to the model. A shell-disabled agent receives no tools, and an unexpected shell call is rejected. A shell-enabled agent receives the one tool shown above. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
 
-The composer has one Send action and a session-persisted agent selector. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions remain subordinate to these controller rules. Publishing and authority changes remain unavailable through the model-facing shell.
+The composer has one Send action and a session-persisted agent selector. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions and skills remain subordinate to these controller rules. Publishing and authority changes remain unavailable through the model-facing shell.
 
 ## GitHub and publish boundary
 

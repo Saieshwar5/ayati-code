@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentDefinition } from "../api/contracts";
+import type { AgentDefinition, SkillDefinition } from "../api/contracts";
 import { WorkspaceApplication } from "../app/WorkspaceApplication";
 
 const builtIn: AgentDefinition = {
@@ -14,9 +14,21 @@ const builtIn: AgentDefinition = {
   max_steps: 20,
   shell_enabled: true,
   instructions: "",
+  skill_ids: [],
   revision: 1,
   built_in: true,
   default: true,
+  created_at: "2026-08-17T00:00:00Z",
+  updated_at: "2026-08-17T00:00:00Z",
+};
+
+const reviewSkill: SkillDefinition = {
+  id: "skill-go-review",
+  name: "Go review",
+  description: "Review Go boundaries",
+  markdown: "Check context cancellation.",
+  revision: 1,
+  attached_agents: 0,
   created_at: "2026-08-17T00:00:00Z",
   updated_at: "2026-08-17T00:00:00Z",
 };
@@ -37,6 +49,8 @@ describe("AgentStudio", () => {
         id: "fireworks", name: "Fireworks", protocol: "openai-chat", configured: true,
       }]);
       if (path === "/api/agents?archived=true") return json([]);
+      if (path === "/api/skills?archived=true") return json([]);
+      if (path === "/api/skills") return json([reviewSkill]);
       if (path === "/api/agents" && init?.method === "POST") {
         createRequest = init;
         const body = JSON.parse(String(init.body));
@@ -78,6 +92,7 @@ describe("AgentStudio", () => {
     await user.clear(screen.getByLabelText("Step limit"));
     await user.type(screen.getByLabelText("Step limit"), "8");
     await user.type(screen.getByLabelText("Agent instructions"), "Inspect failures first.");
+    await user.selectOptions(screen.getByLabelText("Add skill"), reviewSkill.id);
     await user.click(screen.getByRole("button", { name: "Save agent" }));
 
     expect(await screen.findByRole("heading", { name: "Test specialist" })).toBeTruthy();
@@ -90,7 +105,39 @@ describe("AgentStudio", () => {
       max_steps: 8,
       shell_enabled: true,
       instructions: "Inspect failures first.",
+      skill_ids: [reviewSkill.id],
     });
+  });
+
+  it("creates reusable Markdown guidance from the Skills page", async () => {
+    window.history.replaceState({}, "", "/agents/skills");
+    let saved: SkillDefinition | undefined;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path === "/api/repositories") return json([]);
+      if (path === "/api/workspaces") return json([]);
+      if (path === "/api/workspaces?archived=true") return json([]);
+      if (path === "/api/agents") return json([builtIn]);
+      if (path === "/api/agents?archived=true") return json([]);
+      if (path === "/api/skills?archived=true") return json([]);
+      if (path === "/api/skills" && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        saved = { ...reviewSkill, ...body, id: "skill-testing" };
+        return json(saved, 201);
+      }
+      if (path === "/api/skills") return json(saved ? [saved] : []);
+      throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
+    });
+
+    const user = userEvent.setup();
+    render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
+    expect(await screen.findByRole("heading", { name: "Skills" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "＋ New skill" }));
+    await user.type(screen.getByLabelText("Name"), "Testing discipline");
+    await user.type(screen.getByLabelText("Description"), "Reliable verification");
+    await user.type(screen.getByLabelText("Markdown"), "# Testing\n\nRun focused tests first.");
+    await user.click(screen.getByRole("button", { name: "Save skill" }));
+    expect(await screen.findByRole("button", { name: "Edit Testing discipline" })).toBeTruthy();
   });
 });
 

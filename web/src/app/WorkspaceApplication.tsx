@@ -3,6 +3,7 @@ import type { User } from "../api/contracts";
 import { AgentStudio } from "../agents/AgentStudio";
 import { AgentStudioSidebar } from "../agents/AgentStudioSidebar";
 import { useAgentController } from "../agents/useAgentController";
+import { useSkillController } from "../agents/useSkillController";
 import { ChatPane } from "../chat/ChatPane";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { Inspector } from "../inspector/Inspector";
@@ -25,6 +26,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const sessionView = route.page === "session";
   const agentStudioView = isAgentRoute(route);
   const agents = useAgentController(agentStudioView || sessionView);
+  const skills = useSkillController(agentStudioView);
   const [inspectorCollapsed, setInspectorCollapsedState] = useState(initialInspectorState);
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
   const sessionID = route.page === "session" ? route.sessionID : "";
@@ -56,7 +58,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     <main>
       <section className={`app-shell${sessionView ? " session-view" : ""}${agentStudioView ? " agent-studio-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
         <Sidebar controller={controller} route={route} onNavigate={navigate} />
-        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} providerCount={agents.providers.length} onNavigate={navigate} />}
+        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} providerCount={agents.providers.length} skillCount={skills.skills.length} onNavigate={navigate} />}
         <section className="conversation-pane">
           {controller.loading ? (
             <LoadingPage title="Loading workspaces…" />
@@ -119,7 +121,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           ) : route.page === "archived" ? (
             <ArchivedWorkspaces workspaces={controller.archivedWorkspaces} onRestore={async (id) => { await controller.restoreWorkspace(id); navigate(workspacePath(id)); }} />
           ) : agentStudioView ? (
-            <AgentStudio route={route} controller={agents} onNavigate={navigate} />
+            <AgentStudio route={route} controller={agents} skills={skills} onNavigate={navigate} />
           ) : route.page === "environments" ? (
             <PlaceholderPage eyebrow="Shared configuration" title="Environments" description="Reusable environment configuration will live here. No environment functionality has been added in this redesign." />
           ) : (

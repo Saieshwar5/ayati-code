@@ -73,6 +73,10 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 	if err != nil {
 		return agent.Completion{}, err
 	}
+	skills, err := s.store.AgentSkills(ctx, definition.ID)
+	if err != nil {
+		return agent.Completion{}, fmt.Errorf("load selected agent skills: %w", err)
+	}
 	runCtx, cancel := context.WithCancel(ctx)
 	s.setRun(workspaceID, cancel)
 	defer func() {
@@ -114,7 +118,7 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 	if model == "" {
 		model = defaultModel
 	}
-	attribution := definition.Attribution(model)
+	attribution := definition.Attribution(model, skills...)
 	if !definition.ShellEnabled {
 		shell = nil
 	}
@@ -124,7 +128,7 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 			ctx: runCtx, store: s.store, sessionID: sessionID, attribution: &attribution,
 		},
 		Observer: observer, Model: model, StepLimit: definition.MaxSteps,
-		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition),
+		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition, skills...),
 	}
 	completion, err := loop.Run(runCtx, &history, text)
 	if err != nil {

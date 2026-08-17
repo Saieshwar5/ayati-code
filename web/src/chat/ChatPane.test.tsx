@@ -43,6 +43,7 @@ const builtInAgent: AgentDefinition = {
   max_steps: 20,
   shell_enabled: true,
   instructions: "",
+  skill_ids: [],
   revision: 1,
   built_in: true,
   default: true,
@@ -59,6 +60,7 @@ const reviewerAgent: AgentDefinition = {
   max_steps: 8,
   built_in: false,
   default: false,
+  skill_ids: [],
 };
 
 describe("ChatPane", () => {

@@ -30,16 +30,24 @@ func (s *Store) AppendAttributedMessage(
 	}
 	now := time.Now().UTC()
 	var agentID, name, emoji, providerID, model string
+	skills := "[]"
 	var revision int
 	if attribution != nil && message.Role == "assistant" {
 		agentID, name, emoji = attribution.ID, attribution.Name, attribution.Emoji
 		revision, providerID, model = attribution.Revision, attribution.ProviderID, attribution.Model
+		if len(attribution.Skills) > 0 {
+			encoded, encodeErr := json.Marshal(attribution.Skills)
+			if encodeErr != nil {
+				return fmt.Errorf("encode agent skill attribution: %w", encodeErr)
+			}
+			skills = string(encoded)
+		}
 	}
 	_, err = s.db.ExecContext(ctx, `INSERT INTO messages (
 		session_id, payload, agent_id, agent_name, agent_emoji, agent_revision,
-		agent_provider_id, agent_model, created_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(sessionID), string(payload),
-		agentID, name, emoji, revision, providerID, model, formatTime(now))
+		agent_provider_id, agent_model, agent_skills, created_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(sessionID), string(payload),
+		agentID, name, emoji, revision, providerID, model, skills, formatTime(now))
 	if err != nil {
 		return fmt.Errorf("append session message: %w", err)
 	}
@@ -54,7 +62,7 @@ func (s *Store) ConversationMessages(
 	ctx context.Context, sessionID string,
 ) ([]ConversationMessage, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT payload, agent_id, agent_name, agent_emoji,
-		agent_revision, agent_provider_id, agent_model FROM messages
+		agent_revision, agent_provider_id, agent_model, agent_skills FROM messages
 		WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, fmt.Errorf("load conversation messages: %w", err)
@@ -62,9 +70,9 @@ func (s *Store) ConversationMessages(
 	defer rows.Close()
 	var messages []ConversationMessage
 	for rows.Next() {
-		var payload, agentID, name, emoji, providerID, model string
+		var payload, agentID, name, emoji, providerID, model, skills string
 		var revision int
-		if err := rows.Scan(&payload, &agentID, &name, &emoji, &revision, &providerID, &model); err != nil {
+		if err := rows.Scan(&payload, &agentID, &name, &emoji, &revision, &providerID, &model, &skills); err != nil {
 			return nil, fmt.Errorf("scan conversation message: %w", err)
 		}
 		var message agent.Message
@@ -79,6 +87,9 @@ func (s *Store) ConversationMessages(
 			value.Agent = &agent.Attribution{
 				ID: agentID, Name: name, Emoji: emoji, Revision: revision,
 				ProviderID: providerID, Model: model,
+			}
+			if err := json.Unmarshal([]byte(skills), &value.Agent.Skills); err != nil {
+				return nil, fmt.Errorf("decode agent skill attribution: %w", err)
 			}
 		}
 		messages = append(messages, value)
