@@ -19,6 +19,7 @@ import (
 	"github.com/Saieshwar5/ayati-code/internal/config"
 	"github.com/Saieshwar5/ayati-code/internal/fireworks"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	"github.com/Saieshwar5/ayati-code/internal/openai"
 	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
@@ -90,14 +91,15 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
-	providers, conversation, err := modelServices(store, workspaces)
+	providers, providerConnections, conversation, err := modelServices(store, workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
 	logger := log.New(errorOutput, "ayati: ", log.LstdFlags)
 	application, err := New(Options{
-		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation, Providers: providers, GitHub: github,
+		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
+		Providers: providers, ProviderConnections: providerConnections, GitHub: github,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 	})
 	if err != nil {
@@ -136,37 +138,35 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 
 func modelServices(
 	store *workspace.Store, runtime *workspace.Service,
-) (*modelprovider.Registry, *chat.Service, error) {
+) (*modelprovider.Registry, *modelprovider.Connections, *chat.Service, error) {
 	path, err := config.DefaultPath()
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	registration := modelprovider.Registration{Definition: modelprovider.Definition{
-		ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
-	}}
-	values, err := config.Load(path)
-	if err == nil {
-		settings, configured := values.Provider(agent.FireworksProviderID)
-		if configured {
-			client, clientErr := fireworks.New(settings.APIKey)
-			if clientErr != nil {
-				return nil, nil, clientErr
-			}
-			registration.Client = client
-			registration.DefaultModel = settings.DefaultModel
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return nil, nil, err
-	}
-	providers, err := modelprovider.New(registration)
+	connections, err := modelprovider.NewConnections(path,
+		modelprovider.Specification{
+			Definition: modelprovider.Definition{
+				ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
+			},
+			Factory: func(key string) (agent.Provider, error) { return fireworks.New(key) },
+		},
+		modelprovider.Specification{
+			Definition: modelprovider.Definition{
+				ID: openai.ProviderID, Name: "OpenAI", Protocol: "openai-chat",
+			},
+			Factory:  func(key string) (agent.Provider, error) { return openai.New(key) },
+			Verifier: openai.Verify,
+		},
+	)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
+	providers := connections.Registry()
 	conversation, err := chat.New(store, runtime, providers)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return providers, conversation, nil
+	return providers, connections, conversation, nil
 }
 
 type paths struct{ database, workspaces string }

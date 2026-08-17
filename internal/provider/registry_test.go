@@ -53,3 +53,23 @@ func TestRegistryRejectsInvalidAndDuplicateProviders(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistryCanConfigureAndClearAProvider(t *testing.T) {
+	registry, err := New(Registration{Definition: Definition{ID: "other", Name: "Other", Protocol: "test"}})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if err := registry.Configure("other", fakeClient{}, "new-model"); err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	values := registry.List()
+	if len(values) != 1 || !values[0].Configured || values[0].DefaultModel != "new-model" {
+		t.Fatalf("values = %#v", values)
+	}
+	if err := registry.Clear("other"); err != nil {
+		t.Fatalf("Clear: %v", err)
+	}
+	if _, _, err := registry.Resolve("other"); err == nil {
+		t.Fatal("Resolve accepted a cleared provider")
+	}
+}

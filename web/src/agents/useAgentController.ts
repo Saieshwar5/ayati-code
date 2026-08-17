@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { AgentDefinition, AgentInput, ProviderDefinition } from "../api/contracts";
+import type { AgentDefinition, AgentInput, ProviderConnectionInput, ProviderDefinition } from "../api/contracts";
 import { api } from "../api/client";
 
 export function useAgentController(enabled: boolean) {
@@ -80,9 +80,28 @@ export function useAgentController(enabled: boolean) {
     await refresh();
   }, [refresh]);
 
+  const configureProvider = useCallback(async (id: string, input: ProviderConnectionInput) => {
+    await api.configureProvider(id, input);
+    await refresh();
+  }, [refresh]);
+
+  const testProvider = useCallback(async (id: string, input: ProviderConnectionInput) => {
+    await api.testProvider(id, input);
+  }, []);
+
+  const removeProvider = useCallback(async (provider: ProviderDefinition) => {
+    if (!window.confirm(`Remove the saved ${provider.name} connection?\n\nAgents using it will stop working until it is configured again.`)) {
+      return false;
+    }
+    await api.removeProvider(provider.id);
+    await refresh();
+    return true;
+  }, [refresh]);
+
   return {
     agents, archivedAgents, providers, loading, error, refresh,
     create, update, makeDefault, duplicate, archive, restore,
+    configureProvider, testProvider, removeProvider,
   };
 }
 

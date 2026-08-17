@@ -169,6 +169,14 @@ export interface ProviderDefinition {
   name: string;
   protocol: string;
   configured: boolean;
+  configurable: boolean;
+  supports_test: boolean;
+  default_model?: string;
+}
+
+export interface ProviderConnectionInput {
+  api_key: string;
+  default_model: string;
 }
 
 export interface AgentAttribution {

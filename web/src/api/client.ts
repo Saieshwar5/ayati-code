@@ -11,6 +11,7 @@ import type {
   Message,
   PublishInput,
   ProviderDefinition,
+  ProviderConnectionInput,
   Repository,
   SessionResponse,
   SkillDefinition,
@@ -51,6 +52,16 @@ export const api = {
   archivedAgents: () => request<AgentDefinition[]>("/api/agents?archived=true"),
   agent: (id: string) => request<AgentDefinition>(`/api/agents/${id}`),
   providers: () => request<ProviderDefinition[]>("/api/providers"),
+  configureProvider: (id: string, input: ProviderConnectionInput) =>
+    request<ProviderDefinition>(`/api/providers/${encodeURIComponent(id)}`, {
+      method: "PUT", body: JSON.stringify(input),
+    }),
+  testProvider: (id: string, input: ProviderConnectionInput) =>
+    request<{ verified: boolean }>(`/api/providers/${encodeURIComponent(id)}/test`, {
+      method: "POST", body: JSON.stringify(input),
+    }),
+  removeProvider: (id: string) =>
+    request<void>(`/api/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
   createAgent: (input: AgentInput) =>
     request<AgentDefinition>("/api/agents", { method: "POST", body: JSON.stringify(input) }),
   updateAgent: (id: string, input: AgentInput) =>

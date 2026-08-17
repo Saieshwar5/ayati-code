@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { AgentDefinition, SkillDefinition } from "../api/contracts";
+import type { AgentDefinition, ProviderDefinition, SkillDefinition } from "../api/contracts";
 import { WorkspaceApplication } from "../app/WorkspaceApplication";
 
 const builtIn: AgentDefinition = {
@@ -47,6 +47,7 @@ describe("AgentStudio", () => {
       if (path === "/api/workspaces?archived=true") return json([]);
       if (path === "/api/providers") return json([{
         id: "fireworks", name: "Fireworks", protocol: "openai-chat", configured: true,
+        configurable: true, supports_test: false, default_model: "test-model",
       }]);
       if (path === "/api/agents?archived=true") return json([]);
       if (path === "/api/skills?archived=true") return json([]);
@@ -107,6 +108,51 @@ describe("AgentStudio", () => {
       instructions: "Inspect failures first.",
       skill_ids: [reviewSkill.id],
     });
+  });
+
+  it("configures and verifies a provider without retaining its API key", async () => {
+    window.history.replaceState({}, "", "/agents/providers");
+    let provider: ProviderDefinition = {
+      id: "openai", name: "OpenAI", protocol: "openai-chat", configured: false,
+      configurable: true, supports_test: true,
+    };
+    let tested: unknown;
+    let saved: unknown;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const path = String(input);
+      if (path === "/api/repositories") return json([]);
+      if (path === "/api/workspaces") return json([]);
+      if (path === "/api/workspaces?archived=true") return json([]);
+      if (path === "/api/agents") return json([builtIn]);
+      if (path === "/api/agents?archived=true") return json([]);
+      if (path === "/api/skills") return json([]);
+      if (path === "/api/skills?archived=true") return json([]);
+      if (path === "/api/providers/openai/test" && init?.method === "POST") {
+        tested = JSON.parse(String(init.body));
+        return json({ verified: true });
+      }
+      if (path === "/api/providers/openai" && init?.method === "PUT") {
+        saved = JSON.parse(String(init.body));
+        provider = { ...provider, configured: true, default_model: "gpt-test" };
+        return json(provider);
+      }
+      if (path === "/api/providers") return json([provider]);
+      throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
+    });
+
+    const user = userEvent.setup();
+    render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
+    await user.click(await screen.findByRole("button", { name: "Set up" }));
+    await user.type(screen.getByLabelText("API key"), "private-key");
+    await user.type(screen.getByLabelText("Default model"), "gpt-test");
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText("Connection verified")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Save connection" }));
+    await waitFor(() => expect(saved).toBeTruthy());
+    expect(tested).toEqual({ api_key: "private-key", default_model: "gpt-test" });
+    expect(saved).toEqual(tested);
+    expect(screen.queryByDisplayValue("private-key")).toBeNull();
+    expect(await screen.findByText("Default · gpt-test")).toBeTruthy();
   });
 
   it("creates reusable Markdown guidance from the Skills page", async () => {

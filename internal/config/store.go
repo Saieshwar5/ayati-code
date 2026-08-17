@@ -121,6 +121,10 @@ func (v *Values) SetProvider(id string, value ProviderValues) {
 	v.Providers[strings.TrimSpace(id)] = value
 }
 
+func (v *Values) DeleteProvider(id string) {
+	delete(v.Providers, strings.TrimSpace(id))
+}
+
 func migrate(stored storedValues) (Values, error) {
 	if stored.Version == 0 {
 		if len(stored.Providers) != 0 {
@@ -151,9 +155,6 @@ func (v *Values) normalizeAndValidate() error {
 	}
 	if v.Version != CurrentVersion {
 		return fmt.Errorf("unsupported configuration version %d", v.Version)
-	}
-	if len(v.Providers) == 0 {
-		return fmt.Errorf("at least one provider configuration is required")
 	}
 	if len(v.Providers) > 64 {
 		return fmt.Errorf("provider configuration exceeds 64 entries")

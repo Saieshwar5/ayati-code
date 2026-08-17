@@ -12,7 +12,7 @@ The controller is one Go process on your machine. Workspace metadata and complet
 - Git
 - Docker Engine
 - A GitHub App installed on the repositories Ayati may access
-- A Fireworks API key and model
+- A Fireworks or OpenAI API key and model
 
 Build the local sandbox image once:
 
@@ -20,11 +20,13 @@ Build the local sandbox image once:
 make sandbox
 ```
 
-Configure the model provider. The key is read without terminal echo and saved with private permissions:
+Optionally configure Fireworks from the terminal. The key is read without terminal echo and saved with private permissions:
 
 ```bash
 go run -buildvcs=false ./cmd/ayati config
 ```
+
+Fireworks and OpenAI can also be configured from **Agent Studio → Providers** after Ayati starts. The browser never receives a saved API key; leaving the key field blank preserves the existing value.
 
 Install the locked React development dependencies once:
 
@@ -58,7 +60,7 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
 4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and authority sealing. Ayati encrypts its environment, deterministically records the project profile and clean Git commit, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. If several applications are detected, preparation pauses for a project-root choice and continues after that choice. Explore is sealed only when setup leaves tracked and non-ignored project files unchanged, then recreated with `/workspace` read-only before the agent can run.
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes. New sessions start with the current global default agent.
-6. Open Agent Studio to inspect model providers and create reusable agents with their own identity, provider, model, instructions, step budget, shell capability, and ordered Markdown skills. The built-in Ayati agent is protected, exactly one global default always exists, and changing the default does not rewrite existing session selections. Fireworks is the first configured runtime; the registry keeps future adapters out of the agent loop.
+6. Open Agent Studio to configure Fireworks or OpenAI and create reusable agents with their own identity, provider, model, instructions, step budget, shell capability, and ordered Markdown skills. OpenAI connections can be verified before use. The built-in Ayati agent is protected, exactly one global default always exists, and changing the default does not rewrite existing session selections.
 7. Create or import reusable skills from `.md` files, then attach them to editable custom agents. Skills are inert prompt guidance: they cannot add tools or override workspace, credential, and publishing rules. Attached skills must be detached before archival.
 8. Select an available agent above the chat composer. Agents do not keep their own conversation state: the selected agent receives the current workspace facts and that session's history for each run. Assistant messages retain the agent identity and attached skill revisions even when their definitions later change.
 9. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project. Agents with shell capability disabled receive no model-facing tool; enabled agents receive only `shell(command)` under the workspace's Explore or Develop authority.

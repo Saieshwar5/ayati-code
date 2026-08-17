@@ -99,6 +99,17 @@ func TestLoadRejectsUnknownConfigurationVersion(t *testing.T) {
 	}
 }
 
+func TestSaveAllowsAnEmptyProviderConfiguration(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.json")
+	if err := Save(path, Values{Version: CurrentVersion, Providers: map[string]ProviderValues{}}); err != nil {
+		t.Fatalf("Save: %v", err)
+	}
+	values, err := Load(path)
+	if err != nil || len(values.Providers) != 0 {
+		t.Fatalf("values = %#v, error = %v", values, err)
+	}
+}
+
 func TestConfigureUpdatesModelWithoutExposingSavedKey(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	path, err := DefaultPath()
