@@ -91,6 +91,7 @@ func (s *Store) addMessageAttributionColumns(ctx context.Context) error {
 	}
 	for _, column := range []string{
 		"agent_id", "agent_name", "agent_emoji", "agent_revision", "agent_provider_id", "agent_model",
+		"agent_skills",
 	} {
 		if columns[column] {
 			continue
@@ -98,6 +99,8 @@ func (s *Store) addMessageAttributionColumns(ctx context.Context) error {
 		kind := "TEXT NOT NULL DEFAULT ''"
 		if column == "agent_revision" {
 			kind = "INTEGER NOT NULL DEFAULT 0"
+		} else if column == "agent_skills" {
+			kind = "TEXT NOT NULL DEFAULT '[]'"
 		}
 		if _, err := s.db.ExecContext(ctx, `ALTER TABLE messages ADD COLUMN `+column+` `+kind); err != nil {
 			return fmt.Errorf("add message attribution column %s: %w", column, err)
