@@ -119,6 +119,7 @@ export interface AgentDefinition {
   max_steps: number;
   shell_enabled: boolean;
   instructions: string;
+  skill_ids: string[];
   revision: number;
   built_in: boolean;
   default: boolean;
@@ -136,6 +137,31 @@ export interface AgentInput {
   max_steps: number;
   shell_enabled: boolean;
   instructions: string;
+  skill_ids: string[];
+}
+
+export interface SkillDefinition {
+  id: string;
+  name: string;
+  description: string;
+  markdown: string;
+  revision: number;
+  attached_agents: number;
+  archived_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SkillInput {
+  name: string;
+  description: string;
+  markdown: string;
+}
+
+export interface SkillReference {
+  id: string;
+  name: string;
+  revision: number;
 }
 
 export interface AgentAttribution {
@@ -145,6 +171,7 @@ export interface AgentAttribution {
   revision: number;
   provider_id: string;
   model: string;
+  skills?: SkillReference[];
 }
 
 export interface ToolCall {
