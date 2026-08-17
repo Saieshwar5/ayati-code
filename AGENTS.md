@@ -10,10 +10,10 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 
 - `cmd/ayati/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
-- `internal/environment/`: reusable compute definitions, availability, and exclusive workspace leases.
+- `internal/environment/`: reusable compute definitions, availability, exclusive workspace leases, and lease/runtime coordination.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
 - `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
-- `internal/sandbox/`: persistent Docker containers and bounded shell execution.
+- `internal/sandbox/`: persistent Docker containers, the verified Docker environment driver, and bounded shell execution.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
 - `internal/agent/`: agent and skill definitions, prompt composition, shared messages, and sequential loop.
