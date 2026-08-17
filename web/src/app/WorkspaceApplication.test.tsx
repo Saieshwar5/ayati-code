@@ -92,7 +92,7 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByRole("button", { name: "New workspace" }));
     await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
     await waitFor(() =>
-      expect((screen.getByLabelText("Starting branch") as HTMLSelectElement).value).toBe("main"),
+      expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     await user.click(screen.getByRole("radio", { name: "Develop authority" }));
     await user.type(screen.getByLabelText("New working branch"), "ayati/react-ui");
@@ -109,6 +109,7 @@ describe("WorkspaceApplication", () => {
       base_branch: "main",
       branch: "ayati/react-ui",
       create_branch: true,
+      branch_mode: "new",
       authority: "develop",
       environment: [
         { name: "NPM_TOKEN", value: "private-token", expose_during_setup: true },
@@ -148,7 +149,7 @@ describe("WorkspaceApplication", () => {
     expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
     await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
     await waitFor(() =>
-      expect((screen.getByLabelText("Starting branch") as HTMLSelectElement).value).toBe("main"),
+      expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     expect(screen.queryByLabelText("New working branch")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Create and initialize" }));
@@ -158,6 +159,7 @@ describe("WorkspaceApplication", () => {
       base_branch: "main",
       branch: "main",
       create_branch: false,
+      branch_mode: "direct",
     });
   });
 
