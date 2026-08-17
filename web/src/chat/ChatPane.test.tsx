@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { Workspace, WorkspaceSession } from "../api/contracts";
+import type { AgentDefinition, Workspace, WorkspaceSession } from "../api/contracts";
 import { ChatPane } from "./ChatPane";
 
 const workspace: Workspace = {
@@ -28,8 +28,37 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Improve the UI",
   status: "idle",
+  selected_agent_id: "builtin-ayati",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
+};
+
+const builtInAgent: AgentDefinition = {
+  id: "builtin-ayati",
+  name: "Ayati",
+  emoji: "✦",
+  description: "General coding agent",
+  provider_id: "fireworks",
+  model: "",
+  max_steps: 20,
+  shell_enabled: true,
+  instructions: "",
+  revision: 1,
+  built_in: true,
+  default: true,
+  created_at: "2026-08-16T00:00:00Z",
+  updated_at: "2026-08-16T00:00:00Z",
+};
+
+const reviewerAgent: AgentDefinition = {
+  ...builtInAgent,
+  id: "reviewer",
+  name: "Reviewer",
+  emoji: "🔍",
+  description: "Reviews changes",
+  max_steps: 8,
+  built_in: false,
+  default: false,
 };
 
 describe("ChatPane", () => {
@@ -49,21 +78,51 @@ describe("ChatPane", () => {
               { id: "call-1", type: "function", function: { name: "shell", arguments: "{}" } },
             ],
           },
-          { role: "assistant", content: "The project is ready." },
+          {
+            role: "assistant",
+            content: "The project is ready.",
+            agent: {
+              id: "builtin-ayati", name: "Ayati", emoji: "✦", revision: 1,
+              provider_id: "fireworks", model: "test-model",
+            },
+          },
         ]}
         error=""
         sending={false}
+        agents={[builtInAgent]}
         onSend={send}
+        onSelectAgent={vi.fn()}
       />,
     );
 
     expect(screen.getByText("Please inspect this.")).toBeTruthy();
     expect(screen.getByText("The project is ready.")).toBeTruthy();
+    expect(screen.getByText("Ayati")).toBeTruthy();
     expect(screen.queryByText("shell")).toBeNull();
     await user.type(screen.getByRole("textbox"), "Implement the change");
     await user.click(screen.getByRole("button", { name: "Send message" }));
     expect(send).toHaveBeenCalledWith("Implement the change");
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
+  });
+
+  it("persists a different agent from the composer selector", async () => {
+    const selectAgent = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <ChatPane
+        workspace={workspace}
+        session={session}
+        workspaceSessions={[session]}
+        messages={[]}
+        error=""
+        sending={false}
+        agents={[builtInAgent, reviewerAgent]}
+        onSend={vi.fn()}
+        onSelectAgent={selectAgent}
+      />,
+    );
+    await user.selectOptions(screen.getByRole("combobox", { name: "Agent" }), reviewerAgent.id);
+    expect(selectAgent).toHaveBeenCalledWith(reviewerAgent.id);
   });
 
   it("blocks this composer while another session is working", () => {
@@ -76,7 +135,9 @@ describe("ChatPane", () => {
         messages={[]}
         error=""
         sending={false}
+        agents={[builtInAgent]}
         onSend={vi.fn()}
+        onSelectAgent={vi.fn()}
       />,
     );
     const textbox = screen.getByRole("textbox") as HTMLTextAreaElement;

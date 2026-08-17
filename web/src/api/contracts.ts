@@ -104,8 +104,47 @@ export interface WorkspaceSession {
   title: string;
   status: SessionStatus;
   error?: string;
+  selected_agent_id: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface AgentDefinition {
+  id: string;
+  name: string;
+  emoji: string;
+  description: string;
+  provider_id: "fireworks";
+  model: string;
+  max_steps: number;
+  shell_enabled: boolean;
+  instructions: string;
+  revision: number;
+  built_in: boolean;
+  default: boolean;
+  archived_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AgentInput {
+  name: string;
+  emoji: string;
+  description: string;
+  provider_id: "fireworks";
+  model: string;
+  max_steps: number;
+  shell_enabled: boolean;
+  instructions: string;
+}
+
+export interface AgentAttribution {
+  id: string;
+  name: string;
+  emoji: string;
+  revision: number;
+  provider_id: string;
+  model: string;
 }
 
 export interface ToolCall {
@@ -119,6 +158,7 @@ export interface Message {
   content?: string;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
+  agent?: AgentAttribution;
 }
 
 export interface Changes {
