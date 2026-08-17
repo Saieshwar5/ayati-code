@@ -26,7 +26,13 @@ type Service struct {
 	locksMu   sync.Mutex
 	locks     map[string]*sync.Mutex
 	runsMu    sync.Mutex
-	runs      map[string]context.CancelFunc
+	runs      map[string]*activeRun
+}
+
+type activeRun struct {
+	sessionID string
+	cancel    context.CancelFunc
+	canceled  bool
 }
 
 func New(store *workspace.Store, runtime workspaceRuntime, providers providerResolver) (*Service, error) {
@@ -35,7 +41,7 @@ func New(store *workspace.Store, runtime workspaceRuntime, providers providerRes
 	}
 	return &Service{
 		store: store, runtime: runtime, providers: providers,
-		locks: make(map[string]*sync.Mutex), runs: make(map[string]context.CancelFunc),
+		locks: make(map[string]*sync.Mutex), runs: make(map[string]*activeRun),
 	}, nil
 }
 
@@ -78,10 +84,13 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		return agent.Completion{}, fmt.Errorf("load selected agent skills: %w", err)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	s.setRun(workspaceID, cancel)
+	run := s.setRun(workspaceID, sessionID, cancel)
+	finished := false
 	defer func() {
 		cancel()
-		s.clearRun(workspaceID)
+		if !finished {
+			s.finishRun(workspaceID, run)
+		}
 	}()
 	shell, currentWorkspace, err := s.runtime.Shell(runCtx, workspaceID)
 	if err != nil {
@@ -131,31 +140,51 @@ func (s *Service) Send(ctx context.Context, workspaceID, sessionID, text string)
 		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition, skills...),
 	}
 	completion, err := loop.Run(runCtx, &history, text)
+	canceled := s.finishRun(workspaceID, run)
+	finished = true
+	if canceled && err == nil {
+		_ = s.store.UpdateSessionStatus(context.Background(), sessionID, workspace.SessionStatusCanceled, "")
+		return completion, context.Canceled
+	}
 	if err != nil {
 		message := err.Error()
-		if errors.Is(err, context.Canceled) {
-			message = "agent run canceled"
+		status := workspace.SessionStatusFailed
+		if canceled || errors.Is(err, context.Canceled) {
+			status = workspace.SessionStatusCanceled
+			message = ""
 		}
-		_ = s.store.UpdateSessionStatus(context.Background(), sessionID, workspace.SessionStatusFailed, message)
+		_ = s.store.UpdateSessionStatus(context.Background(), sessionID, status, message)
 		return completion, err
 	}
 	status := workspace.SessionStatusIdle
 	if observer.shellCalls > 0 {
 		status = workspace.SessionStatusReview
 	}
-	if err := s.store.UpdateSessionStatus(runCtx, sessionID, status, ""); err != nil {
+	if err := s.store.UpdateSessionStatus(context.Background(), sessionID, status, ""); err != nil {
 		return completion, err
 	}
 	return completion, nil
 }
 
 func (s *Service) Cancel(workspaceID string) {
+	s.cancelRun(workspaceID, "")
+}
+
+func (s *Service) CancelSession(workspaceID, sessionID string) bool {
+	return s.cancelRun(workspaceID, sessionID)
+}
+
+func (s *Service) cancelRun(workspaceID, sessionID string) bool {
 	s.runsMu.Lock()
-	cancel := s.runs[workspaceID]
-	s.runsMu.Unlock()
-	if cancel != nil {
-		cancel()
+	run := s.runs[workspaceID]
+	if run == nil || sessionID != "" && run.sessionID != sessionID {
+		s.runsMu.Unlock()
+		return false
 	}
+	run.canceled = true
+	s.runsMu.Unlock()
+	run.cancel()
+	return true
 }
 
 func (s *Service) CancelAndWait(workspaceID string) {
@@ -177,16 +206,21 @@ func (s *Service) WithWorkspaceIdle(workspaceID string, action func() error) err
 	return action()
 }
 
-func (s *Service) setRun(workspaceID string, cancel context.CancelFunc) {
+func (s *Service) setRun(workspaceID, sessionID string, cancel context.CancelFunc) *activeRun {
 	s.runsMu.Lock()
 	defer s.runsMu.Unlock()
-	s.runs[workspaceID] = cancel
+	run := &activeRun{sessionID: sessionID, cancel: cancel}
+	s.runs[workspaceID] = run
+	return run
 }
 
-func (s *Service) clearRun(workspaceID string) {
+func (s *Service) finishRun(workspaceID string, run *activeRun) bool {
 	s.runsMu.Lock()
 	defer s.runsMu.Unlock()
-	delete(s.runs, workspaceID)
+	if s.runs[workspaceID] == run {
+		delete(s.runs, workspaceID)
+	}
+	return run.canceled
 }
 
 func (s *Service) lock(id string) *sync.Mutex {

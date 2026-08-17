@@ -119,6 +119,7 @@ button:disabled { cursor: wait; opacity: 0.55; }
 .session-item.working .session-status-dot { background: #bb7b19; box-shadow: 0 0 0 3px #f4e7cf; }
 .session-item.review .session-status-dot { background: #3d7d49; }
 .session-item.failed .session-status-dot { background: #b84334; }
+.session-item.canceled .session-status-dot { background: #8a867e; }
 .session-copy { min-width: 0; display: grid; gap: 2px; }
 .session-copy strong, .session-copy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .session-copy strong { font-size: 11px; font-weight: 680; }
@@ -231,11 +232,12 @@ input, select, textarea {
 .status.working, .status.initializing, .status.creating { background: #f4e7cf; color: #7d5518; }
 .status.needs_configuration { background: #f4e7cf; color: #7d5518; }
 .status.failed, .status.initialization_failed { background: #fff0ed; color: #9d2718; }
+.status.canceled { background: #efeee9; color: #65625b; }
 .conversation-heading .status { width: 9px; height: 9px; min-width: 9px; padding: 0; font-size: 0; box-shadow: 0 0 0 4px #efeee9; }
 .conversation-heading .status.ready, .conversation-heading .status.review { background: #3d7d49; box-shadow: 0 0 0 4px #e7f3e8; }
 .conversation-heading .status.working, .conversation-heading .status.initializing, .conversation-heading .status.creating { background: #bb7b19; box-shadow: 0 0 0 4px #f4e7cf; }
 .conversation-heading .status.failed, .conversation-heading .status.initialization_failed { background: #b84334; box-shadow: 0 0 0 4px #fff0ed; }
-.conversation-heading .status.idle, .conversation-heading .status.stopped { background: #8a867e; box-shadow: 0 0 0 4px #efeee9; }
+.conversation-heading .status.idle, .conversation-heading .status.stopped, .conversation-heading .status.canceled { background: #8a867e; box-shadow: 0 0 0 4px #efeee9; }
 .messages { width: 100%; height: 100%; min-height: 0; padding: 64px 28px 170px; overflow-y: auto; display: grid; align-content: start; gap: 18px; scroll-padding-block: 64px 170px; }
 .message { max-width: min(740px, 88%); padding: 13px 15px; border-radius: 10px; line-height: 1.55; white-space: pre-wrap; }
 .message.user { margin-left: auto; background: #171717; color: #fff; }
@@ -261,6 +263,9 @@ input, select, textarea {
 .composer-send { position: absolute; right: 8px; bottom: 8px; width: 38px; min-height: 38px; padding: 0; border: 0; border-radius: 50%; background: #171717; color: #fff; font-size: 21px; line-height: 1; }
 .composer-send:hover:not(:disabled) { background: #34322e; transform: translateY(-1px); }
 .composer-send:disabled { background: #aaa69c; }
+.composer-stop { background: #9d3a2c; }
+.composer-stop:hover:not(:disabled) { background: #812c21; }
+.stop-icon { width: 11px; height: 11px; border-radius: 2px; background: currentColor; }
 
 .readiness-view { height: 100%; padding: clamp(24px, 5vw, 58px); overflow-y: auto; }
 .readiness-view > * { width: min(720px, 100%); margin-inline: auto; }

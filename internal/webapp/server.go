@@ -48,6 +48,7 @@ type workspaceService interface {
 type chatService interface {
 	Messages(context.Context, string, string) ([]workspace.ConversationMessage, error)
 	Send(context.Context, string, string, string) (agent.Completion, error)
+	CancelSession(string, string) bool
 	CancelAndWait(string)
 	WithWorkspaceIdle(string, func() error) error
 }

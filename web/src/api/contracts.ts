@@ -6,7 +6,7 @@ export type WorkspaceStatus =
   | "ready"
   | "stopped";
 
-export type SessionStatus = "idle" | "working" | "review" | "failed";
+export type SessionStatus = "idle" | "working" | "review" | "failed" | "canceled";
 export type WorkspaceAuthority = "explore" | "develop";
 export type BranchMode = "new" | "existing" | "direct";
 export type PreparationStage =

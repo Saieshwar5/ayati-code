@@ -159,7 +159,12 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 		!strings.Contains(err.Error(), "agent is working") {
 		t.Fatalf("WithWorkspaceIdle error = %v", err)
 	}
-	service.CancelAndWait(value.ID)
+	if service.CancelSession(value.ID, "different-session") {
+		t.Fatal("different session canceled the active run")
+	}
+	if !service.CancelSession(value.ID, sessions[0].ID) {
+		t.Fatal("active session was not canceled")
+	}
 	select {
 	case runErr := <-finished:
 		if !errors.Is(runErr, context.Canceled) {
@@ -167,6 +172,13 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("agent run did not stop")
+	}
+	if service.CancelSession(value.ID, sessions[0].ID) {
+		t.Fatal("finished run remained cancelable")
+	}
+	loaded, err := store.GetSession(context.Background(), value.ID, sessions[0].ID)
+	if err != nil || loaded.Status != workspace.SessionStatusCanceled || loaded.Error != "" {
+		t.Fatalf("canceled session = %#v, error = %v", loaded, err)
 	}
 	called := false
 	if err := service.WithWorkspaceIdle(value.ID, func() error { called = true; return nil }); err != nil || !called {

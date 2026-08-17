@@ -112,8 +112,10 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               messages={detail.messages}
               error={detail.messageError}
               sending={detail.sending}
+              stopping={detail.stopping}
               agents={agents.agents}
               onSend={detail.sendMessage}
+              onStop={detail.stopRun}
               onSelectAgent={async (agentID) => {
                 await controller.selectSessionAgent(workspace.id, session.id, agentID);
               }}

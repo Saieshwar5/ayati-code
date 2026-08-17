@@ -146,6 +146,7 @@ function activityState(workspace: Workspace, session: WorkspaceSession): string 
   if (session.status === "working") return "Ayati is working. New commands and results appear below.";
   if (session.status === "review") return "This session finished with workspace changes ready for review.";
   if (session.status === "failed") return session.error || "The last run in this session failed.";
+  if (session.status === "canceled") return "The last run was stopped by the user.";
   return "Fresh session context. Workspace files and changes are shared.";
 }
 

@@ -192,6 +192,15 @@ func TestHandlerCreatesRenamesAndDeletesWorkspaceSessions(t *testing.T) {
 	if response.Code != http.StatusOK {
 		t.Fatalf("send session message status = %d, body = %s", response.Code, response.Body.String())
 	}
+	response = serve(handler, http.MethodPost, path+"/cancel", "", true)
+	if response.Code != http.StatusNoContent {
+		t.Fatalf("cancel session status = %d, body = %s", response.Code, response.Body.String())
+	}
+	response = serve(handler, http.MethodPost,
+		"/api/workspaces/"+value.ID+"/sessions/missing/cancel", "", true)
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("cancel missing session status = %d, body = %s", response.Code, response.Body.String())
+	}
 	response = serve(handler, http.MethodDelete, path, "", true)
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("delete session status = %d, body = %s", response.Code, response.Body.String())
@@ -312,7 +321,7 @@ func (fakeChat) Messages(
 ) ([]workspace.ConversationMessage, error) {
 	return nil, nil
 }
-func (fakeChat) Cancel(string)                                         {}
+func (fakeChat) CancelSession(string, string) bool                     { return true }
 func (fakeChat) CancelAndWait(string)                                  {}
 func (fakeChat) WithWorkspaceIdle(_ string, action func() error) error { return action() }
 func (fakeChat) Send(context.Context, string, string, string) (agent.Completion, error) {
