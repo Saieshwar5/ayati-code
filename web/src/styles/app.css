@@ -241,7 +241,31 @@ input, select, textarea {
 .messages { width: 100%; height: 100%; min-height: 0; padding: 64px 28px 170px; overflow-y: auto; display: grid; align-content: start; gap: 18px; scroll-padding-block: 64px 170px; }
 .message { max-width: min(740px, 88%); padding: 13px 15px; border-radius: 10px; line-height: 1.55; white-space: pre-wrap; }
 .message.user { margin-left: auto; background: #171717; color: #fff; }
-.message.assistant { background: #efeee9; }
+.message.assistant { background: #efeee9; white-space: normal; }
+.markdown-message > :first-child { margin-top: 0; }
+.markdown-message > :last-child { margin-bottom: 0; }
+.markdown-message p { margin-bottom: 10px; }
+.markdown-message h1, .markdown-message h2, .markdown-message h3 { margin: 18px 0 8px; line-height: 1.25; letter-spacing: -0.025em; }
+.markdown-message h1 { font-size: 19px; }
+.markdown-message h2 { font-size: 17px; }
+.markdown-message h3 { font-size: 15px; }
+.markdown-message ul, .markdown-message ol { margin: 8px 0 12px; padding-left: 24px; }
+.markdown-message li + li { margin-top: 4px; }
+.markdown-message blockquote { margin: 12px 0; padding: 2px 0 2px 13px; border-left: 3px solid #bbb7ad; color: #5e5b54; }
+.markdown-message blockquote > :last-child { margin-bottom: 0; }
+.markdown-message a { color: #295f8f; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+.markdown-image-placeholder { color: #77736b; font-size: 12px; font-style: italic; }
+.markdown-message :not(pre) > code { background: #dedbd3; }
+.markdown-message pre { max-width: 100%; margin: 12px 0; padding: 13px 15px; overflow-x: auto; border-radius: 8px; background: #242422; color: #f5f4ef; line-height: 1.5; white-space: pre; }
+.markdown-message pre code { padding: 0; background: transparent; color: inherit; font-size: 12px; }
+.markdown-message hr { margin: 18px 0; border: 0; border-top: 1px solid #cfccc3; }
+.markdown-table-scroll { max-width: 100%; margin: 12px 0; overflow-x: auto; }
+.markdown-table-scroll table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.markdown-table-scroll th, .markdown-table-scroll td { padding: 7px 9px; border: 1px solid #ccc8be; text-align: left; }
+.markdown-table-scroll th { background: #e4e2db; font-weight: 720; }
+.markdown-message .contains-task-list { padding-left: 3px; list-style: none; }
+.markdown-message .task-list-item { display: flex; align-items: baseline; gap: 7px; }
+.markdown-message .task-list-item input { width: 14px; min-height: 14px; margin: 0; pointer-events: none; }
 .conversation-empty { width: min(420px, 100%); margin: 14vh auto 0; text-align: center; }
 .composer {
   position: absolute;

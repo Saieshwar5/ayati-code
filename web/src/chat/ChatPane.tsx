@@ -2,6 +2,7 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentDefinition, Message, Workspace, WorkspaceSession } from "../api/contracts";
 import { statusLabel } from "../app/format";
+import { MarkdownMessage } from "./MarkdownMessage";
 
 interface ChatPaneProps {
   workspace: Workspace;
@@ -86,7 +87,13 @@ export function ChatPane(props: ChatPaneProps) {
             {message.role === "assistant" && message.agent && (
               <div className="message-agent"><span aria-hidden="true">{message.agent.emoji}</span><strong>{message.agent.name}</strong></div>
             )}
-            <div className={`message ${message.role}`}>{message.content}</div>
+            <div className={`message ${message.role}`}>
+              {message.role === "assistant" ? (
+                <MarkdownMessage content={message.content || ""} />
+              ) : (
+                message.content
+              )}
+            </div>
           </div>
         ))}
       </div>
