@@ -3,6 +3,7 @@ import type { AppRoute } from "../app/useAppRoute";
 interface AgentStudioSidebarProps {
   route: AppRoute;
   agentCount: number;
+  skillCount: number;
   onNavigate: (path: string) => void;
 }
 
@@ -25,7 +26,7 @@ export function AgentStudioSidebar(props: AgentStudioSidebarProps) {
           onClick={() => props.onNavigate("/agents")}
         />
         <StudioLink active={props.route.page === "agent-providers"} icon="◎" label="Providers" count={1} onClick={() => props.onNavigate("/agents/providers")} />
-        <StudioLink active={props.route.page === "agent-skills"} icon="◇" label="Skills" count={0} onClick={() => props.onNavigate("/agents/skills")} />
+        <StudioLink active={props.route.page === "agent-skills"} icon="◇" label="Skills" count={props.skillCount} onClick={() => props.onNavigate("/agents/skills")} />
       </nav>
       <p className="agent-studio-note">Agents are reusable across every workspace. Sessions provide their conversation context.</p>
     </aside>

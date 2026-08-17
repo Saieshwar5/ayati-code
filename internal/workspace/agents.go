@@ -27,7 +27,16 @@ func (s *Store) CreateAgent(ctx context.Context, raw agent.DefinitionInput) (age
 		return agent.Definition{}, err
 	}
 	now := time.Now().UTC()
-	_, err = s.db.ExecContext(ctx, `INSERT INTO agents (
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return agent.Definition{}, fmt.Errorf("begin agent creation: %w", err)
+	}
+	defer tx.Rollback()
+	skillIDs, err := validateSkillIDs(ctx, tx, input.SkillIDs)
+	if err != nil {
+		return agent.Definition{}, err
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO agents (
 		id, name, emoji, description, provider_id, model, max_steps, shell_enabled,
 		instructions, revision, built_in, archived_at, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, '', ?, ?)`,
@@ -35,6 +44,12 @@ func (s *Store) CreateAgent(ctx context.Context, raw agent.DefinitionInput) (age
 		input.MaxSteps, input.ShellEnabled, input.Instructions, formatTime(now), formatTime(now))
 	if err != nil {
 		return agent.Definition{}, fmt.Errorf("create agent: %w", err)
+	}
+	if err := replaceAgentSkills(ctx, tx, id, skillIDs); err != nil {
+		return agent.Definition{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return agent.Definition{}, fmt.Errorf("commit agent creation: %w", err)
 	}
 	return s.GetAgent(ctx, id)
 }
@@ -50,20 +65,38 @@ func (s *Store) ListAgents(ctx context.Context, archived bool) ([]agent.Definiti
 	if err != nil {
 		return nil, fmt.Errorf("list agents: %w", err)
 	}
-	defer rows.Close()
 	var values []agent.Definition
 	for rows.Next() {
 		value, scanErr := scanAgent(rows)
 		if scanErr != nil {
+			rows.Close()
 			return nil, scanErr
 		}
 		values = append(values, value)
 	}
-	return values, rows.Err()
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for index := range values {
+		values[index].SkillIDs, err = s.loadAgentSkillIDs(ctx, values[index].ID)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
 }
 
 func (s *Store) GetAgent(ctx context.Context, id string) (agent.Definition, error) {
-	return scanAgent(s.db.QueryRowContext(ctx, selectAgent+` AND agents.id = ?`, strings.TrimSpace(id)))
+	value, err := scanAgent(s.db.QueryRowContext(ctx, selectAgent+` AND agents.id = ?`, strings.TrimSpace(id)))
+	if err != nil {
+		return agent.Definition{}, err
+	}
+	value.SkillIDs, err = s.loadAgentSkillIDs(ctx, value.ID)
+	return value, err
 }
 
 func (s *Store) DefaultAgent(ctx context.Context) (agent.Definition, error) {
@@ -89,7 +122,16 @@ func (s *Store) UpdateAgent(
 		return agent.Definition{}, err
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `UPDATE agents SET name = ?, emoji = ?, description = ?,
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return agent.Definition{}, fmt.Errorf("begin agent update: %w", err)
+	}
+	defer tx.Rollback()
+	skillIDs, err := validateSkillIDs(ctx, tx, input.SkillIDs)
+	if err != nil {
+		return agent.Definition{}, err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE agents SET name = ?, emoji = ?, description = ?,
 		provider_id = ?, model = ?, max_steps = ?, shell_enabled = ?, instructions = ?,
 		revision = revision + 1, updated_at = ? WHERE id = ?`,
 		input.Name, input.Emoji, input.Description, input.ProviderID, input.Model,
@@ -99,6 +141,12 @@ func (s *Store) UpdateAgent(
 	}
 	if err := requireOneRow(result); err != nil {
 		return agent.Definition{}, err
+	}
+	if err := replaceAgentSkills(ctx, tx, current.ID, skillIDs); err != nil {
+		return agent.Definition{}, err
+	}
+	if err := tx.Commit(); err != nil {
+		return agent.Definition{}, fmt.Errorf("commit agent update: %w", err)
 	}
 	return s.GetAgent(ctx, current.ID)
 }
@@ -139,7 +187,7 @@ func (s *Store) DuplicateAgent(ctx context.Context, id string) (agent.Definition
 	return s.CreateAgent(ctx, agent.DefinitionInput{
 		Name: value.Name + " copy", Emoji: value.Emoji, Description: value.Description,
 		ProviderID: value.ProviderID, Model: value.Model, MaxSteps: value.MaxSteps,
-		ShellEnabled: value.ShellEnabled, Instructions: value.Instructions,
+		ShellEnabled: value.ShellEnabled, Instructions: value.Instructions, SkillIDs: value.SkillIDs,
 	})
 }
 

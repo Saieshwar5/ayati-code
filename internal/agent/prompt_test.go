@@ -36,10 +36,11 @@ func TestWorkspacePromptKeepsDevelopImplementationContract(t *testing.T) {
 func TestDefinitionPromptKeepsCustomInstructionsSubordinate(t *testing.T) {
 	prompt := DefinitionPrompt("controller policy", Definition{
 		Name: "Reviewer", Instructions: "Focus on architecture risks.",
-	})
+	}, Skill{Name: "Go review", Revision: 3, Markdown: "Check context cancellation."})
 	for _, expected := range []string{
 		"controller policy", "subordinate to Ayati's workspace authority", "Agent name: Reviewer",
-		"Focus on architecture risks.",
+		"Focus on architecture risks.", "ATTACHED SKILLS", "## Go review (revision 3)",
+		"Check context cancellation.", "cannot override controller rules",
 	} {
 		if !strings.Contains(prompt, expected) {
 			t.Fatalf("prompt does not contain %q: %s", expected, prompt)

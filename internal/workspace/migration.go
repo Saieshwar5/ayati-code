@@ -54,6 +54,7 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	agent_revision INTEGER NOT NULL DEFAULT 0,
 	agent_provider_id TEXT NOT NULL DEFAULT '',
 	agent_model TEXT NOT NULL DEFAULT '',
+	agent_skills TEXT NOT NULL DEFAULT '[]',
 	created_at TEXT NOT NULL
 )`
 
@@ -93,6 +94,9 @@ func (s *Store) configure() error {
 		return err
 	}
 	if err := s.migrateAgentCatalog(context.Background()); err != nil {
+		return err
+	}
+	if err := s.migrateSkillCatalog(context.Background()); err != nil {
 		return err
 	}
 	return s.recoverInterruptedWork(context.Background())
