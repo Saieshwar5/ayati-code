@@ -64,6 +64,32 @@ const reviewerAgent: AgentDefinition = {
 };
 
 describe("ChatPane", () => {
+  it("renders assistant Markdown while keeping user messages literal", () => {
+    const { container } = render(
+      <ChatPane
+        workspace={workspace}
+        session={session}
+        workspaceSessions={[session]}
+        messages={[
+          { role: "user", content: "# User request" },
+          { role: "assistant", content: "# Agent result\n\n**Complete.**" },
+        ]}
+        error=""
+        sending={false}
+        stopping={false}
+        agents={[builtInAgent]}
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+        onSelectAgent={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Agent result", level: 1 })).toBeTruthy();
+    expect(screen.getByText("Complete.").tagName).toBe("STRONG");
+    expect(container.querySelector(".message.user h1")).toBeNull();
+    expect(screen.getByText("# User request")).toBeTruthy();
+  });
+
   it("renders conversation messages and sends the composer text", async () => {
     const send = vi.fn().mockResolvedValue(true);
     const user = userEvent.setup();
