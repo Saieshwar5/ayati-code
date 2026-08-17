@@ -4,7 +4,7 @@
 
 Ayati is a single-user application running on one Linux machine. One Go process serves the browser UI, calls GitHub and Fireworks, owns SQLite, and controls local Docker containers. It deliberately has no Postgres, VM manager, worker fleet, queue, background agent service, or multi-provider abstraction.
 
-The durable product object is a workspace containing one or more sessions:
+The durable project object is a workspace containing one or more sessions. Reusable agent definitions are global configuration and are not owned by a workspace:
 
 ```text
 Existing or newly created GitHub repository + base/working branch
@@ -28,7 +28,7 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
-- `internal/agent` owns the one-tool prompt, shared messages, and sequential 20-decision loop.
+- `internal/agent` owns agent definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
 - `internal/fireworks` owns the single Fireworks request format.
 - `internal/config` owns private Fireworks configuration and its terminal setup command.
 
@@ -46,12 +46,14 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
+- `agents`: global built-in and custom execution profiles containing identity, Fireworks model, step budget, shell capability, instructions, revision, and archive state.
+- `application_settings`: the single global default-agent reference.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, and `failed`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. The controller rejects a second agent run while another session in the same workspace is active. Changes, environment, and publishing are therefore workspace-scoped, while conversation and internal activity are session-scoped.
+Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. The controller rejects a second agent run while another session in the same workspace is active. Changes, environment, and publishing are therefore workspace-scoped, while conversation, agent selection, and internal activity are session-scoped.
 
 ## Sandbox lifecycle
 
@@ -83,7 +85,11 @@ Commands run through `docker exec -i` and a fixed launcher with a two-minute tim
 
 Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization or an active agent run. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, log, and Docker-metadata exposure, not against commands that are intentionally given the values.
 
-## Agent and authority
+## Agent Studio, execution, and authority
+
+Agent Studio has a global catalog containing one immutable built-in Ayati agent and reusable custom agents. Exactly one active agent is the global default. A custom agent can change identity, Fireworks model, instructions, step limit from 1 through 20, and whether the shell tool is exposed. Archiving a non-default custom agent reassigns sessions using it to the current default; historical assistant messages keep the producing agent's identity, revision, provider, and model snapshot.
+
+Agent definitions do not store conversation or workspace context. At the start of a run, `internal/chat` loads the session's selected agent, snapshots it, resolves an empty model to the private configured Fireworks default, combines the non-overridable workspace prompt with custom instructions, loads the session history, and runs the model. Editing an agent affects future runs only. The same definition can be used in many workspaces, while the existing per-workspace lock prevents conflicting runs inside one shared working tree.
 
 The model receives exactly one function:
 
@@ -91,9 +97,9 @@ The model receives exactly one function:
 {"name":"shell","arguments":{"command":"go test ./..."}}
 ```
 
-There are no file, GitHub, service, lifecycle, or database tools exposed to the model. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
+There are no file, GitHub, service, lifecycle, or database tools exposed to the model. A shell-disabled agent receives no tools, and an unexpected shell call is rejected. A shell-enabled agent receives the one tool shown above. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
 
-The composer has one Send action. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Publishing and authority changes remain unavailable through the model-facing shell.
+The composer has one Send action and a session-persisted agent selector. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions remain subordinate to these controller rules. Publishing and authority changes remain unavailable through the model-facing shell.
 
 ## GitHub and publish boundary
 
