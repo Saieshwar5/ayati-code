@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Ayati is a single-user application running on one Linux machine. One Go process serves the browser UI, calls GitHub and configured model providers, owns SQLite, and controls local Docker containers. It deliberately has no Postgres, VM manager, worker fleet, queue, background agent service, or executable provider-plugin runtime.
+Ayati is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub and configured model providers, owns SQLite, and controls local Docker containers. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Ayati deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or executable provider-plugin runtime.
 
 The durable project object is a workspace containing one or more sessions. Reusable agent definitions are global configuration and are not owned by a workspace:
 
@@ -48,6 +48,7 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
+- `agent_runs`: durable accepted work with exact workspace/session ownership, lifecycle, failure, and timestamps.
 - `agents`: global built-in and custom execution profiles containing identity, provider and model, step budget, shell capability, instructions, revision, and archive state.
 - `skills`: global reusable Markdown guidance with revision and archive state.
 - `agent_skills`: ordered custom-agent skill attachments.
@@ -57,7 +58,9 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. The controller rejects a second agent run while another session in the same workspace is active. An active run is bound to its session so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are therefore workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.
+Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.
+
+The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
 
 ## Sandbox lifecycle
 
@@ -65,7 +68,7 @@ Initialization first clones or opens the repository with trusted host Git. A req
 
 Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, environment metadata, and sessions.
 
-On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller removes its named preparation sandbox before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Active sessions interrupted by restart are similarly marked failed. Ready, stopped, failed, and configuration-waiting workspaces remain unchanged.
+On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller removes its named preparation sandbox before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Ayati does not pretend a process restart can resume an in-memory provider or shell call. Ready, stopped, failed, and configuration-waiting workspaces remain unchanged.
 
 Ayati then creates `ayati-workspace-<id>` with a writable preparation mount and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller removes that writable container, recreates `/workspace` read-only, verifies Docker's effective mount metadata, and records it. Develop remains read-write. The ready container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
 
@@ -117,4 +120,4 @@ New-project creation uses the authenticated user's GitHub App token and requires
 
 Authenticated clone and push use host Git with a short-lived private askpass script. The access token is passed only to that trusted Git child process and removed with the helper; it is never written into the remote URL or exposed to the model sandbox. Publishing stages all workspace changes, creates a focused user-supplied commit, pushes the working branch, and asks GitHub to open a draft pull request.
 
-Mutating HTTP endpoints require the non-simple `X-Ayati-Request: 1` header. The server binds to `127.0.0.1:8080` by default. This is appropriate for the personal local prototype; remote hosting, multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling are intentionally deferred.
+Mutating HTTP endpoints require the non-simple `X-Ayati-Request: 1` header, and the event stream requires the existing GitHub-authenticated personal session. The server binds to `127.0.0.1:8080` by default. Remote use must add HTTPS and access control through a trusted reverse proxy, VPN, or SSH tunnel; Ayati should not be exposed directly to the public internet. Multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling remain intentionally deferred.

@@ -6,6 +6,7 @@ import { useAgentController } from "../agents/useAgentController";
 import { useSkillController } from "../agents/useSkillController";
 import { ChatPane } from "../chat/ChatPane";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
+import { useServerEvents } from "../hooks/useServerEvents";
 import { Inspector } from "../inspector/Inspector";
 import { ArchivedWorkspaces } from "../workspaces/ArchivedWorkspaces";
 import { PlaceholderPage } from "../workspaces/PlaceholderPage";
@@ -36,13 +37,16 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   useEffect(() => {
     if (workspaceID) void controller.loadSessions(workspaceID);
   }, [controller.loadSessions, workspaceID]);
+  const serverEvent = useServerEvents(workspaceID, (changedWorkspaceID) => {
+    void controller.loadSessions(changedWorkspaceID);
+  });
 
   const detail = useWorkspaceDetail({
     workspace: route.page === "session" ? workspace : undefined,
     session,
     onSessionUpdate: controller.updateSession,
     onWorkspaceUpdate: controller.updateWorkspace,
-    onWorkspacesRefresh: controller.refreshWorkspaces,
+    serverEvent,
   });
 
   const setInspectorCollapsed = useCallback((collapsed: boolean) => {

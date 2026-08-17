@@ -58,6 +58,19 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	created_at TEXT NOT NULL
 )`
 
+const agentRunSchema = `CREATE TABLE IF NOT EXISTS agent_runs (
+	id TEXT PRIMARY KEY,
+	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+	session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+	input TEXT NOT NULL,
+	status TEXT NOT NULL CHECK (status IN ('accepted', 'running', 'completed', 'failed', 'canceled', 'interrupted')),
+	error TEXT NOT NULL DEFAULT '',
+	created_at TEXT NOT NULL,
+	started_at TEXT NOT NULL DEFAULT '',
+	finished_at TEXT NOT NULL DEFAULT '',
+	updated_at TEXT NOT NULL
+)`
+
 const environmentSchema = `CREATE TABLE IF NOT EXISTS workspace_environment (
 	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
 	name TEXT NOT NULL,
@@ -99,7 +112,30 @@ func (s *Store) configure() error {
 	if err := s.migrateSkillCatalog(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migrateAgentRuns(context.Background()); err != nil {
+		return err
+	}
 	return s.recoverInterruptedWork(context.Background())
+}
+
+func (s *Store) migrateAgentRuns(ctx context.Context) error {
+	for _, statement := range []string{
+		agentRunSchema,
+		`CREATE INDEX IF NOT EXISTS agent_runs_session_created ON agent_runs(session_id, created_at DESC)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS agent_runs_workspace_active ON agent_runs(workspace_id)
+			WHERE status IN ('accepted', 'running')`,
+	} {
+		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate agent runs: %w", err)
+		}
+	}
+	now := formatTime(time.Now().UTC())
+	if _, err := s.db.ExecContext(ctx, `UPDATE agent_runs SET status = ?,
+		error = 'Agent run interrupted when Ayati restarted', finished_at = ?, updated_at = ?
+		WHERE status IN ('accepted', 'running')`, AgentRunStatusInterrupted, now, now); err != nil {
+		return fmt.Errorf("recover interrupted agent runs: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {

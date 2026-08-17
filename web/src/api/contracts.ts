@@ -105,7 +105,20 @@ export interface WorkspaceSession {
   status: SessionStatus;
   error?: string;
   selected_agent_id: string;
+  active_run_id?: string;
   created_at: string;
+  updated_at: string;
+}
+
+export interface AgentRun {
+  id: string;
+  workspace_id: string;
+  session_id: string;
+  status: "accepted" | "running" | "completed" | "failed" | "canceled" | "interrupted";
+  error?: string;
+  created_at: string;
+  started_at?: string;
+  finished_at?: string;
   updated_at: string;
 }
 

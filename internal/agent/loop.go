@@ -25,26 +25,53 @@ type Loop struct {
 }
 
 func (l Loop) Run(ctx context.Context, history *[]Message, userText string) (Completion, error) {
-	if l.Provider == nil || l.Recorder == nil || history == nil {
-		return Completion{}, fmt.Errorf("agent loop is not fully configured")
+	stepLimit, err := l.validate(ctx, history)
+	if err != nil {
+		return Completion{}, err
 	}
-	if strings.TrimSpace(l.Model) == "" || strings.TrimSpace(userText) == "" {
+	if strings.TrimSpace(userText) == "" {
 		return Completion{}, fmt.Errorf("model and user request are required")
 	}
-	if err := ctx.Err(); err != nil {
+	user := Message{Role: "user", Content: userText}
+	if err := l.record(history, user); err != nil {
 		return Completion{}, err
+	}
+	return l.continueRun(ctx, history, stepLimit)
+}
+
+// Continue resumes a run whose user request has already been durably recorded.
+func (l Loop) Continue(ctx context.Context, history *[]Message) (Completion, error) {
+	stepLimit, err := l.validate(ctx, history)
+	if err != nil {
+		return Completion{}, err
+	}
+	if len(*history) == 0 || (*history)[len(*history)-1].Role != "user" {
+		return Completion{}, fmt.Errorf("recorded history must end with a user request")
+	}
+	return l.continueRun(ctx, history, stepLimit)
+}
+
+func (l Loop) validate(ctx context.Context, history *[]Message) (int, error) {
+	if l.Provider == nil || l.Recorder == nil || history == nil {
+		return 0, fmt.Errorf("agent loop is not fully configured")
+	}
+	if strings.TrimSpace(l.Model) == "" {
+		return 0, fmt.Errorf("model is required")
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
 	}
 	stepLimit := l.StepLimit
 	if stepLimit == 0 {
 		stepLimit = MaxSteps
 	}
 	if stepLimit < 1 || stepLimit > MaxSteps {
-		return Completion{}, fmt.Errorf("agent step limit must be between 1 and %d", MaxSteps)
+		return 0, fmt.Errorf("agent step limit must be between 1 and %d", MaxSteps)
 	}
-	user := Message{Role: "user", Content: userText}
-	if err := l.record(history, user); err != nil {
-		return Completion{}, err
-	}
+	return stepLimit, nil
+}
+
+func (l Loop) continueRun(ctx context.Context, history *[]Message, stepLimit int) (Completion, error) {
 	for step := 1; step <= stepLimit; step++ {
 		if err := ctx.Err(); err != nil {
 			return Completion{Steps: step - 1}, err

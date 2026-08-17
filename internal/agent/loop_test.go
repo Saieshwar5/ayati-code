@@ -51,6 +51,21 @@ func TestLoopCompletesAfterOneFinalResponse(t *testing.T) {
 	}
 }
 
+func TestLoopContinuesAlreadyRecordedUserRequest(t *testing.T) {
+	provider := &scriptedProvider{messages: []Message{{Role: "assistant", Content: "done"}}}
+	recorder := &memoryRecorder{}
+	history := []Message{{Role: "user", Content: "durable request"}}
+	completion, err := (Loop{
+		Provider: provider, Recorder: recorder, Model: "test",
+	}).Continue(context.Background(), &history)
+	if err != nil || completion.Text != "done" {
+		t.Fatalf("completion = %#v, error = %v", completion, err)
+	}
+	if len(history) != 2 || len(recorder.messages) != 1 || recorder.messages[0].Role != "assistant" {
+		t.Fatalf("history = %#v, recorded = %#v", history, recorder.messages)
+	}
+}
+
 func TestLoopStopsExactlyAtTwentyDecisions(t *testing.T) {
 	messages := make([]Message, MaxSteps)
 	for index := range messages {

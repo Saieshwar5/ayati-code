@@ -7,17 +7,22 @@ import type {
 } from "../api/contracts";
 import { api } from "../api/client";
 import { statusLabel } from "../app/format";
+import type { ServerEvent } from "./useServerEvents";
 
 interface UseWorkspaceDetailOptions {
   workspace?: Workspace;
   session?: WorkspaceSession;
   onSessionUpdate: (session: WorkspaceSession) => void;
   onWorkspaceUpdate: (workspace: Workspace) => void;
-  onWorkspacesRefresh: () => Promise<Workspace[]>;
+  serverEvent?: ServerEvent;
 }
 
 export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
-  const { workspace, session } = options;
+  const {
+    workspace, session, onSessionUpdate, onWorkspaceUpdate, serverEvent,
+  } = options;
+  const workspaceID = workspace?.id ?? "";
+  const sessionID = session?.id ?? "";
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageError, setMessageError] = useState("");
   const [changes, setChanges] = useState("No changes loaded.");
@@ -25,7 +30,8 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
   const [stoppingSessionID, setStoppingSessionID] = useState("");
   const [publishing, setPublishing] = useState(false);
   const selection = useRef("");
-  const pollBusy = useRef(false);
+  const refreshBusy = useRef(false);
+  const refreshPending = useRef(false);
   const stopRequested = useRef("");
 
   const loadMessages = useCallback(async () => {
@@ -72,23 +78,38 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
   }, [loadChanges, loadMessages, session, workspace]);
 
   const refreshRun = useCallback(async () => {
-    if (!workspace || !session || pollBusy.current) return;
-    pollBusy.current = true;
-    const key = `${workspace.id}:${session.id}`;
+    if (!workspaceID || !sessionID) return;
+    if (refreshBusy.current) {
+      refreshPending.current = true;
+      return;
+    }
+    refreshBusy.current = true;
+    const key = `${workspaceID}:${sessionID}`;
     try {
-      const [nextMessages, nextSession] = await Promise.all([
-        api.messages(workspace.id, session.id),
-        api.sessionByID(workspace.id, session.id),
-        options.onWorkspacesRefresh(),
-      ]);
-      options.onSessionUpdate(nextSession);
-      if (selection.current === key) setMessages(nextMessages);
+      do {
+        refreshPending.current = false;
+        const [nextMessages, nextSession] = await Promise.all([
+          api.messages(workspaceID, sessionID),
+          api.sessionByID(workspaceID, sessionID),
+        ]);
+        onSessionUpdate(nextSession);
+        if (selection.current === key) setMessages(nextMessages);
+        if (nextSession.status !== "working") await loadChanges();
+      } while (refreshPending.current && selection.current === key);
     } catch (error) {
       if (selection.current === key) setMessageError((error as Error).message);
     } finally {
-      pollBusy.current = false;
+      refreshBusy.current = false;
     }
-  }, [options, session, workspace]);
+  }, [loadChanges, onSessionUpdate, sessionID, workspaceID]);
+
+  useEffect(() => {
+    if (!serverEvent) return;
+    if (serverEvent.type === "connected" ||
+      (serverEvent.workspaceID === workspaceID && serverEvent.sessionID === sessionID)) {
+      void refreshRun();
+    }
+  }, [refreshRun, serverEvent, sessionID, workspaceID]);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -99,29 +120,26 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
       setMessageError("");
       stopRequested.current = "";
       setSendingSessionID(sessionID);
-      const timer = window.setInterval(() => void refreshRun(), 800);
       let sent = false;
       try {
         await api.sendMessage(workspaceID, sessionID, text.trim());
         sent = true;
+        await refreshRun();
       } catch (error) {
         if (selection.current === key && stopRequested.current !== key) {
           setMessageError((error as Error).message);
         }
       } finally {
-        window.clearInterval(timer);
-        await refreshRun();
-        await loadChanges();
         setSendingSessionID((current) => current === sessionID ? "" : current);
         if (stopRequested.current === key) stopRequested.current = "";
       }
       return sent;
     },
-    [loadChanges, refreshRun, session, workspace],
+    [refreshRun, session, workspace],
   );
 
   const stopRun = useCallback(async () => {
-    if (!workspace || !session) return false;
+    if (!workspace || !session || !session.active_run_id) return false;
     const workspaceID = workspace.id;
     const sessionID = session.id;
     const key = `${workspaceID}:${sessionID}`;
@@ -129,7 +147,7 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
     setStoppingSessionID(sessionID);
     setMessageError("");
     try {
-      await api.cancelRun(workspaceID, sessionID);
+      await api.cancelRun(workspaceID, sessionID, session.active_run_id);
       await refreshRun();
       return true;
     } catch (error) {
@@ -147,14 +165,14 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
       setPublishing(true);
       try {
         const updated = await api.publish(workspace.id, input);
-        options.onWorkspaceUpdate(updated);
+        onWorkspaceUpdate(updated);
         await loadChanges();
         return true;
       } finally {
         setPublishing(false);
       }
     },
-    [loadChanges, options, workspace],
+    [loadChanges, onWorkspaceUpdate, workspace],
   );
 
   return {

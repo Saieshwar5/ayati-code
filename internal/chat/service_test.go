@@ -186,6 +186,61 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 	}
 }
 
+func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	value, err := store.Create(context.Background(), workspace.Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := store.UpdateStatus(context.Background(), value.ID, workspace.StatusReady, ""); err != nil {
+		t.Fatalf("UpdateStatus: %v", err)
+	}
+	sessions, _ := store.ListSessions(context.Background(), value.ID)
+	started := make(chan struct{})
+	service, err := New(store, fakeRuntime{shell: &fakeShell{}, workspace: value},
+		testProviders(t, blockingProvider{started: started}, "test-model"))
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	appContext, stopApp := context.WithCancel(context.Background())
+	defer stopApp()
+	run, err := service.Start(appContext, value.ID, sessions[0].ID, "work on it")
+	if err != nil || run.Status != workspace.AgentRunStatusAccepted {
+		t.Fatalf("Start run = %#v, error = %v", run, err)
+	}
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("agent run did not start")
+	}
+	loaded, err := store.GetSession(context.Background(), value.ID, sessions[0].ID)
+	if err != nil || loaded.ActiveRunID != run.ID {
+		t.Fatalf("active session = %#v, error = %v", loaded, err)
+	}
+	if service.CancelRun(value.ID, sessions[0].ID, "stale-run") {
+		t.Fatal("stale run ID canceled the active run")
+	}
+	if !service.CancelRun(value.ID, sessions[0].ID, run.ID) {
+		t.Fatal("exact run ID did not cancel the active run")
+	}
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		loadedRun, loadErr := store.AgentRun(context.Background(), value.ID, sessions[0].ID, run.ID)
+		if loadErr == nil && loadedRun.Status == workspace.AgentRunStatusCanceled {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatal("agent run was not durably canceled")
+}
+
 func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
 	if err != nil {

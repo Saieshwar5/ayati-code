@@ -2,7 +2,7 @@
 
 Ayati is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Ayati initialize its dependencies inside one persistent Docker sandbox, selects a built-in or custom agent for each chat session, reviews the shared diff, and opens a draft pull request.
 
-The controller is one Go process on your machine. Workspace metadata and complete conversations live in SQLite. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
+The controller is one long-lived Go process on your machine or personal server. Workspace metadata, accepted agent runs, and complete conversations live in SQLite. Closing the browser does not cancel accepted work; the browser reconnects through one lightweight event stream and reloads authoritative state. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
 
 ## Requirements
 
@@ -74,7 +74,9 @@ Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python pr
 
 Preparation progress, the selected project root, actionable failure stage, and configuration candidates are durable SQLite state. Reloading the browser therefore reconstructs the truthful readiness view instead of guessing from an in-memory task. Chat and additional sessions become available only after the workspace reaches `ready`; failed preparation can be retried without losing the clone or original session.
 
-If Ayati itself stops during repository preparation, the next startup marks that workspace as interrupted, removes any lingering writable preparation sandbox, and offers an explicit retry or deletion. Workspaces that were already ready, stopped, or waiting for project selection are not changed by startup recovery.
+If Ayati itself stops during repository preparation, the next startup marks that workspace as interrupted, removes any lingering writable preparation sandbox, and offers an explicit retry or deletion. An accepted or running agent run is similarly marked interrupted and its session is marked failed; browser disconnection is recoverable, but a controller process restart cannot resume an in-memory provider or shell call. Workspaces that were already ready, stopped, or waiting for project selection are not changed by startup recovery.
+
+For remote personal use, keep Ayati on its default loopback address and reach it through an authenticated HTTPS reverse proxy, VPN, or SSH tunnel. Do not publish the raw HTTP port directly to the internet. The current authentication and credential store are designed for one user, not a multi-tenant deployment.
 
 ## Local data and security
 
