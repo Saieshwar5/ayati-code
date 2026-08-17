@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 )
 
 type Authority string
@@ -32,11 +30,11 @@ func (a Authority) Valid() bool {
 	return a == AuthorityExplore || a == AuthorityDevelop
 }
 
-func (a Authority) MountMode() sandbox.MountMode {
+func (a Authority) MountMode() string {
 	if a == AuthorityDevelop {
-		return sandbox.MountReadWrite
+		return "rw"
 	}
-	return sandbox.MountReadOnly
+	return "ro"
 }
 
 func (s *Store) UpdateEffectiveMountMode(ctx context.Context, id, mode string) error {

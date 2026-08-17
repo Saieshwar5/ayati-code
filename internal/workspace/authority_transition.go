@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
 )
 
 type AuthorityChange struct {
@@ -56,10 +58,6 @@ func (s *Service) ChangeAuthority(
 		_ = s.store.RestoreAuthorityAfterFailure(ctx, value.ID, value.EffectiveMountMode)
 		return Workspace{}, err
 	}
-	if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-		return Workspace{}, s.restoreAuthorityFailure(ctx, value, false, input, err)
-	}
-
 	branchChanged := branch != value.Branch
 	if branchChanged {
 		arguments := []string{"-C", value.Path, "switch"}
@@ -68,22 +66,24 @@ func (s *Service) ChangeAuthority(
 		}
 		arguments = append(arguments, branch)
 		if err := s.git.Run(ctx, arguments...); err != nil {
-			return Workspace{}, s.restoreAuthorityFailure(ctx, value, false, input,
+			return Workspace{}, s.restoreAuthorityFailure(ctx, value, false, false, input,
 				fmt.Errorf("switch working branch: %w", err))
 		}
 	}
 
-	mode, err := s.environment.Ensure(ctx, s.sandboxSpec(value, target.MountMode()))
+	_, err = s.environment.Replace(ctx, compute.ReplaceInput{
+		WorkspaceID: value.ID, WorkspacePath: value.Path, CachePath: workspaceCachePath(value.Path),
+		PreviousWorkspaceWritable: value.Authority == AuthorityDevelop,
+		WorkspaceWritable:         target == AuthorityDevelop,
+	})
 	if err != nil {
-		return Workspace{}, s.restoreAuthorityFailure(ctx, value, branchChanged, input,
+		return Workspace{}, s.restoreAuthorityFailure(ctx, value, branchChanged,
+			!compute.ReplacementRecovered(err), input,
 			fmt.Errorf("apply %s authority: %w", target, err))
 	}
-	if mode != target.MountMode() {
-		return Workspace{}, s.restoreAuthorityFailure(ctx, value, branchChanged, input,
-			fmt.Errorf("sandbox mount is %s, expected %s", mode, target.MountMode()))
-	}
-	if err := s.store.CompleteAuthorityChange(ctx, id, target, branch, createBranch, string(mode)); err != nil {
-		return Workspace{}, s.restoreAuthorityFailure(ctx, value, branchChanged, input, err)
+	if err := s.store.CompleteAuthorityChange(ctx, id, target, branch, createBranch,
+		effectiveMountMode(target)); err != nil {
+		return Workspace{}, s.restoreAuthorityFailure(ctx, value, branchChanged, true, input, err)
 	}
 	return s.store.Get(ctx, id)
 }
@@ -115,10 +115,10 @@ func (s *Service) resolveAuthorityBranch(
 }
 
 func (s *Service) restoreAuthorityFailure(
-	ctx context.Context, value Workspace, branchChanged bool, input AuthorityChange, cause error,
+	ctx context.Context, value Workspace, branchChanged, runtimeChanged bool,
+	input AuthorityChange, cause error,
 ) error {
 	var recoveryErrors []string
-	_ = s.environment.Remove(ctx, value.SandboxName)
 	if branchChanged {
 		if err := s.git.Run(ctx, "-C", value.Path, "switch", value.Branch); err != nil {
 			recoveryErrors = append(recoveryErrors, "restore branch: "+err.Error())
@@ -128,15 +128,19 @@ func (s *Service) restoreAuthorityFailure(
 			}
 		}
 	}
-	mode, err := s.environment.Ensure(ctx, s.sandboxSpec(value, value.Authority.MountMode()))
-	if err != nil {
-		recoveryErrors = append(recoveryErrors, "restore sandbox: "+err.Error())
-	} else if mode != value.Authority.MountMode() {
-		recoveryErrors = append(recoveryErrors,
-			fmt.Sprintf("restored sandbox mount is %s, expected %s", mode, value.Authority.MountMode()))
+	if runtimeChanged {
+		_, err := s.environment.Replace(ctx, compute.ReplaceInput{
+			WorkspaceID: value.ID, WorkspacePath: value.Path, CachePath: workspaceCachePath(value.Path),
+			PreviousWorkspaceWritable: input.Authority == AuthorityDevelop,
+			WorkspaceWritable:         value.Authority == AuthorityDevelop,
+		})
+		if err != nil {
+			recoveryErrors = append(recoveryErrors, "restore environment: "+err.Error())
+		}
 	}
 	if len(recoveryErrors) == 0 {
-		if err := s.store.RestoreAuthorityAfterFailure(ctx, value.ID, string(mode)); err != nil {
+		if err := s.store.RestoreAuthorityAfterFailure(ctx, value.ID,
+			effectiveMountMode(value.Authority)); err != nil {
 			return fmt.Errorf("%w; record restored authority: %v", cause, err)
 		}
 		return cause

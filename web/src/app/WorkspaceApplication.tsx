@@ -5,11 +5,11 @@ import { AgentStudioSidebar } from "../agents/AgentStudioSidebar";
 import { useAgentController } from "../agents/useAgentController";
 import { useSkillController } from "../agents/useSkillController";
 import { ChatPane } from "../chat/ChatPane";
+import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { useServerEvents } from "../hooks/useServerEvents";
 import { Inspector } from "../inspector/Inspector";
 import { ArchivedWorkspaces } from "../workspaces/ArchivedWorkspaces";
-import { PlaceholderPage } from "../workspaces/PlaceholderPage";
 import { Sidebar } from "../workspaces/Sidebar";
 import { WorkspaceHome } from "../workspaces/WorkspaceHome";
 import { WorkspaceIndex } from "../workspaces/WorkspaceIndex";
@@ -105,6 +105,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               workspace={workspace}
               controller={controller}
               onOpenSession={(id) => navigate(sessionPath(workspace.id, id))}
+              onManageEnvironments={() => navigate("/environments")}
               onArchived={() => navigate("/workspaces")}
               onDeleted={() => navigate("/workspaces")}
             />
@@ -129,7 +130,10 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           ) : agentStudioView ? (
             <AgentStudio route={route} controller={agents} skills={skills} onNavigate={navigate} />
           ) : route.page === "environments" ? (
-            <PlaceholderPage eyebrow="Shared configuration" title="Environments" description="Reusable environment configuration will live here. No environment functionality has been added in this redesign." />
+            <EnvironmentsPage
+              workspaces={controller.workspaces}
+              onOpenWorkspace={(id) => navigate(workspacePath(id))}
+            />
           ) : (
             <LoadingPage title={workspaceID ? "Workspace not found" : "Session not found"} error />
           )}

@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
 )
 
 type fakeEnvironment struct {
-	ensured    []sandbox.Spec
+	ensured    []recordedRuntime
 	removed    []string
 	variables  []map[string]string
 	shell      agent.Shell
@@ -23,24 +23,62 @@ type fakeEnvironment struct {
 	ensureErrs []error
 }
 
-func (f *fakeEnvironment) Ensure(_ context.Context, spec sandbox.Spec) (sandbox.MountMode, error) {
+func (f *fakeEnvironment) Ensure(ctx context.Context, input compute.StopInput) (compute.Assignment, error) {
+	return f.Start(ctx, compute.StartInput{
+		WorkspaceID: input.WorkspaceID, WorkspacePath: input.WorkspacePath,
+		CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+	})
+}
+
+func (f *fakeEnvironment) Start(_ context.Context, input compute.StartInput) (compute.Assignment, error) {
+	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath, input.WorkspaceWritable)
 	f.ensured = append(f.ensured, spec)
+	return compute.Assignment{}, f.nextError()
+}
+
+func (f *fakeEnvironment) Replace(_ context.Context, input compute.ReplaceInput) (compute.Assignment, error) {
+	f.removed = append(f.removed, input.WorkspaceID)
+	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath, input.WorkspaceWritable)
+	f.ensured = append(f.ensured, spec)
+	return compute.Assignment{}, f.nextError()
+}
+
+func (f *fakeEnvironment) nextError() error {
 	if len(f.ensureErrs) > 0 {
 		err := f.ensureErrs[0]
 		f.ensureErrs = f.ensureErrs[1:]
-		return spec.MountMode, err
+		return err
 	}
-	return spec.MountMode, f.err
+	return f.err
 }
 
-func (f *fakeEnvironment) Open(_ string, variables map[string]string) (agent.Shell, error) {
+func (f *fakeEnvironment) Open(
+	_ context.Context, _ compute.StopInput, variables map[string]string,
+) (agent.Shell, error) {
 	f.variables = append(f.variables, variables)
 	return f.shell, f.err
 }
 
-func (f *fakeEnvironment) Remove(_ context.Context, name string) error {
-	f.removed = append(f.removed, name)
+func (f *fakeEnvironment) Stop(_ context.Context, input compute.StopInput) error {
+	f.removed = append(f.removed, input.WorkspaceID)
 	return f.err
+}
+
+func (f *fakeEnvironment) Cleanup(ctx context.Context, input compute.StopInput) error {
+	return f.Stop(ctx, input)
+}
+
+type recordedRuntime struct {
+	WorkspaceID       string
+	WorkspacePath     string
+	CachePath         string
+	WorkspaceWritable bool
+}
+
+func recordedRuntimeSpec(id, path, cache string, writable bool) recordedRuntime {
+	return recordedRuntime{
+		WorkspaceID: id, WorkspacePath: path, CachePath: cache, WorkspaceWritable: writable,
+	}
 }
 
 type recordingShell struct {
@@ -125,8 +163,8 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
 	}
-	if len(environment.ensured) != 2 || environment.ensured[0].MountMode != sandbox.MountReadWrite ||
-		environment.ensured[1].MountMode != sandbox.MountReadWrite || shell.commands[0] != "go mod download" {
+	if len(environment.ensured) != 1 || !environment.ensured[0].WorkspaceWritable ||
+		shell.commands[0] != "go mod download" {
 		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
 	}
 	if len(environment.variables) != 1 || environment.variables[0]["SETUP_TOKEN"] != "setup-secret" ||
@@ -199,7 +237,7 @@ func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 	if err := service.Delete(context.Background(), value.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
 	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.SandboxName {
+	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
 		t.Fatalf("removed sandboxes = %#v", environment.removed)
 	}
 	if _, err := os.Stat(filepath.Join(root, value.ID)); !errors.Is(err, os.ErrNotExist) {

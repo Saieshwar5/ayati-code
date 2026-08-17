@@ -120,6 +120,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 const environmentSelect = `SELECT e.id, e.name, e.driver, e.image_ref, e.image_digest,
 	e.cpu_millis, e.memory_mb, e.pid_limit, e.network_policy, e.provisioning_state,
 	e.generation, e.error, e.created_at, e.updated_at,
+	EXISTS (SELECT 1 FROM environment_leases failed WHERE failed.environment_id = e.id
+		AND failed.state = 'failed'),
 	COALESCE(l.id, ''), COALESCE(l.workspace_id, ''), COALESCE(l.generation, 0),
 	COALESCE(l.state, ''), COALESCE(l.runtime_id, ''), COALESCE(l.error, ''),
 	COALESCE(l.acquired_at, ''), COALESCE(l.activated_at, ''), COALESCE(l.released_at, '')
@@ -137,7 +139,7 @@ func scanEnvironment(row scanner) (Environment, error) {
 	var acquiredAt, activatedAt, releasedAt string
 	err := row.Scan(&value.ID, &value.Name, &value.Driver, &value.ImageRef, &value.ImageDigest,
 		&value.CPUMillis, &value.MemoryMB, &value.PIDLimit, &value.NetworkPolicy,
-		&value.ProvisioningState, &value.Generation, &value.Error, &createdAt, &updatedAt,
+		&value.ProvisioningState, &value.Generation, &value.Error, &createdAt, &updatedAt, &value.Quarantined,
 		&lease.ID, &lease.WorkspaceID, &lease.Generation, &lease.State, &lease.RuntimeID,
 		&lease.Error, &acquiredAt, &activatedAt, &releasedAt)
 	if err != nil {

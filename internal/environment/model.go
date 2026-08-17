@@ -35,6 +35,8 @@ const (
 var (
 	ErrNoEnvironmentAvailable = errors.New("no environment is available")
 	ErrEnvironmentOccupied    = errors.New("environment is occupied")
+	ErrEnvironmentQuarantined = errors.New("environment is quarantined by a failed workspace lease; delete the failed workspace first")
+	ErrEnvironmentReady       = errors.New("environment is ready and does not need repair")
 	ErrWorkspaceLeased        = errors.New("workspace already has an environment lease")
 	ErrLeaseState             = errors.New("environment lease is in the wrong state")
 )
@@ -53,6 +55,7 @@ type Environment struct {
 	State             string    `json:"state"`
 	Generation        int64     `json:"generation"`
 	Error             string    `json:"error,omitempty"`
+	Quarantined       bool      `json:"quarantined"`
 	ActiveLease       *Lease    `json:"active_lease,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
 	UpdatedAt         time.Time `json:"updated_at"`

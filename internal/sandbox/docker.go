@@ -3,10 +3,6 @@ package sandbox
 import (
 	"context"
 	"errors"
-	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,191 +17,9 @@ const (
 	commandTimeout = 2 * time.Minute
 )
 
-type commandResult struct {
-	stdout, stderr string
-	exitCode       int
-	truncated      bool
-}
-
-type runner interface {
-	Run(context.Context, ...string) (commandResult, error)
-	RunInput(context.Context, string, ...string) (commandResult, error)
-}
-
-type Manager struct {
-	docker string
-	image  string
-	runner runner
-}
-
-type Spec struct {
-	Name      string
-	Path      string
-	CachePath string
-	MountMode MountMode
-}
-
-type containerInfo struct {
-	running   bool
-	path      string
-	cachePath string
-	mountMode MountMode
-	image     string
-}
-
-func New(image string) (*Manager, error) {
-	docker, err := exec.LookPath("docker")
-	if err != nil {
-		return nil, fmt.Errorf("find docker: %w", err)
-	}
-	if strings.TrimSpace(image) == "" {
-		image = DefaultImage
-	}
-	return &Manager{docker: docker, image: image, runner: osRunner{docker: docker}}, nil
-}
-
-func (m *Manager) Ensure(ctx context.Context, spec Spec) (MountMode, error) {
-	path, cachePath, err := validateSpec(spec)
-	if err != nil {
-		return "", err
-	}
-	container, exists, err := m.inspect(ctx, spec.Name)
-	if err != nil {
-		return "", err
-	}
-	if exists {
-		if filepath.Clean(container.path) != filepath.Clean(path) {
-			return "", fmt.Errorf("sandbox %s is mounted from a different workspace", spec.Name)
-		}
-		if filepath.Clean(container.cachePath) != filepath.Clean(cachePath) ||
-			container.mountMode != spec.MountMode || container.image != m.image {
-			if _, err := m.run(ctx, "rm", "--force", "--volumes", spec.Name); err != nil {
-				return "", fmt.Errorf("replace sandbox: %w", err)
-			}
-		} else if container.running {
-			return container.mountMode, nil
-		} else {
-			if _, err := m.run(ctx, "start", spec.Name); err != nil {
-				return "", err
-			}
-			return container.mountMode, nil
-		}
-	}
-	if err := os.MkdirAll(path, 0o700); err != nil {
-		return "", fmt.Errorf("create workspace directory: %w", err)
-	}
-	if err := os.MkdirAll(cachePath, 0o700); err != nil {
-		return "", fmt.Errorf("create workspace cache: %w", err)
-	}
-	mount := "type=bind,src=" + path + ",dst=/workspace" + spec.MountMode.DockerOption()
-	cacheMount := "type=bind,src=" + cachePath + ",dst=/cache"
-	_, err = m.run(ctx,
-		"create", "--name", spec.Name,
-		"--label", "ayati.workspace="+strings.TrimPrefix(spec.Name, "ayati-workspace-"),
-		"--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-		"--pids-limit", "256", "--memory", "2g", "--cpus", "2",
-		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m",
-		"--tmpfs", "/home/ayati:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--mount", mount, "--mount", cacheMount,
-		"--workdir", "/workspace", m.image,
-	)
-	if err != nil {
-		return "", fmt.Errorf("create sandbox with %s mount: %w", spec.MountMode, err)
-	}
-	if _, err := m.run(ctx, "start", spec.Name); err != nil {
-		return "", fmt.Errorf("start sandbox: %w", err)
-	}
-	container, exists, err = m.inspect(ctx, spec.Name)
-	if err != nil {
-		return "", fmt.Errorf("verify sandbox mount: %w", err)
-	}
-	if !exists {
-		return "", errors.New("verify sandbox mount: container is missing")
-	}
-	if container.mountMode != spec.MountMode {
-		return "", fmt.Errorf("sandbox mount is %s, expected %s", container.mountMode, spec.MountMode)
-	}
-	return container.mountMode, nil
-}
-
-func (m *Manager) Open(name string, variables map[string]string) (agent.Shell, error) {
-	if err := validateName(name); err != nil {
-		return nil, err
-	}
-	if err := validateVariables(variables); err != nil {
-		return nil, err
-	}
-	return &Shell{manager: m, name: name, timeout: commandTimeout, variables: copyVariables(variables)}, nil
-}
-
-func (m *Manager) Remove(ctx context.Context, name string) error {
-	if err := validateName(name); err != nil {
-		return err
-	}
-	_, exists, err := m.inspect(ctx, name)
-	if err != nil || !exists {
-		return err
-	}
-	_, err = m.run(ctx, "rm", "--force", "--volumes", name)
-	return err
-}
-
-func (m *Manager) stop(ctx context.Context, name string) error {
-	if err := validateName(name); err != nil {
-		return err
-	}
-	_, exists, err := m.inspect(ctx, name)
-	if err != nil || !exists {
-		return err
-	}
-	_, err = m.run(ctx, "stop", "--time", "1", name)
-	return err
-}
-
-func (m *Manager) inspect(ctx context.Context, name string) (containerInfo, bool, error) {
-	if err := validateName(name); err != nil {
-		return containerInfo{}, false, err
-	}
-	format := `{{.State.Running}}|{{index .Config.Labels "ayati.workspace"}}|{{.Config.Image}}|{{range .Mounts}}{{if eq .Destination "/workspace"}}{{.Source}}|{{.RW}}{{end}}{{end}}|{{range .Mounts}}{{if eq .Destination "/cache"}}{{.Source}}{{end}}{{end}}`
-	result, err := m.runner.Run(ctx, "container", "inspect", "--format", format, name)
-	if err == nil {
-		parts := strings.SplitN(strings.TrimSpace(result.stdout), "|", 6)
-		if len(parts) != 6 {
-			return containerInfo{}, false, errors.New("inspect sandbox: invalid Docker metadata")
-		}
-		wantLabel := strings.TrimPrefix(name, "ayati-workspace-")
-		if parts[1] != wantLabel || strings.TrimSpace(parts[3]) == "" {
-			return containerInfo{}, false, fmt.Errorf("container %s is not owned by Ayati", name)
-		}
-		mountMode, err := parseMountMode(parts[4])
-		if err != nil {
-			return containerInfo{}, false, err
-		}
-		return containerInfo{
-			running: parts[0] == "true", image: parts[2], path: parts[3],
-			mountMode: mountMode, cachePath: parts[5],
-		}, true, nil
-	}
-	if strings.Contains(result.stderr, "No such container") || strings.Contains(result.stderr, "No such object") {
-		return containerInfo{}, false, nil
-	}
-	return containerInfo{}, false, fmt.Errorf("inspect sandbox: %w: %s", err, strings.TrimSpace(result.stderr))
-}
-
-func (m *Manager) run(ctx context.Context, arguments ...string) (commandResult, error) {
-	result, err := m.runner.Run(ctx, arguments...)
-	if err != nil {
-		message := strings.TrimSpace(result.stderr)
-		if message == "" {
-			message = err.Error()
-		}
-		return result, errors.New(message)
-	}
-	return result, nil
-}
-
 type Shell struct {
-	manager   *Manager
+	runner    runner
+	stop      func(context.Context, string) error
 	name      string
 	timeout   time.Duration
 	variables map[string]string
@@ -227,12 +41,12 @@ func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.S
 	defer cancel()
 	seconds := strconv.Itoa(int(s.timeout.Seconds()))
 	input, arguments := environmentCommand(s.name, seconds, command, s.variables)
-	output, err := s.manager.runner.RunInput(callContext, input, arguments...)
+	output, err := s.runner.RunInput(callContext, input, arguments...)
 	contextErr := callContext.Err()
 	var stopErr error
 	if contextErr != nil {
 		stopContext, stopCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		stopErr = s.manager.stop(stopContext, s.name)
+		stopErr = s.stop(stopContext, s.name)
 		stopCancel()
 	}
 	result.Stdout = redactEnvironment(output.stdout, s.variables, output.truncated)
@@ -252,42 +66,4 @@ func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.S
 		result.Error = strings.TrimSpace(result.Error + "; stop sandbox: " + stopErr.Error())
 	}
 	return result
-}
-
-func validateSpec(spec Spec) (string, string, error) {
-	if err := validateName(spec.Name); err != nil {
-		return "", "", err
-	}
-	path, err := filepath.Abs(strings.TrimSpace(spec.Path))
-	if err != nil || strings.TrimSpace(spec.Path) == "" {
-		return "", "", errors.New("workspace path is required")
-	}
-	if !spec.MountMode.Valid() {
-		return "", "", errors.New("workspace mount mode must be ro or rw")
-	}
-	cacheValue := strings.TrimSpace(spec.CachePath)
-	if cacheValue == "" {
-		cacheValue = filepath.Join(filepath.Dir(path), "cache")
-	}
-	cachePath, err := filepath.Abs(cacheValue)
-	if err != nil {
-		return "", "", errors.New("workspace cache path is invalid")
-	}
-	relative, err := filepath.Rel(path, cachePath)
-	if err != nil || relative == "." || (relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator))) {
-		return "", "", errors.New("workspace cache must be outside the project directory")
-	}
-	return path, cachePath, nil
-}
-
-func validateName(name string) error {
-	if !strings.HasPrefix(name, "ayati-workspace-") || len(name) > 80 {
-		return errors.New("invalid Ayati sandbox name")
-	}
-	for _, character := range name {
-		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '-' {
-			return errors.New("invalid Ayati sandbox name")
-		}
-	}
-	return nil
 }

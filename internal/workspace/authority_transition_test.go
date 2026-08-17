@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 )
 
 func TestChangeAuthorityEnablesDevelopOnLocalBranch(t *testing.T) {
@@ -27,7 +25,7 @@ func TestChangeAuthorityEnablesDevelopOnLocalBranch(t *testing.T) {
 		t.Fatalf("workspace = %#v", updated)
 	}
 	if len(environment.removed) != 1 || len(environment.ensured) != 1 ||
-		environment.ensured[0].MountMode != sandbox.MountReadWrite {
+		!environment.ensured[0].WorkspaceWritable {
 		t.Fatalf("sandbox lifecycle = removed %#v, ensured %#v", environment.removed, environment.ensured)
 	}
 	wantCalls := [][]string{
@@ -50,7 +48,7 @@ func TestChangeAuthorityFreezesDevelopChangesWithoutSwitchingBranch(t *testing.T
 	}
 	if updated.Authority != AuthorityExplore || updated.Branch != "ayati/change" ||
 		updated.EffectiveMountMode != "ro" || len(git.calls) != 0 ||
-		environment.ensured[0].MountMode != sandbox.MountReadOnly {
+		environment.ensured[0].WorkspaceWritable {
 		t.Fatalf("workspace = %#v, git = %#v, sandbox = %#v", updated, git.calls, environment.ensured)
 	}
 }
@@ -72,8 +70,8 @@ func TestChangeAuthorityRestoresExploreWhenDevelopMountFails(t *testing.T) {
 		loaded.Status != StatusReady || loaded.EffectiveMountMode != "ro" || loaded.Error != "" {
 		t.Fatalf("workspace = %#v, error = %v", loaded, loadErr)
 	}
-	if len(environment.ensured) != 2 || environment.ensured[0].MountMode != sandbox.MountReadWrite ||
-		environment.ensured[1].MountMode != sandbox.MountReadOnly {
+	if len(environment.ensured) != 2 || !environment.ensured[0].WorkspaceWritable ||
+		environment.ensured[1].WorkspaceWritable {
 		t.Fatalf("sandbox lifecycle = %#v", environment.ensured)
 	}
 	wantCalls := [][]string{

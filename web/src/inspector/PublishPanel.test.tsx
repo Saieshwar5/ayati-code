@@ -16,7 +16,6 @@ const workspace: Workspace = {
   configuration_candidates: [],
   setup_command: "",
   path: "/workspace",
-  sandbox_name: "ayati-workspace-1",
   status: "ready",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",

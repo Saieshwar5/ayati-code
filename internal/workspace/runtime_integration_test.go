@@ -1,0 +1,123 @@
+package workspace
+
+import (
+	"context"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Saieshwar5/ayati-code/internal/agent"
+	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+)
+
+func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
+	if os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
+		t.Skip("set AYATI_DOCKER_INTEGRATION=1 to exercise Docker")
+	}
+	ctx := context.Background()
+	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	if err != nil {
+		t.Fatalf("database.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = database.Close() })
+	store, err := NewStore(database)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	environments, err := compute.NewStore(database)
+	if err != nil {
+		t.Fatalf("environment.NewStore: %v", err)
+	}
+	driver, err := sandbox.NewDockerDriver()
+	if err != nil {
+		t.Fatalf("NewDockerDriver: %v", err)
+	}
+	digest, err := driver.ResolveImage(ctx, sandbox.DefaultImage)
+	if err != nil {
+		t.Fatalf("ResolveImage: %v", err)
+	}
+	capacity, err := environments.Create(ctx, compute.CreateInput{
+		Name: "Workspace integration", ImageRef: sandbox.DefaultImage,
+		CPUMillis: 1000, MemoryMB: 1024, PIDLimit: 128, NetworkPolicy: compute.NetworkDisabled,
+	})
+	if err != nil {
+		t.Fatalf("Create environment: %v", err)
+	}
+	if err := environments.MarkReady(ctx, capacity.ID, digest); err != nil {
+		t.Fatalf("MarkReady: %v", err)
+	}
+	runtime, err := sandbox.NewRuntimeManager(environments, driver)
+	if err != nil {
+		t.Fatalf("NewRuntimeManager: %v", err)
+	}
+	root := t.TempDir()
+	value, err := store.Create(ctx, Create{
+		Repository: "owner/integration", CloneURL: "https://github.com/owner/integration.git",
+		BaseBranch: "main", Branch: "main", Root: root,
+	})
+	if err != nil {
+		t.Fatalf("Create workspace: %v", err)
+	}
+	service := &Service{store: store, environment: runtime, git: &recordingGit{}, root: root}
+	t.Cleanup(func() {
+		_ = runtime.Stop(context.Background(), runtimeInput(value, true))
+		_ = runtime.Stop(context.Background(), runtimeInput(value, false))
+	})
+	if err := service.Initialize(ctx, value.ID); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	firstLease, err := environments.ActiveForWorkspace(ctx, value.ID)
+	if err != nil || firstLease.State != compute.LeaseActive || firstLease.RuntimeID == "" {
+		t.Fatalf("first lease = %#v, error = %v", firstLease, err)
+	}
+	shell, loaded, err := service.Shell(ctx, value.ID)
+	if err != nil || loaded.EffectiveMountMode != "ro" {
+		t.Fatalf("Explore Shell: workspace = %#v, error = %v", loaded, err)
+	}
+	result := shell.Execute(ctx, agent.ShellRequest{
+		Command: "! touch blocked && touch /cache/prepared && printf explored",
+	})
+	if result.ExitCode != 0 || !strings.Contains(result.Stdout, "explored") {
+		t.Fatalf("Explore result = %#v", result)
+	}
+	updated, err := service.ChangeAuthority(ctx, value.ID, AuthorityChange{
+		Authority: AuthorityDevelop, Branch: "ayati/integration", CreateBranch: true,
+	})
+	if err != nil || updated.EffectiveMountMode != "rw" {
+		t.Fatalf("ChangeAuthority: workspace = %#v, error = %v", updated, err)
+	}
+	shell, _, err = service.Shell(ctx, value.ID)
+	if err != nil {
+		t.Fatalf("Develop Shell: %v", err)
+	}
+	result = shell.Execute(ctx, agent.ShellRequest{
+		Command: "printf allowed > allowed.txt && test -f /cache/prepared",
+	})
+	if result.ExitCode != 0 || result.Error != "" {
+		t.Fatalf("Develop result = %#v", result)
+	}
+	if err := service.Stop(ctx, value.ID); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	available, err := environments.Get(ctx, capacity.ID)
+	if err != nil || available.State != compute.StateAvailable || available.ActiveLease != nil {
+		t.Fatalf("available environment = %#v, error = %v", available, err)
+	}
+	if err := service.Resume(ctx, value.ID); err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	secondLease, err := environments.ActiveForWorkspace(ctx, value.ID)
+	if err != nil || secondLease.Generation != firstLease.Generation+1 ||
+		secondLease.ID == firstLease.ID || secondLease.RuntimeID == firstLease.RuntimeID {
+		t.Fatalf("second lease = %#v, error = %v", secondLease, err)
+	}
+	if data, err := os.ReadFile(filepath.Join(value.Path, "allowed.txt")); err != nil || string(data) != "allowed" {
+		t.Fatalf("preserved workspace data = %q, error = %v", data, err)
+	}
+	if err := service.Stop(ctx, value.ID); err != nil {
+		t.Fatalf("final Stop: %v", err)
+	}
+}

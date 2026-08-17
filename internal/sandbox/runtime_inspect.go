@@ -44,6 +44,8 @@ type dockerRuntimeMetadata struct {
 	} `json:"Mounts"`
 }
 
+var errWorkspaceAccessMismatch = errors.New("workspace mount access does not match the lease")
+
 func (d *DockerDriver) inspect(
 	ctx context.Context, spec environment.RuntimeSpec, target string,
 ) (environment.Runtime, bool, error) {
@@ -160,8 +162,11 @@ func verifyRuntimeMounts(spec environment.RuntimeSpec, mounts []struct {
 		}
 		switch mount.Destination {
 		case "/workspace":
-			if filepath.Clean(mount.Source) != spec.WorkspacePath || mount.RW != spec.WorkspaceWritable {
+			if filepath.Clean(mount.Source) != spec.WorkspacePath {
 				return runtimeMismatch("workspace mount does not match the lease")
+			}
+			if mount.RW != spec.WorkspaceWritable {
+				return errWorkspaceAccessMismatch
 			}
 		case "/cache":
 			if filepath.Clean(mount.Source) != spec.CachePath || !mount.RW {

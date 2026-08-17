@@ -273,6 +273,7 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	server, err := New(Options{
 		Store: store, Workspaces: workspaces, Chat: fakeChat{store: store}, GitHub: github,
 		Providers: connections.Registry(), ProviderConnections: connections,
+		Environments:    &fakeEnvironmentManagement{},
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {

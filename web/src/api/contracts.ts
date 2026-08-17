@@ -88,7 +88,6 @@ export interface Workspace {
   project_profile?: ProjectProfile;
   setup_command: string;
   path: string;
-  sandbox_name: string;
   status: WorkspaceStatus;
   error?: string;
   pull_request_number?: number;

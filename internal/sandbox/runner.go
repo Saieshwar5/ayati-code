@@ -9,6 +9,17 @@ import (
 	"time"
 )
 
+type commandResult struct {
+	stdout, stderr string
+	exitCode       int
+	truncated      bool
+}
+
+type runner interface {
+	Run(context.Context, ...string) (commandResult, error)
+	RunInput(context.Context, string, ...string) (commandResult, error)
+}
+
 type osRunner struct{ docker string }
 
 func (r osRunner) Run(ctx context.Context, arguments ...string) (commandResult, error) {
