@@ -1,0 +1,17 @@
+.branch-selection { display: grid; gap: 16px; }
+.branch-selection > div:first-child .muted { margin: 4px 0 0; font-size: 12px; }
+.branch-section-title { margin: 0; font-size: 13px; font-weight: 680; }
+.branch-mode-options { margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; border: 0; }
+.branch-mode-options > label { min-height: 112px; padding: 13px; display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: start; gap: 10px; border: 1px solid #c9c6bc; border-radius: 10px; background: #fff; cursor: pointer; }
+.branch-mode-options > label.selected { border-color: #7d7567; background: #f3efe6; box-shadow: inset 0 0 0 1px #7d7567; }
+.branch-mode-options input { width: 17px; min-height: 17px; margin-top: 2px; }
+.branch-mode-options span { min-width: 0; display: grid; gap: 5px; }
+.branch-mode-options strong { font-size: 12px; line-height: 1.35; }
+.branch-mode-options small { color: #77736b; font-size: 10px; font-weight: 450; line-height: 1.45; }
+.branch-mode-options em { grid-column: 2; width: max-content; padding: 3px 6px; border-radius: 999px; background: #e6dfd0; color: #656056; font-size: 8px; font-style: normal; font-weight: 760; letter-spacing: 0.05em; text-transform: uppercase; }
+.direct-branch-warning { margin: -4px 0 0; padding: 11px 12px; border-radius: 8px; background: #fbf3e4; color: #7d5518; font-size: 11px; line-height: 1.5; }
+
+@media (max-width: 820px) {
+  .branch-mode-options { grid-template-columns: 1fr; }
+  .branch-mode-options > label { min-height: 80px; }
+}

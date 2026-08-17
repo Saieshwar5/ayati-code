@@ -46,6 +46,24 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
     );
   }
 
+  if (workspace.branch === workspace.base_branch) {
+    return (
+      <section className="inspector-panel active" role="tabpanel">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">GitHub</p>
+            <h3>Pull request unavailable</h3>
+          </div>
+        </div>
+        <p className="scope-note">
+          This workspace is working directly on <code>{workspace.branch}</code>. GitHub cannot
+          create a pull request when its source and target are the same branch, and Ayati will
+          never silently push directly to that branch.
+        </p>
+      </section>
+    );
+  }
+
   return (
     <section className="inspector-panel active" role="tabpanel">
       <div className="section-heading">

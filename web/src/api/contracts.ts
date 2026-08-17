@@ -8,6 +8,7 @@ export type WorkspaceStatus =
 
 export type SessionStatus = "idle" | "working" | "review" | "failed";
 export type WorkspaceAuthority = "explore" | "develop";
+export type BranchMode = "new" | "existing" | "direct";
 export type PreparationStage =
   | "pending"
   | "cloning"
@@ -143,6 +144,7 @@ export interface CreateWorkspaceInput {
   base_branch: string;
   branch: string;
   create_branch: boolean;
+  branch_mode: BranchMode;
   authority: WorkspaceAuthority;
   setup_command: string;
   environment: EnvironmentInput[];

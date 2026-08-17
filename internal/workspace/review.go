@@ -41,6 +41,9 @@ func (s *Service) Publish(ctx context.Context, id, message, authorName, authorEm
 	if stored.Authority != AuthorityDevelop {
 		return errors.New("publishing requires Develop authority")
 	}
+	if stored.Branch == stored.BaseBranch {
+		return errors.New("publishing requires a working branch different from the pull request base")
+	}
 	shell, value, err := s.Shell(ctx, id)
 	if err != nil {
 		return err

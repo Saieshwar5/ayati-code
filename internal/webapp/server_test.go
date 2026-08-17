@@ -116,7 +116,7 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	handler, store, workspaces, _ := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
+	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"branch_mode":"new","authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -245,6 +245,7 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	workspaces := &fakeWorkspaceService{store: store, initialized: make(chan string, 1)}
 	github := &fakeGitHub{
 		repositories: []githubapp.Repository{{ID: 1, FullName: "owner/project", CloneURL: "https://github.com/owner/project.git", DefaultBranch: "main"}},
+		branches:     []githubapp.Branch{{Name: "main"}, {Name: "feature/existing"}},
 		pull:         githubapp.PullRequest{Number: 7, HTMLURL: "https://github.com/owner/project/pull/7"},
 	}
 	credentials := filepath.Join(root, "github.json")

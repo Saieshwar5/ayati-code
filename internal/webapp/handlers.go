@@ -38,6 +38,7 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		BaseBranch   string                       `json:"base_branch"`
 		Branch       string                       `json:"branch"`
 		CreateBranch bool                         `json:"create_branch"`
+		BranchMode   string                       `json:"branch_mode"`
 		Authority    string                       `json:"authority"`
 		Setup        string                       `json:"setup_command"`
 		Environment  []workspace.EnvironmentInput `json:"environment"`
@@ -50,25 +51,19 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
-	input.Branch = strings.TrimSpace(input.Branch)
 	authority, err := workspace.ParseAuthority(input.Authority)
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	if input.BaseBranch == "" {
-		s.writeError(writer, http.StatusBadRequest, "starting branch is required")
+	selection, err := s.resolveBranchSelection(request, credentials.AccessToken, repository,
+		authority, input.BranchMode, input.BaseBranch, input.Branch)
+	if err != nil {
+		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	if authority == workspace.AuthorityExplore {
-		input.Branch = input.BaseBranch
-		input.CreateBranch = false
-	} else if input.Branch == "" || input.BaseBranch == input.Branch {
-		s.writeError(writer, http.StatusBadRequest,
-			"Develop authority requires a working branch different from the starting branch")
-		return
-	}
+	input.BaseBranch, input.Branch = selection.base, selection.working
+	input.CreateBranch = selection.create
 	if err := workspace.ValidateEnvironment(input.Environment); err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
@@ -227,6 +222,11 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		}
 		if value.Authority != workspace.AuthorityDevelop {
 			s.writeError(writer, http.StatusConflict, "publishing requires Develop authority")
+			return
+		}
+		if value.Branch == value.BaseBranch {
+			s.writeError(writer, http.StatusConflict,
+				"publishing requires a working branch different from the pull request base")
 			return
 		}
 		if value.PullRequestNumber == 0 && strings.TrimSpace(input.Title) == "" {

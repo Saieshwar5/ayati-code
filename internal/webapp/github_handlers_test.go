@@ -12,6 +12,7 @@ import (
 
 type fakeGitHub struct {
 	repositories     []githubapp.Repository
+	branches         []githubapp.Branch
 	pull             githubapp.PullRequest
 	created          []githubapp.CreateRepositoryInput
 	createError      error
@@ -34,7 +35,10 @@ func (f *fakeGitHub) Repositories(context.Context, string) ([]githubapp.Reposito
 	return f.repositories, f.repositoryError
 }
 func (f *fakeGitHub) Branches(context.Context, string, string) ([]githubapp.Branch, error) {
-	return []githubapp.Branch{{Name: "main"}}, nil
+	if len(f.branches) == 0 {
+		return []githubapp.Branch{{Name: "main"}}, nil
+	}
+	return f.branches, nil
 }
 func (f *fakeGitHub) CreatePullRequest(
 	_ context.Context, _, _, _, _, _, _ string,

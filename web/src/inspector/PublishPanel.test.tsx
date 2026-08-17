@@ -28,4 +28,16 @@ describe("PublishPanel", () => {
     expect(screen.getByRole("heading", { name: "Publishing protected" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
   });
+
+  it("does not push a Develop workspace directly to its base branch", () => {
+    render(
+      <PublishPanel
+        workspace={{ ...workspace, authority: "develop", effective_mount_mode: "rw" }}
+        publishing={false}
+        onPublish={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Pull request unavailable" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
+  });
 });
