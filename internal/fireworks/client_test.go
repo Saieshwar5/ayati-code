@@ -85,3 +85,29 @@ func TestClientDoesNotIncludeErrorBody(t *testing.T) {
 		t.Fatalf("error = %v", err)
 	}
 }
+
+func TestClientOmitsShellToolWhenDisabled(t *testing.T) {
+	client := &Client{
+		apiKey: "test-key", endpoint: "https://example.invalid/chat",
+		httpClient: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+			var body map[string]any
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Errorf("decode request: %v", err)
+			}
+			if _, exists := body["tools"]; exists {
+				t.Errorf("disabled request included tools: %#v", body["tools"])
+			}
+			response := `{"choices":[{"message":{"role":"assistant","content":"done"}}]}`
+			return &http.Response{
+				StatusCode: http.StatusOK, Status: "200 OK", Body: io.NopCloser(strings.NewReader(response)),
+			}, nil
+		})},
+	}
+	message, err := client.Next(context.Background(), agent.Request{
+		Model: "test-model", DisableShell: true,
+		Messages: []agent.Message{{Role: "user", Content: "plan"}},
+	})
+	if err != nil || message.Content != "done" {
+		t.Fatalf("message = %#v, error = %v", message, err)
+	}
+}

@@ -45,7 +45,7 @@ type workspaceService interface {
 }
 
 type chatService interface {
-	Messages(context.Context, string, string) ([]agent.Message, error)
+	Messages(context.Context, string, string) ([]workspace.ConversationMessage, error)
 	Send(context.Context, string, string, string) (agent.Completion, error)
 	CancelAndWait(string)
 	WithWorkspaceIdle(string, func() error) error
@@ -108,6 +108,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/logout", s.mutate(s.logout))
 	mux.HandleFunc("GET /api/repositories", s.repositories)
 	mux.HandleFunc("GET /api/repositories/", s.branches)
+	mux.HandleFunc("GET /api/agents", s.agentsRead)
+	mux.HandleFunc("GET /api/agents/", s.agentsRead)
+	mux.HandleFunc("POST /api/agents", s.mutate(s.createAgent))
+	mux.HandleFunc("POST /api/agents/", s.mutate(s.agentAction))
+	mux.HandleFunc("PATCH /api/agents/", s.mutate(s.updateAgent))
 	mux.HandleFunc("GET /api/workspaces", s.listWorkspaces)
 	mux.HandleFunc("GET /api/workspaces/", s.workspaceRead)
 	mux.HandleFunc("POST /api/workspaces", s.mutate(s.createWorkspace))
@@ -136,11 +141,12 @@ func (s *Server) index(writer http.ResponseWriter, request *http.Request) {
 
 func applicationPath(path string) bool {
 	if path == "/" || path == "/workspaces" || path == "/workspaces/new" ||
-		path == "/workspaces/archived" || path == "/agents" || path == "/environments" {
+		path == "/workspaces/archived" || path == "/agents" || path == "/agents/new" ||
+		path == "/agents/providers" || path == "/agents/skills" || path == "/environments" {
 		return true
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	return len(parts) == 2 && parts[0] == "workspaces" ||
+	return len(parts) == 2 && (parts[0] == "workspaces" || parts[0] == "agents") ||
 		len(parts) == 4 && parts[0] == "workspaces" && parts[2] == "sessions"
 }
 

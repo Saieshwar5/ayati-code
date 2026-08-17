@@ -12,16 +12,34 @@ import (
 	"github.com/Saieshwar5/ayati-code/internal/agent"
 )
 
+type ConversationMessage struct {
+	agent.Message
+	Agent *agent.Attribution `json:"agent,omitempty"`
+}
+
 func (s *Store) AppendMessage(ctx context.Context, sessionID string, message agent.Message) error {
+	return s.AppendAttributedMessage(ctx, sessionID, message, nil)
+}
+
+func (s *Store) AppendAttributedMessage(
+	ctx context.Context, sessionID string, message agent.Message, attribution *agent.Attribution,
+) error {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("encode session message: %w", err)
 	}
 	now := time.Now().UTC()
-	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO messages (session_id, payload, created_at) VALUES (?, ?, ?)`,
-		strings.TrimSpace(sessionID), string(payload), formatTime(now),
-	)
+	var agentID, name, emoji, providerID, model string
+	var revision int
+	if attribution != nil && message.Role == "assistant" {
+		agentID, name, emoji = attribution.ID, attribution.Name, attribution.Emoji
+		revision, providerID, model = attribution.Revision, attribution.ProviderID, attribution.Model
+	}
+	_, err = s.db.ExecContext(ctx, `INSERT INTO messages (
+		session_id, payload, agent_id, agent_name, agent_emoji, agent_revision,
+		agent_provider_id, agent_model, created_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(sessionID), string(payload),
+		agentID, name, emoji, revision, providerID, model, formatTime(now))
 	if err != nil {
 		return fmt.Errorf("append session message: %w", err)
 	}
@@ -30,6 +48,42 @@ func (s *Store) AppendMessage(ctx context.Context, sessionID string, message age
 		return fmt.Errorf("touch session: %w", err)
 	}
 	return s.touchWorkspaceForSession(ctx, sessionID, now)
+}
+
+func (s *Store) ConversationMessages(
+	ctx context.Context, sessionID string,
+) ([]ConversationMessage, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT payload, agent_id, agent_name, agent_emoji,
+		agent_revision, agent_provider_id, agent_model FROM messages
+		WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
+	if err != nil {
+		return nil, fmt.Errorf("load conversation messages: %w", err)
+	}
+	defer rows.Close()
+	var messages []ConversationMessage
+	for rows.Next() {
+		var payload, agentID, name, emoji, providerID, model string
+		var revision int
+		if err := rows.Scan(&payload, &agentID, &name, &emoji, &revision, &providerID, &model); err != nil {
+			return nil, fmt.Errorf("scan conversation message: %w", err)
+		}
+		var message agent.Message
+		if err := json.Unmarshal([]byte(payload), &message); err != nil {
+			return nil, fmt.Errorf("decode conversation message: %w", err)
+		}
+		value := ConversationMessage{Message: message}
+		if message.Role == "assistant" {
+			if agentID == "" {
+				agentID, name, emoji, revision, providerID = agent.BuiltinAgentID, "Ayati", "✦", 1, agent.FireworksProviderID
+			}
+			value.Agent = &agent.Attribution{
+				ID: agentID, Name: name, Emoji: emoji, Revision: revision,
+				ProviderID: providerID, Model: model,
+			}
+		}
+		messages = append(messages, value)
+	}
+	return messages, rows.Err()
 }
 
 func (s *Store) Messages(ctx context.Context, sessionID string) ([]agent.Message, error) {

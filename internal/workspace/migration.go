@@ -39,6 +39,7 @@ const sessionSchema = `CREATE TABLE IF NOT EXISTS sessions (
 	title TEXT NOT NULL,
 	status TEXT NOT NULL,
 	error TEXT NOT NULL DEFAULT '',
+	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-ayati',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 )`
@@ -47,6 +48,12 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 	payload TEXT NOT NULL,
+	agent_id TEXT NOT NULL DEFAULT '',
+	agent_name TEXT NOT NULL DEFAULT '',
+	agent_emoji TEXT NOT NULL DEFAULT '',
+	agent_revision INTEGER NOT NULL DEFAULT 0,
+	agent_provider_id TEXT NOT NULL DEFAULT '',
+	agent_model TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL
 )`
 
@@ -85,6 +92,9 @@ func (s *Store) configure() error {
 	if err := s.migrateWorkspaceArchive(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migrateAgentCatalog(context.Background()); err != nil {
+		return err
+	}
 	return s.recoverInterruptedWork(context.Background())
 }
 
@@ -109,25 +119,6 @@ func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {
 		}
 	}
 	return nil
-}
-
-func databaseColumns(ctx context.Context, db *sql.DB, table string) (map[string]bool, error) {
-	rows, err := db.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
-	if err != nil {
-		return nil, fmt.Errorf("inspect %s schema: %w", table, err)
-	}
-	defer rows.Close()
-	columns := make(map[string]bool)
-	for rows.Next() {
-		var position, notNull, primaryKey int
-		var name, kind string
-		var defaultValue any
-		if err := rows.Scan(&position, &name, &kind, &notNull, &defaultValue, &primaryKey); err != nil {
-			return nil, err
-		}
-		columns[name] = true
-	}
-	return columns, rows.Err()
 }
 
 func (s *Store) migrateSessions(ctx context.Context) error {
@@ -211,7 +202,7 @@ func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
 		if err != nil {
 			return err
 		}
-		session, err := createSession(ctx, tx, value.id, "Original session", createdAt)
+		session, err := createLegacySession(ctx, tx, value.id, "Original session", createdAt)
 		if err != nil {
 			return err
 		}
