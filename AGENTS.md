@@ -18,7 +18,7 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 - `internal/provider/`: provider definitions, registration, discovery, and runtime resolution.
 - `internal/config/`: versioned private provider configuration and setup command.
 - `internal/fireworks/`: Fireworks protocol adapter.
-- `internal/openai/`: OpenAI protocol adapter and connection verification.
+- `internal/openaichat/`: shared OpenAI-compatible chat protocol and connection verification.
 - `docs/`: architecture and important design decisions.
 
 Keep logic in the package that owns the responsibility. `internal/webapp` may connect packages, but infrastructure packages should not depend on it.

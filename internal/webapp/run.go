@@ -14,12 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/chat"
 	"github.com/Saieshwar5/ayati-code/internal/config"
-	"github.com/Saieshwar5/ayati-code/internal/fireworks"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	"github.com/Saieshwar5/ayati-code/internal/openai"
 	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
@@ -143,21 +140,7 @@ func modelServices(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	connections, err := modelprovider.NewConnections(path,
-		modelprovider.Specification{
-			Definition: modelprovider.Definition{
-				ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
-			},
-			Factory: func(key string) (agent.Provider, error) { return fireworks.New(key) },
-		},
-		modelprovider.Specification{
-			Definition: modelprovider.Definition{
-				ID: openai.ProviderID, Name: "OpenAI", Protocol: "openai-chat",
-			},
-			Factory:  func(key string) (agent.Provider, error) { return openai.New(key) },
-			Verifier: openai.Verify,
-		},
-	)
+	connections, err := modelprovider.NewConnections(path, modelprovider.BuiltinSpecifications()...)
 	if err != nil {
 		return nil, nil, nil, err
 	}
