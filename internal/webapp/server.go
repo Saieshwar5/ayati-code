@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
 	"github.com/Saieshwar5/ayati-code/internal/githubapp"
 	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
@@ -52,6 +53,13 @@ type chatService interface {
 	WithWorkspaceIdle(string, func() error) error
 }
 
+type environmentManagement interface {
+	List(context.Context) ([]compute.Environment, error)
+	Create(context.Context, compute.CreateInput) (compute.Environment, error)
+	Repair(context.Context, string) (compute.Environment, error)
+	Delete(context.Context, string) error
+}
+
 type Server struct {
 	ctx             context.Context
 	store           *workspace.Store
@@ -59,6 +67,7 @@ type Server struct {
 	chat            chatService
 	providers       *modelprovider.Registry
 	connections     *modelprovider.Connections
+	environments    environmentManagement
 	github          githubClient
 	credentialsPath string
 	workspaceRoot   string
@@ -74,6 +83,7 @@ type Options struct {
 	Chat                chatService
 	Providers           *modelprovider.Registry
 	ProviderConnections *modelprovider.Connections
+	Environments        environmentManagement
 	GitHub              githubClient
 	CredentialsPath     string
 	WorkspaceRoot       string
@@ -104,7 +114,8 @@ func New(options Options) (*Server, error) {
 	return &Server{
 		ctx: options.Context, store: options.Store, workspaces: options.Workspaces, chat: options.Chat,
 		providers: options.Providers, connections: options.ProviderConnections,
-		github: options.GitHub, credentialsPath: options.CredentialsPath,
+		environments: options.Environments,
+		github:       options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
 		assets: http.FileServer(http.FS(static)), events: options.Events,
 	}, nil
@@ -135,6 +146,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/skills", s.mutate(s.createSkill))
 	mux.HandleFunc("POST /api/skills/", s.mutate(s.skillAction))
 	mux.HandleFunc("PATCH /api/skills/", s.mutate(s.updateSkill))
+	mux.HandleFunc("GET /api/environments", s.listEnvironments)
+	mux.HandleFunc("POST /api/environments", s.mutate(s.createEnvironment))
+	mux.HandleFunc("POST /api/environments/", s.mutate(s.repairEnvironment))
+	mux.HandleFunc("DELETE /api/environments/", s.mutate(s.deleteEnvironment))
 	mux.HandleFunc("GET /api/workspaces", s.listWorkspaces)
 	mux.HandleFunc("GET /api/workspaces/", s.workspaceRead)
 	mux.HandleFunc("POST /api/workspaces", s.mutate(s.createWorkspace))

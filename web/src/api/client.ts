@@ -21,6 +21,7 @@ import type {
   Workspace,
   WorkspaceSession,
 } from "./contracts";
+import type { ComputeEnvironment, CreateComputeEnvironmentInput } from "./environment-contracts";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
@@ -168,6 +169,17 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/environment/${encodeURIComponent(name)}`, {
       method: "DELETE",
     }),
+  environments: () => request<ComputeEnvironment[]>("/api/environments"),
+  createEnvironmentCapacity: (input: CreateComputeEnvironmentInput) =>
+    request<ComputeEnvironment>("/api/environments", {
+      method: "POST", body: JSON.stringify(input),
+    }),
+  repairEnvironmentCapacity: (id: string) =>
+    request<ComputeEnvironment>(`/api/environments/${encodeURIComponent(id)}/repair`, {
+      method: "POST",
+    }),
+  deleteEnvironmentCapacity: (id: string) =>
+    request<void>(`/api/environments/${encodeURIComponent(id)}`, { method: "DELETE" }),
   publish: (workspaceID: string, input: PublishInput) =>
     request<Workspace>(`/api/workspaces/${workspaceID}/publish`, {
       method: "POST",

@@ -62,10 +62,12 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `environment_leases`: durable acquiring, active, releasing, released, or failed assignments with unique active environment and workspace constraints.
 
 On first startup the controller registers one ready Local Docker environment using the immutable
-ID resolved from the configured sandbox image. Additional environments remain a later management
-surface. Workspace creation, preparation, shell access, authority changes, Stop, Resume, recovery,
-and deletion all use `internal/environment.RuntimeService`; no workspace-derived container name is
-a lifecycle authority.
+ID resolved from the configured sandbox image. The Environments page and guarded JSON endpoints
+list capacity, create additional local Docker configurations, retry failed image resolution, and
+delete only unoccupied environments. Configuration is fixed at creation so resource policy cannot
+change underneath an active lease. Workspace creation, preparation, shell access, authority
+changes, Stop, Resume, recovery, and deletion all use `internal/environment.RuntimeService`; no
+workspace-derived container name is a lifecycle authority.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
@@ -89,6 +91,16 @@ read-only root, non-root user, CPU, memory, PID, network, privilege, restart, tm
 cache policies. Extra persistent mounts, mismatched labels, or stale generations are rejected. The
 driver can safely reuse a matching stopped container after a controller interruption, while a
 container belonging to another lease is never started or removed.
+
+Environment provisioning is synchronous and controller-owned. The browser supplies only a name,
+local image reference, bounded CPU/memory/PID values, and either outbound or disabled networking.
+The controller resolves the local image reference to a validated immutable Docker identity before
+marking capacity available. Resolution failure persists a failed environment for explicit Repair;
+there is no background provisioner, arbitrary Docker argument field, remote host, or agent-facing
+environment lifecycle tool. A failed runtime lease is not treated as an image-provisioning failure:
+its environment remains visibly quarantined and cannot be repaired or deleted through environment
+management until deletion of the owning failed workspace proves runtime cleanup and removes the
+failed lease.
 
 Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Fixed rules inspect regular metadata files, resolve the repository root or one nested project, and derive Go, Node, and Python setup and verification commands. Multiple nested roots require a later user selection rather than an AI guess. The controller records the current commit and requires a clean Git status before setup.
 

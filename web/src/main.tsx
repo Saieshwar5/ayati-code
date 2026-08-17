@@ -7,6 +7,7 @@ import "./styles/navigation.css";
 import "./styles/workspace-control.css";
 import "./styles/branch-selection.css";
 import "./styles/agent-studio.css";
+import "./styles/compute-environments.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

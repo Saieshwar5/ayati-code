@@ -179,6 +179,12 @@ func (s *Store) LatestForWorkspace(ctx context.Context, workspaceID string) (Lea
 	return scanLease(row)
 }
 
+func (s *Store) LatestForEnvironment(ctx context.Context, environmentID string) (Lease, error) {
+	row := s.db.QueryRowContext(ctx, leaseSelect+` WHERE environment_id = ?
+		ORDER BY acquired_at DESC, id DESC LIMIT 1`, strings.TrimSpace(environmentID))
+	return scanLease(row)
+}
+
 const leaseSelect = `SELECT id, environment_id, workspace_id, generation, state, runtime_id,
 	error, acquired_at, activated_at, released_at FROM environment_leases`
 

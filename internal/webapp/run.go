@@ -81,6 +81,11 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
 		return 1
 	}
+	management, err := compute.NewManagementService(environments, driver)
+	if err != nil {
+		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		return 1
+	}
 	runtime, err := sandbox.NewRuntimeManager(environments, driver)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
@@ -119,6 +124,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	application, err := New(Options{
 		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
 		Providers: providers, ProviderConnections: providerConnections, GitHub: github,
+		Environments:    management,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 		Events: events,
 	})
