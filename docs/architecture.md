@@ -69,6 +69,13 @@ change underneath an active lease. Workspace creation, preparation, shell access
 changes, Stop, Resume, recovery, and deletion all use `internal/environment.RuntimeService`; no
 workspace-derived container name is a lifecycle authority.
 
+Environment selection is deliberately automatic. The controller allocates any ready capacity in
+one SQLite transaction rather than asking the user to coordinate leases. The workspace header
+resolves its active lease to a human-readable environment, and the Environments page resolves an
+occupied lease back to its workspace. When all environments are occupied, acquisition fails
+without overcommitting; releasing one workspace makes that environment available to another with
+a new lease generation.
+
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
 Sessions share one workspace clone, branch, cache, leased environment, runtime, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.

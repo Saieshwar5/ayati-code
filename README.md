@@ -57,6 +57,8 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 
 Ayati creates one **Local Docker** environment on first startup. Open **Environments** in the sidebar to see available and occupied capacity, add another local Docker environment, repair failed image resolution, or delete unused capacity. Each environment configures a local image reference, CPU, memory, process, and network limits. The image must already exist in the local Docker engine; Ayati resolves and stores its immutable image identity before making the environment available.
 
+Workspace assignment remains automatic: starting or preparing a workspace leases any available environment. The workspace header shows the exact assigned environment, or the current available-capacity count while stopped. Environment cards identify and link to the workspace holding a lease, so capacity can be released without matching opaque IDs manually.
+
 An occupied environment shows the workspace holding its exclusive lease and cannot be deleted. Stop that workspace first. Image-provisioning failures remain visible until Repair succeeds or the unused environment is deleted. A runtime failure is stricter: the capacity remains quarantined until its failed workspace is safely deleted, preventing uncertain compute from being reused or forgotten.
 
 ## Workspace flow

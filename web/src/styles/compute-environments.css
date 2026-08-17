@@ -33,6 +33,9 @@
 .compute-lease { align-self: start; padding: 11px 12px; border: 1px solid #e2dccd; border-radius: 9px; background: #fbf7ed; display: grid; gap: 3px; }
 .compute-lease span { color: #89867e; font-size: 8px; text-transform: uppercase; }
 .compute-lease strong { font-size: 11px; }
+.compute-lease small { color: #77736b; font-size: 9px; }
+.compute-lease.linked { width: 100%; text-align: left; }
+.compute-lease.linked:hover { border-color: #b9af9b; background: #f8f0df; }
 .compute-error { align-self: start; margin: 0; color: #8b3d32; font-size: 10px; line-height: 1.5; }
 .compute-quarantine { align-self: start; margin: -8px 0 0; color: #72551f; font-size: 9px; line-height: 1.5; }
 

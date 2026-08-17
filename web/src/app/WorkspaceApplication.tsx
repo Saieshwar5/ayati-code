@@ -105,6 +105,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               workspace={workspace}
               controller={controller}
               onOpenSession={(id) => navigate(sessionPath(workspace.id, id))}
+              onManageEnvironments={() => navigate("/environments")}
               onArchived={() => navigate("/workspaces")}
               onDeleted={() => navigate("/workspaces")}
             />
@@ -129,7 +130,10 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           ) : agentStudioView ? (
             <AgentStudio route={route} controller={agents} skills={skills} onNavigate={navigate} />
           ) : route.page === "environments" ? (
-            <EnvironmentsPage />
+            <EnvironmentsPage
+              workspaces={controller.workspaces}
+              onOpenWorkspace={(id) => navigate(workspacePath(id))}
+            />
           ) : (
             <LoadingPage title={workspaceID ? "Workspace not found" : "Session not found"} error />
           )}

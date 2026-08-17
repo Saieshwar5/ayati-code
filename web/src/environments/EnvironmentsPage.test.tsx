@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ComputeEnvironment } from "../api/environment-contracts";
+import type { Workspace } from "../api/contracts";
 import { EnvironmentsPage } from "./EnvironmentsPage";
 
 const baseEnvironment: ComputeEnvironment = {
@@ -22,6 +23,23 @@ const baseEnvironment: ComputeEnvironment = {
   updated_at: "2026-08-17T00:00:00Z",
 };
 
+const workspace: Workspace = {
+  id: "workspace-123456789",
+  repository: "owner/project",
+  clone_url: "https://github.com/owner/project.git",
+  base_branch: "main",
+  branch: "ayati/capacity",
+  create_branch: true,
+  authority: "develop",
+  preparation_stage: "ready",
+  configuration_candidates: [],
+  setup_command: "",
+  path: "/workspace",
+  status: "ready",
+  created_at: "2026-08-17T00:00:00Z",
+  updated_at: "2026-08-17T00:00:00Z",
+};
+
 afterEach(() => vi.restoreAllMocks());
 
 it("shows capacity and keeps occupied environments protected", async () => {
@@ -38,10 +56,15 @@ it("shows capacity and keeps occupied environments protected", async () => {
     },
   };
   vi.spyOn(globalThis, "fetch").mockImplementation(() => json([occupied]));
-  render(<EnvironmentsPage />);
+  const onOpenWorkspace = vi.fn();
+  const user = userEvent.setup();
+  render(<EnvironmentsPage workspaces={[workspace]} onOpenWorkspace={onOpenWorkspace} />);
 
   expect(await screen.findByRole("heading", { name: "Local Docker" })).toBeTruthy();
-  expect(screen.getByText("workspace-12")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Open workspace owner/project" }));
+  expect(onOpenWorkspace).toHaveBeenCalledWith(workspace.id);
+  expect(screen.getByText("project")).toBeTruthy();
+  expect(screen.getByText("ayati/capacity")).toBeTruthy();
   expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.getAllByText("In use")).toHaveLength(2);
 });

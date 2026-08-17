@@ -6,6 +6,7 @@ import { EnvironmentPanel } from "../inspector/EnvironmentPanel";
 import { PublishPanel } from "../inspector/PublishPanel";
 import { WorkspaceProfilePanel } from "../inspector/WorkspaceProfilePanel";
 import type { WorkspaceController } from "../app/useWorkspaceController";
+import { WorkspaceCapacity } from "./WorkspaceCapacity";
 import { WorkspaceReadiness } from "./WorkspaceReadiness";
 
 type WorkspaceTab = "sessions" | "overview" | "changes" | "environment" | "settings";
@@ -14,6 +15,7 @@ interface WorkspacePageProps {
   workspace: Workspace;
   controller: WorkspaceController;
   onOpenSession: (sessionID: string) => void;
+  onManageEnvironments: () => void;
   onArchived: () => void;
   onDeleted: () => void;
 }
@@ -76,6 +78,7 @@ export function WorkspacePage(props: WorkspacePageProps) {
           </div>
         </div>
         <div className="workspace-header-state">
+          <WorkspaceCapacity workspace={workspace} onManage={props.onManageEnvironments} />
           <span className={`status ${workspace.status}`}>{statusLabel(workspace.status)}</span>
           {workspace.status === "ready" && <button className="quiet compact" type="button" onClick={() => void controller.workspaceAction(workspace.id, "stop")}>Stop</button>}
           {workspace.status === "stopped" && <button className="quiet compact" type="button" onClick={() => void controller.workspaceAction(workspace.id, "resume")}>Resume</button>}

@@ -1,5 +1,7 @@
 import { useState } from "react";
+import type { Workspace } from "../api/contracts";
 import type { ComputeEnvironment, CreateComputeEnvironmentInput } from "../api/environment-contracts";
+import { repositoryName } from "../app/format";
 import { useEnvironmentController } from "./useEnvironmentController";
 
 const initialInput: CreateComputeEnvironmentInput = {
@@ -11,7 +13,12 @@ const initialInput: CreateComputeEnvironmentInput = {
   network_policy: "outbound",
 };
 
-export function EnvironmentsPage() {
+interface EnvironmentsPageProps {
+  workspaces?: Workspace[];
+  onOpenWorkspace?: (workspaceID: string) => void;
+}
+
+export function EnvironmentsPage({ workspaces = [], onOpenWorkspace }: EnvironmentsPageProps) {
   const controller = useEnvironmentController();
   const [creating, setCreating] = useState(false);
   const available = controller.environments.filter((value) => value.state === "available").length;
@@ -50,6 +57,8 @@ export function EnvironmentsPage() {
           {controller.environments.map((value) => <EnvironmentCard
             key={value.id}
             value={value}
+            workspace={workspaces.find((workspace) => workspace.id === value.active_lease?.workspace_id)}
+            onOpenWorkspace={onOpenWorkspace}
             onRepair={async () => {
               try { await controller.repair(value.id); }
               catch (reason) { controller.setError((reason as Error).message); }
@@ -84,6 +93,8 @@ function Summary(props: { label: string; value: number; tone: string }) {
 
 function EnvironmentCard(props: {
   value: ComputeEnvironment;
+  workspace?: Workspace;
+  onOpenWorkspace?: (workspaceID: string) => void;
   onRepair: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
@@ -109,10 +120,11 @@ function EnvironmentCard(props: {
       <div><dt>Generation</dt><dd>{value.generation}</dd></div>
       <div><dt>Driver</dt><dd>Docker</dd></div>
     </dl>
-    {value.active_lease && <div className="compute-lease">
-      <span>Leased workspace</span>
-      <strong title={value.active_lease.workspace_id}>{shortID(value.active_lease.workspace_id)}</strong>
-    </div>}
+    {value.active_lease && <LeaseOwner
+      leaseWorkspaceID={value.active_lease.workspace_id}
+      workspace={props.workspace}
+      onOpenWorkspace={props.onOpenWorkspace}
+    />}
     {value.error && <p className="compute-error" role="alert">{value.error}</p>}
     {value.quarantined && <p className="compute-quarantine">Delete the failed workspace before repairing or removing this capacity.</p>}
     <footer>
@@ -120,6 +132,33 @@ function EnvironmentCard(props: {
       <button className="quiet compact danger-text" type="button" disabled={occupied || value.quarantined || busy !== ""} title={environmentDeleteTitle(value)} onClick={() => void run("delete", props.onDelete)}>{busy === "delete" ? "Deleting…" : "Delete"}</button>
     </footer>
   </article>;
+}
+
+function LeaseOwner(props: {
+  leaseWorkspaceID: string;
+  workspace?: Workspace;
+  onOpenWorkspace?: (workspaceID: string) => void;
+}) {
+  const content = <>
+    <span>Leased workspace</span>
+    <strong title={props.workspace?.repository || props.leaseWorkspaceID}>
+      {props.workspace ? repositoryName(props.workspace.repository) : shortID(props.leaseWorkspaceID)}
+    </strong>
+    {props.workspace && <small>{props.workspace.branch}</small>}
+  </>;
+  if (!props.workspace || !props.onOpenWorkspace) {
+    return <div className="compute-lease">{content}</div>;
+  }
+  return (
+    <button
+      className="compute-lease linked"
+      type="button"
+      aria-label={`Open workspace ${props.workspace.repository}`}
+      onClick={() => props.onOpenWorkspace?.(props.workspace!.id)}
+    >
+      {content}
+    </button>
+  );
 }
 
 function EnvironmentForm(props: {
