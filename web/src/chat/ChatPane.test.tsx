@@ -91,8 +91,10 @@ describe("ChatPane", () => {
         ]}
         error=""
         sending={false}
+        stopping={false}
         agents={[builtInAgent]}
         onSend={send}
+        onStop={vi.fn()}
         onSelectAgent={vi.fn()}
       />,
     );
@@ -118,8 +120,10 @@ describe("ChatPane", () => {
         messages={[]}
         error=""
         sending={false}
+        stopping={false}
         agents={[builtInAgent, reviewerAgent]}
         onSend={vi.fn()}
+        onStop={vi.fn()}
         onSelectAgent={selectAgent}
       />,
     );
@@ -137,13 +141,40 @@ describe("ChatPane", () => {
         messages={[]}
         error=""
         sending={false}
+        stopping={false}
         agents={[builtInAgent]}
         onSend={vi.fn()}
+        onStop={vi.fn()}
         onSelectAgent={vi.fn()}
       />,
     );
     const textbox = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(textbox.disabled).toBe(true);
     expect(textbox.placeholder).toContain("Another session");
+  });
+
+  it("lets the user stop the active session run", async () => {
+    const stop = vi.fn().mockResolvedValue(true);
+    const user = userEvent.setup();
+    const working = { ...session, status: "working" as const };
+    render(
+      <ChatPane
+        workspace={workspace}
+        session={working}
+        workspaceSessions={[working]}
+        messages={[]}
+        error=""
+        sending={true}
+        stopping={false}
+        agents={[builtInAgent]}
+        onSend={vi.fn()}
+        onStop={stop}
+        onSelectAgent={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Send message" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Stop agent run" }));
+    expect(stop).toHaveBeenCalledOnce();
   });
 });

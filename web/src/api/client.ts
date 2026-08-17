@@ -150,6 +150,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
+  cancelRun: (workspaceID: string, sessionID: string) =>
+    request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/cancel`, {
+      method: "POST",
+    }),
   changes: (workspaceID: string) =>
     request<Changes>(`/api/workspaces/${workspaceID}/changes`),
   environment: (workspaceID: string) =>

@@ -12,15 +12,16 @@ import (
 )
 
 const (
-	SessionStatusIdle    = "idle"
-	SessionStatusWorking = "working"
-	SessionStatusReview  = "review"
-	SessionStatusFailed  = "failed"
+	SessionStatusIdle     = "idle"
+	SessionStatusWorking  = "working"
+	SessionStatusReview   = "review"
+	SessionStatusFailed   = "failed"
+	SessionStatusCanceled = "canceled"
 )
 
 var sessionStatuses = map[string]bool{
 	SessionStatusIdle: true, SessionStatusWorking: true,
-	SessionStatusReview: true, SessionStatusFailed: true,
+	SessionStatusReview: true, SessionStatusFailed: true, SessionStatusCanceled: true,
 }
 
 type Session struct {

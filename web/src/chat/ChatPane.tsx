@@ -10,8 +10,10 @@ interface ChatPaneProps {
   messages: Message[];
   error: string;
   sending: boolean;
+  stopping: boolean;
   agents: AgentDefinition[];
   onSend: (text: string) => Promise<boolean>;
+  onStop: () => Promise<boolean>;
   onSelectAgent: (agentID: string) => Promise<void>;
 }
 
@@ -20,10 +22,11 @@ export function ChatPane(props: ChatPaneProps) {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const messagesElement = useRef<HTMLDivElement>(null);
   const working = props.workspaceSessions.find((session) => session.status === "working");
+  const currentSessionWorking = working?.id === props.session.id || props.sending;
   const enabled = props.workspace.status === "ready" && !working && !props.sending;
   const visibleMessages = props.messages.filter(isConversationMessage);
   const effectiveStatus = props.workspace.status === "ready" ? props.session.status : props.workspace.status;
-  const detailError = props.workspace.error || props.session.error;
+  const detailError = props.workspace.error || (props.session.status === "failed" ? props.session.error : "");
 
   useEffect(() => {
     setText("");
@@ -118,15 +121,28 @@ export function ChatPane(props: ChatPaneProps) {
             {props.error}
           </span>
         )}
-        <button
-          className="composer-send"
-          type="submit"
-          disabled={!enabled || !text.trim()}
-          aria-label="Send message"
-          title="Send message"
-        >
-          <span aria-hidden="true">↑</span>
-        </button>
+        {currentSessionWorking ? (
+          <button
+            className="composer-send composer-stop"
+            type="button"
+            disabled={props.stopping}
+            aria-label="Stop agent run"
+            title={props.stopping ? "Stopping agent run" : "Stop agent run"}
+            onClick={() => void props.onStop()}
+          >
+            <span className="stop-icon" aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            className="composer-send"
+            type="submit"
+            disabled={!enabled || !text.trim()}
+            aria-label="Send message"
+            title="Send message"
+          >
+            <span aria-hidden="true">↑</span>
+          </button>
+        )}
       </form>
     </section>
   );

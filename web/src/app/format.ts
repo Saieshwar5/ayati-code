@@ -11,6 +11,7 @@ export function repositoryName(repository: string): string {
 export function sessionMeta(session: WorkspaceSession, now = Date.now()): string {
   if (session.status === "working") return "Working now";
   if (session.status === "failed") return "Failed";
+  if (session.status === "canceled") return "Stopped";
   if (session.status === "review") return "Review changes";
   const time = new Date(session.updated_at);
   const elapsed = now - time.getTime();

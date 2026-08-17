@@ -1,6 +1,7 @@
 package webapp
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -134,6 +135,25 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			return
 		}
 		s.writeJSON(writer, http.StatusOK, completion)
+		return
+	}
+	if len(parts) == 4 && parts[1] == "sessions" && parts[3] == "cancel" {
+		if s.chat == nil {
+			s.writeError(writer, http.StatusServiceUnavailable, "agent chat is not configured")
+			return
+		}
+		if _, err := s.store.GetSession(request.Context(), parts[0], parts[2]); errors.Is(err, sql.ErrNoRows) {
+			s.writeError(writer, http.StatusNotFound, "session not found")
+			return
+		} else if err != nil {
+			s.writeError(writer, http.StatusInternalServerError, "load session")
+			return
+		}
+		if !s.chat.CancelSession(parts[0], parts[2]) {
+			s.writeError(writer, http.StatusConflict, "session is not running")
+			return
+		}
+		writer.WriteHeader(http.StatusNoContent)
 		return
 	}
 	if len(parts) != 2 {
