@@ -44,7 +44,6 @@ type Workspace struct {
 	Profile                 *ProjectProfile    `json:"project_profile,omitempty"`
 	Setup                   string             `json:"setup_command"`
 	Path                    string             `json:"path"`
-	SandboxName             string             `json:"sandbox_name"`
 	Status                  string             `json:"status"`
 	Error                   string             `json:"error,omitempty"`
 	PullRequestNumber       int                `json:"pull_request_number,omitempty"`
@@ -162,7 +161,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		CreateBranch:     input.CreateBranch,
 		Authority:        input.Authority,
 		PreparationStage: PreparationPending, ConfigurationCandidates: []ProjectCandidate{},
-		Path: path, SandboxName: "ayati-workspace-" + id, Status: StatusCreating,
+		Path: path, Status: StatusCreating,
 		CreatedAt: now, UpdatedAt: now,
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -176,7 +175,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, '', 0, '', ?, ?)`,
 		value.ID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
-		value.CreateBranch, value.Authority, value.Setup, value.Path, value.SandboxName, value.Status,
+		value.CreateBranch, value.Authority, value.Setup, value.Path, value.ID, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
 	if err != nil {
@@ -265,13 +264,13 @@ type scanner interface{ Scan(...any) error }
 
 func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
-	var archivedAt, createdAt, updatedAt, candidates string
+	var archivedAt, createdAt, updatedAt, candidates, legacySandboxName string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
 		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
-		&value.Path, &value.SandboxName, &value.Status, &value.Error,
+		&value.Path, &legacySandboxName, &value.Status, &value.Error,
 		&value.PullRequestNumber, &value.PullRequestURL,
 		&archivedAt, &createdAt, &updatedAt,
 	)

@@ -2,12 +2,11 @@ package workspace
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 )
 
 func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
@@ -74,8 +73,37 @@ func TestServiceRemovesInterruptedPreparationSandbox(t *testing.T) {
 	if err := service.Recover(context.Background()); err != nil {
 		t.Fatalf("Recover: %v", err)
 	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.SandboxName {
+	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
 		t.Fatalf("removed sandboxes = %#v", environment.removed)
+	}
+}
+
+func TestServiceRestoresReadyWorkspaceEnvironment(t *testing.T) {
+	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	environment := &fakeEnvironment{}
+	service := &Service{store: store, environment: environment, git: &recordingGit{}}
+	if err := service.Recover(context.Background()); err != nil {
+		t.Fatalf("Recover: %v", err)
+	}
+	if len(environment.ensured) != 1 || environment.ensured[0].WorkspaceWritable ||
+		environment.ensured[0].WorkspaceID != value.ID {
+		t.Fatalf("restored environments = %#v", environment.ensured)
+	}
+}
+
+func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
+	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "ayati/change", true)
+	service := &Service{
+		store: store, environment: &fakeEnvironment{err: errors.New("no environment is available")},
+		git: &recordingGit{},
+	}
+	if err := service.Recover(context.Background()); err != nil {
+		t.Fatalf("Recover: %v", err)
+	}
+	loaded, err := store.Get(context.Background(), value.ID)
+	if err != nil || loaded.Status != StatusStopped ||
+		!strings.Contains(loaded.Error, "no environment is available") {
+		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 }
 
@@ -101,7 +129,7 @@ func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 	if len(environment.removed) != 1 || len(environment.ensured) != 1 ||
-		environment.ensured[0].MountMode != sandbox.MountReadWrite || len(git.calls) != 0 {
+		!environment.ensured[0].WorkspaceWritable || len(git.calls) != 0 {
 		t.Fatalf("sandbox = removed %#v ensured %#v, git = %#v",
 			environment.removed, environment.ensured, git.calls)
 	}

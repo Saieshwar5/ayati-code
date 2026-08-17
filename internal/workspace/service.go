@@ -9,13 +9,16 @@ import (
 	"strings"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
 )
 
 type environment interface {
-	Ensure(context.Context, sandbox.Spec) (sandbox.MountMode, error)
-	Open(string, map[string]string) (agent.Shell, error)
-	Remove(context.Context, string) error
+	Cleanup(context.Context, compute.StopInput) error
+	Ensure(context.Context, compute.StopInput) (compute.Assignment, error)
+	Start(context.Context, compute.StartInput) (compute.Assignment, error)
+	Replace(context.Context, compute.ReplaceInput) (compute.Assignment, error)
+	Stop(context.Context, compute.StopInput) error
+	Open(context.Context, compute.StopInput, map[string]string) (agent.Shell, error)
 }
 
 type gitClient interface {
@@ -61,8 +64,8 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-		return fmt.Errorf("remove sandbox: %w", err)
+	if err := s.environment.Stop(ctx, runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+		return fmt.Errorf("release environment: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
 }
@@ -81,17 +84,20 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	if value.PreparationStage != PreparationReady {
 		return fmt.Errorf("workspace preparation is %s and cannot be resumed", value.PreparationStage)
 	}
-	mode, err := s.environment.Ensure(ctx, s.sandboxSpec(value, value.Authority.MountMode()))
+	_, err = s.environment.Start(ctx, compute.StartInput{
+		WorkspaceID: value.ID, WorkspacePath: value.Path,
+		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: value.Authority == AuthorityDevelop,
+	})
 	if err != nil {
-		return fmt.Errorf("resume sandbox: %w", err)
+		return fmt.Errorf("resume environment: %w", err)
 	}
-	if mode != value.Authority.MountMode() {
-		return fmt.Errorf("resumed sandbox mount is %s, expected %s", mode, value.Authority.MountMode())
+	if err := s.store.UpdateEffectiveMountMode(ctx, id, effectiveMountMode(value.Authority)); err != nil {
+		return s.releaseAfterResumeFailure(ctx, value, err)
 	}
-	if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
-		return err
+	if err := s.store.UpdateStatus(ctx, id, StatusReady, ""); err != nil {
+		return s.releaseAfterResumeFailure(ctx, value, err)
 	}
-	return s.store.UpdateStatus(ctx, id, StatusReady, "")
+	return nil
 }
 
 func (s *Service) Delete(ctx context.Context, id string) error {
@@ -114,8 +120,9 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if working {
 		return errors.New("a session is still running; stop it before deleting the workspace")
 	}
-	if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-		return fmt.Errorf("remove sandbox: %w", err)
+	if err := s.environment.Cleanup(ctx,
+		runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+		return fmt.Errorf("clean workspace environment: %w", err)
 	}
 	if err := os.RemoveAll(workspaceDirectory); err != nil {
 		return fmt.Errorf("remove workspace files: %w", err)
@@ -137,25 +144,42 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if value.Status != StatusReady {
 		return nil, Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	mode, err := s.environment.Ensure(ctx, sandbox.Spec{
-		Name: value.SandboxName, Path: value.Path, CachePath: workspaceCachePath(value.Path),
-		MountMode: value.Authority.MountMode(),
-	})
-	if err != nil {
-		return nil, Workspace{}, fmt.Errorf("restore sandbox: %w", err)
-	}
-	if value.EffectiveMountMode != string(mode) {
-		if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
+	writable := value.Authority == AuthorityDevelop
+	mode := effectiveMountMode(value.Authority)
+	if value.EffectiveMountMode != mode {
+		if err := s.store.UpdateEffectiveMountMode(ctx, id, mode); err != nil {
 			return nil, Workspace{}, err
 		}
-		value.EffectiveMountMode = string(mode)
+		value.EffectiveMountMode = mode
 	}
 	variables, err := s.store.EnvironmentValues(ctx, id, false)
 	if err != nil {
 		return nil, Workspace{}, err
 	}
-	shell, err := s.environment.Open(value.SandboxName, runtimeEnvironment(variables))
+	shell, err := s.environment.Open(ctx, runtimeInput(value, writable), runtimeEnvironment(variables))
 	return shell, value, err
+}
+
+func runtimeInput(value Workspace, writable bool) compute.StopInput {
+	return compute.StopInput{
+		WorkspaceID: value.ID, WorkspacePath: value.Path,
+		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: writable,
+	}
+}
+
+func effectiveMountMode(authority Authority) string {
+	if authority == AuthorityDevelop {
+		return "rw"
+	}
+	return "ro"
+}
+
+func (s *Service) releaseAfterResumeFailure(ctx context.Context, value Workspace, cause error) error {
+	if err := s.environment.Stop(ctx,
+		runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+		return errors.Join(cause, fmt.Errorf("release resumed environment: %w", err))
+	}
+	return cause
 }
 
 func (s *Service) prepareRepository(ctx context.Context, value Workspace) error {

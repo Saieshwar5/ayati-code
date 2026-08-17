@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+	compute "github.com/Saieshwar5/ayati-code/internal/environment"
 )
 
 func (s *Service) Initialize(ctx context.Context, id string) error {
@@ -80,64 +81,70 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		profilePreparationDetail(profile)); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	preparation := s.sandboxSpec(value, sandbox.MountReadWrite)
-	if _, err := s.environment.Ensure(ctx, preparation); err != nil {
-		return s.fail(ctx, id, fmt.Errorf("start sandbox: %w", err))
+	if _, err := s.environment.Start(ctx, compute.StartInput{
+		WorkspaceID: value.ID, WorkspacePath: value.Path,
+		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: true,
+	}); err != nil {
+		return s.fail(ctx, id, fmt.Errorf("acquire environment: %w", err))
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, err)
+		return s.failActivePreparation(ctx, value, true, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
 		"Checking the Git baseline"); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.failActivePreparation(ctx, value, true, err)
 	}
 	after, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, fmt.Errorf("verify setup baseline: %w", err))
+		return s.failActivePreparation(ctx, value, true, fmt.Errorf("verify setup baseline: %w", err))
 	}
 	profile.BaselineResult = "clean"
 	if after != before {
 		profile.BaselineResult = "changed"
 		if value.Authority == AuthorityExplore {
 			_ = s.store.SaveProfile(ctx, id, profile)
-			return s.failActivePreparation(ctx, value, errors.New(
+			return s.failActivePreparation(ctx, value, true, errors.New(
 				"setup modified project files; switch to Develop or adjust setup: "+boundedMessage(after),
 			))
 		}
 	}
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.failActivePreparation(ctx, value, true, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationSealing,
 		"Applying "+string(value.Authority)+" protection"); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.failActivePreparation(ctx, value, true, err)
 	}
-	ready := s.sandboxSpec(value, value.Authority.MountMode())
-	if ready.MountMode == sandbox.MountReadOnly {
-		if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-			return s.fail(ctx, id, fmt.Errorf("seal sandbox: %w", err))
+	if value.Authority == AuthorityExplore {
+		if _, err := s.environment.Replace(ctx, compute.ReplaceInput{
+			WorkspaceID: value.ID, WorkspacePath: value.Path, CachePath: workspaceCachePath(value.Path),
+			PreviousWorkspaceWritable: true, WorkspaceWritable: false,
+		}); err != nil {
+			writable := compute.ReplacementRecovered(err)
+			return s.failActivePreparation(ctx, value, writable, fmt.Errorf("protect environment: %w", err))
 		}
 	}
-	mode, err := s.environment.Ensure(ctx, ready)
-	if err != nil {
-		return s.failActivePreparation(ctx, value, fmt.Errorf("start protected sandbox: %w", err))
-	}
-	if err := s.store.UpdateEffectiveMountMode(ctx, id, string(mode)); err != nil {
-		return s.fail(ctx, id, err)
+	if err := s.store.UpdateEffectiveMountMode(ctx, id, effectiveMountMode(value.Authority)); err != nil {
+		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
 	}
 	now := time.Now().UTC()
 	profile.PreparedAt = &now
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.fail(ctx, id, err)
+		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
 	}
-	return s.store.CompletePreparation(ctx, id)
+	if err := s.store.CompletePreparation(ctx, id); err != nil {
+		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
+	}
+	return nil
 }
 
-func (s *Service) failActivePreparation(ctx context.Context, value Workspace, cause error) error {
-	if err := s.environment.Remove(ctx, value.SandboxName); err != nil {
-		cause = fmt.Errorf("%w; remove preparation sandbox: %v", cause, err)
+func (s *Service) failActivePreparation(
+	ctx context.Context, value Workspace, writable bool, cause error,
+) error {
+	if err := s.environment.Stop(ctx, runtimeInput(value, writable)); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		cause = fmt.Errorf("%w; release preparation environment: %v", cause, err)
 	}
 	return s.fail(ctx, value.ID, cause)
 }
@@ -151,7 +158,7 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 	if err != nil {
 		return err
 	}
-	shell, err := s.environment.Open(value.SandboxName, runtimeEnvironment(variables))
+	shell, err := s.environment.Open(ctx, runtimeInput(value, true), runtimeEnvironment(variables))
 	if err != nil {
 		return err
 	}
@@ -167,13 +174,6 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 func (s *Service) gitOutput(ctx context.Context, path string, arguments ...string) (string, error) {
 	value, err := s.git.Output(ctx, append([]string{"-C", path}, arguments...)...)
 	return strings.TrimSpace(value), err
-}
-
-func (s *Service) sandboxSpec(value Workspace, mode sandbox.MountMode) sandbox.Spec {
-	return sandbox.Spec{
-		Name: value.SandboxName, Path: value.Path,
-		CachePath: workspaceCachePath(value.Path), MountMode: mode,
-	}
 }
 
 func workspaceCachePath(repositoryPath string) string {

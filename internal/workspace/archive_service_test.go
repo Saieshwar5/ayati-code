@@ -29,7 +29,7 @@ func TestServiceArchiveStopsSandboxAndBlocksWorkspaceUse(t *testing.T) {
 	if err := service.Archive(context.Background(), value.ID); err != nil {
 		t.Fatalf("Archive: %v", err)
 	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.SandboxName {
+	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
 		t.Fatalf("removed sandboxes = %#v", environment.removed)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)

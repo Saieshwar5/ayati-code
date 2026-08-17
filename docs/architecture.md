@@ -9,15 +9,16 @@ The durable project object is a workspace containing one or more sessions. Reusa
 ```text
 Existing or newly created GitHub repository + base/working branch
   -> local clone + SQLite record
-  -> one named Docker sandbox
+  -> exclusive lease on one reusable environment
+  -> disposable, generation-identified Docker runtime
   -> deterministic project analysis + dependency initialization
   -> separate durable session chats and explicit agent runs
   -> Git status/diff review
   -> commit, push, and draft pull request
-  -> user stops sandbox
+  -> user stops workspace and releases environment capacity
 ```
 
-The repository and SQLite record survive a normal Stop. Resume recreates the named sandbox at the stored authority without rerunning preparation, so Develop changes remain intact. A ready workspace restores its named container if the controller process or container was restarted. Delete is a separate confirmed action that removes the managed container, local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
+The repository, cache, sessions, and SQLite record survive a normal Stop. Stop destroys the exact leased runtime and releases the environment. Resume acquires available capacity and creates a new runtime at the stored authority without rerunning preparation, so Develop changes remain intact. A ready workspace restores and verifies its active leased runtime after a controller restart. Delete is a separate confirmed action that first proves no live or uncertain runtime remains, then removes the local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
 
 ## Component ownership
 
@@ -27,7 +28,7 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `internal/environment` owns reusable compute definitions, exclusive generation-checked workspace leases, and runtime transition coordination.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
-- `internal/sandbox` owns persistent Docker-container creation, restoration, removal, the Docker environment driver, and bounded shell execution.
+- `internal/sandbox` owns disposable Docker-runtime creation, restoration, replacement and removal, the Docker environment driver, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
@@ -47,7 +48,7 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
+- `workspaces`: repository, branch, authority, effective mount mode, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `agent_runs`: durable accepted work with exact workspace/session ownership, lifecycle, failure, and timestamps.
@@ -60,15 +61,15 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `environments`: reusable runtime configuration, resolved image identity, resource policy, provisioning health, and lease generation.
 - `environment_leases`: durable acquiring, active, releasing, released, or failed assignments with unique active environment and workspace constraints.
 
-Environment persistence and the lease-aware Docker driver are implemented. Workspace lifecycle
-still uses its existing named container until creation, preparation, Stop, Resume, authority
-changes, and shell access are moved behind the runtime service in the next slice. Keeping this
-transition explicit prevents the driver milestone from claiming workspace behavior it does not
-yet control.
+On first startup the controller registers one ready Local Docker environment using the immutable
+ID resolved from the configured sandbox image. Additional environments remain a later management
+surface. Workspace creation, preparation, shell access, authority changes, Stop, Resume, recovery,
+and deletion all use `internal/environment.RuntimeService`; no workspace-derived container name is
+a lifecycle authority.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, sandbox, environment, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.
+Sessions share one workspace clone, branch, cache, leased environment, runtime, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.
 
 The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
 
@@ -93,13 +94,13 @@ Initialization first clones or opens the repository with trusted host Git. A req
 
 Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, environment metadata, and sessions.
 
-On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller removes its named preparation sandbox before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Ayati does not pretend a process restart can resume an in-memory provider or shell call. Ready, stopped, failed, and configuration-waiting workspaces remain unchanged.
+On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller releases its acquiring or active runtime before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Ayati does not pretend a process restart can resume an in-memory provider or shell call. Ready workspaces restore and verify the runtime recorded by their active lease. If capacity or runtime restoration is unavailable, the workspace becomes stopped with an actionable message. Stopped, failed, and configuration-waiting workspaces do not acquire capacity.
 
-Ayati then creates `ayati-workspace-<id>` with a writable preparation mount and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller removes that writable container, recreates `/workspace` read-only, verifies Docker's effective mount metadata, and records it. Develop remains read-write. The ready container stays alive across chat turns and controller restarts; `Stop` removes only that validated Ayati container name.
+Preparation acquires a ready environment, creates a writable generation-identified runtime, and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller replaces the runtime under the same lease with `/workspace` read-only, verifies Docker's effective metadata, and records it. Develop keeps the writable runtime. The active lease and runtime span chat turns; `Stop` destroys that exact runtime before releasing capacity.
 
-Authority changes are synchronous controller operations guarded by the chat service's per-workspace run lock. Explore to Develop validates and creates a local working branch when needed, removes the old container, recreates it read-write, verifies the effective mount, and only then commits the authority, branch, and mount state to SQLite. Develop to Explore keeps the current branch and all working-tree changes while recreating the mount read-only. If a transition fails, Ayati restores the previous branch and mount; if recovery also fails, the workspace enters a failed state instead of reporting an authority it could not verify.
+Authority changes are synchronous controller operations guarded by the chat service's per-workspace run lock. Explore to Develop validates and creates a local working branch when needed, replaces the runtime under the same lease as read-write, verifies it, and only then commits the authority, branch, and mount state to SQLite. Develop to Explore keeps the current branch and all working-tree changes while replacing the runtime as read-only. If a transition fails, Ayati recreates the previous access mode under the same lease when possible; if recovery also fails, the lease fails, its environment is quarantined, and the workspace enters a failed state instead of reporting an authority it could not verify.
 
-Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the owned sandbox, removes that workspace directory, and finally deletes its SQLite record. Foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
+Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, and asks the runtime service to release an active lease or clean up the exact runtime recorded by a failed lease. An uncertain runtime blocks deletion and keeps its environment quarantined. Only after compute cleanup succeeds does Ayati remove the workspace directory and SQLite record. Foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
 
 The container boundary includes:
 

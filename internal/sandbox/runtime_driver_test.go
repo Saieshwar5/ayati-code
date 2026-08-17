@@ -161,6 +161,50 @@ func TestDockerDriverDestroysOnlyVerifiedRuntime(t *testing.T) {
 	}
 }
 
+func TestDockerDriverFindsGenerationRuntimeWhenRecordedIdentityIsStale(t *testing.T) {
+	spec := testRuntimeSpec(t, true, environment.NetworkOutbound)
+	recordedID := strings.Repeat("b", 64)
+	currentID := strings.Repeat("c", 64)
+	runner := &fakeRunner{
+		results: []commandResult{
+			{stderr: "No such container"},
+			{stdout: runtimeMetadata(t, spec, currentID, true, nil)}, {},
+			{stderr: "No such container"},
+		},
+		errors: []error{errors.New("missing"), nil, nil, errors.New("missing")},
+	}
+	driver := &DockerDriver{runner: runner}
+	if err := driver.Destroy(context.Background(), spec, recordedID); err != nil {
+		t.Fatalf("Destroy: %v", err)
+	}
+	if len(runner.calls) != 4 || runner.calls[1][4] != runtimeName(spec) ||
+		runner.calls[2][0] != "rm" || runner.calls[2][3] != currentID {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
+func TestDockerDriverDestroysRuntimeWhenRecordedAccessModeIsStale(t *testing.T) {
+	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
+	actual := spec
+	actual.WorkspaceWritable = true
+	runtimeID := strings.Repeat("d", 64)
+	runner := &fakeRunner{
+		results: []commandResult{
+			{stdout: runtimeMetadata(t, actual, runtimeID, true, nil)},
+			{stdout: runtimeMetadata(t, actual, runtimeID, true, nil)}, {},
+			{stderr: "No such container"},
+		},
+		errors: []error{nil, nil, nil, errors.New("missing")},
+	}
+	driver := &DockerDriver{runner: runner}
+	if err := driver.Destroy(context.Background(), spec, runtimeID); err != nil {
+		t.Fatalf("Destroy: %v", err)
+	}
+	if len(runner.calls) != 4 || runner.calls[2][0] != "rm" || runner.calls[2][3] != runtimeID {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
 func testRuntimeSpec(t *testing.T, writable bool, network string) environment.RuntimeSpec {
 	t.Helper()
 	root := t.TempDir()

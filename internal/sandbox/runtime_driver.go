@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Saieshwar5/ayati-code/internal/agent"
 	"github.com/Saieshwar5/ayati-code/internal/environment"
 )
 
@@ -34,6 +35,44 @@ func NewDockerDriver() (*DockerDriver, error) {
 	return &DockerDriver{runner: osRunner{docker: docker}}, nil
 }
 
+func (d *DockerDriver) ResolveImage(ctx context.Context, imageRef string) (string, error) {
+	imageRef = strings.TrimSpace(imageRef)
+	if imageRef == "" || strings.HasPrefix(imageRef, "-") || len(imageRef) > 512 ||
+		strings.ContainsAny(imageRef, "\r\n\x00") {
+		return "", errors.New("Docker image reference is invalid")
+	}
+	result, err := d.run(ctx, "image", "inspect", "--format", "{{.Id}}", imageRef)
+	if err != nil {
+		return "", fmt.Errorf("resolve Docker image %s: %w", imageRef, err)
+	}
+	identity := strings.TrimSpace(result.stdout)
+	if !validImageID(identity) {
+		return "", errors.New("resolve Docker image: Docker returned an invalid sha256 identity")
+	}
+	return identity, nil
+}
+
+func (d *DockerDriver) OpenRuntime(runtimeID string, variables map[string]string) (agent.Shell, error) {
+	if !validDockerID(strings.TrimSpace(runtimeID)) {
+		return nil, errors.New("environment runtime identity is unsafe")
+	}
+	if err := validateVariables(variables); err != nil {
+		return nil, err
+	}
+	return &Shell{
+		runner: d.runner, stop: d.stopRuntime, name: strings.TrimSpace(runtimeID),
+		timeout: commandTimeout, variables: copyVariables(variables),
+	}, nil
+}
+
+func (d *DockerDriver) stopRuntime(ctx context.Context, runtimeID string) error {
+	if !validDockerID(strings.TrimSpace(runtimeID)) {
+		return errors.New("environment runtime identity is unsafe")
+	}
+	_, err := d.run(ctx, "stop", "--time", "1", runtimeID)
+	return err
+}
+
 func (d *DockerDriver) Create(
 	ctx context.Context, spec environment.RuntimeSpec,
 ) (environment.Runtime, error) {
@@ -42,8 +81,8 @@ func (d *DockerDriver) Create(
 		return environment.Runtime{}, err
 	}
 	if spec.Environment.ProvisioningState != environment.ProvisioningReady ||
-		spec.Lease.State != environment.LeaseAcquiring {
-		return environment.Runtime{}, errors.New("runtime requires a ready environment and acquiring lease")
+		(spec.Lease.State != environment.LeaseAcquiring && spec.Lease.State != environment.LeaseActive) {
+		return environment.Runtime{}, errors.New("runtime requires a ready environment and live lease")
 	}
 	name := runtimeName(spec)
 	runtime, exists, err := d.inspect(ctx, spec, name)
@@ -110,9 +149,18 @@ func (d *DockerDriver) Destroy(
 	if err != nil {
 		return err
 	}
-	runtime, exists, err := d.inspect(ctx, spec, target)
-	if err != nil || !exists {
+	runtime, exists, err := d.inspectForDestroy(ctx, spec, target)
+	if err != nil {
 		return err
+	}
+	if !exists && strings.TrimSpace(runtimeID) != "" {
+		runtime, exists, err = d.inspectForDestroy(ctx, spec, runtimeName(spec))
+		if err != nil {
+			return err
+		}
+	}
+	if !exists {
+		return nil
 	}
 	if _, err := d.run(ctx, "rm", "--force", "--volumes", runtime.ID); err != nil {
 		return fmt.Errorf("remove environment runtime: %w", err)
@@ -123,6 +171,17 @@ func (d *DockerDriver) Destroy(
 		return errors.New("verify environment runtime removal: container still exists")
 	}
 	return nil
+}
+
+func (d *DockerDriver) inspectForDestroy(
+	ctx context.Context, spec environment.RuntimeSpec, target string,
+) (environment.Runtime, bool, error) {
+	runtime, exists, err := d.inspect(ctx, spec, target)
+	if !errors.Is(err, errWorkspaceAccessMismatch) {
+		return runtime, exists, err
+	}
+	spec.WorkspaceWritable = !spec.WorkspaceWritable
+	return d.inspect(ctx, spec, target)
 }
 
 func (d *DockerDriver) requireRuntime(

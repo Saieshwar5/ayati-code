@@ -97,10 +97,24 @@ func (s *Store) Activate(ctx context.Context, leaseID string, generation int64, 
 
 func (s *Store) BeginRelease(ctx context.Context, leaseID string, generation int64) error {
 	result, err := s.db.ExecContext(ctx, `UPDATE environment_leases SET state = ?
-		WHERE id = ? AND generation = ? AND state = ?`, LeaseReleasing,
-		strings.TrimSpace(leaseID), generation, LeaseActive)
+		WHERE id = ? AND generation = ? AND state IN ('acquiring', 'active')`, LeaseReleasing,
+		strings.TrimSpace(leaseID), generation)
 	if err != nil {
 		return fmt.Errorf("begin environment release: %w", err)
+	}
+	return requireLeaseTransition(result)
+}
+
+func (s *Store) ReplaceRuntime(ctx context.Context, leaseID string, generation int64, runtimeID string) error {
+	runtimeID = strings.TrimSpace(runtimeID)
+	if runtimeID == "" {
+		return errors.New("runtime identity is required")
+	}
+	result, err := s.db.ExecContext(ctx, `UPDATE environment_leases SET runtime_id = ?, error = ''
+		WHERE id = ? AND generation = ? AND state = ?`, runtimeID,
+		strings.TrimSpace(leaseID), generation, LeaseActive)
+	if err != nil {
+		return fmt.Errorf("replace environment runtime: %w", err)
 	}
 	return requireLeaseTransition(result)
 }
@@ -156,6 +170,12 @@ func (s *Store) ActiveForWorkspace(ctx context.Context, workspaceID string) (Lea
 func (s *Store) ActiveForEnvironment(ctx context.Context, environmentID string) (Lease, error) {
 	row := s.db.QueryRowContext(ctx, leaseSelect+` WHERE environment_id = ?
 		AND state IN ('acquiring', 'active', 'releasing')`, strings.TrimSpace(environmentID))
+	return scanLease(row)
+}
+
+func (s *Store) LatestForWorkspace(ctx context.Context, workspaceID string) (Lease, error) {
+	row := s.db.QueryRowContext(ctx, leaseSelect+` WHERE workspace_id = ?
+		ORDER BY acquired_at DESC, id DESC LIMIT 1`, strings.TrimSpace(workspaceID))
 	return scanLease(row)
 }
 

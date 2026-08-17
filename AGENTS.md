@@ -2,7 +2,7 @@
 
 ## Project scope
 
-Ayati is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, one persistent Docker sandbox per active workspace, dependency initialization, reusable global agent profiles and Markdown skills, durable browser chat, explicit agent work, diff review, and a draft pull request.
+Ayati is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, reusable global agent profiles and Markdown skills, durable browser chat, explicit agent work, diff review, and a draft pull request.
 
 Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The model has one tool: `shell(command)`.
 
@@ -13,7 +13,7 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 - `internal/environment/`: reusable compute definitions, availability, exclusive workspace leases, and lease/runtime coordination.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
 - `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
-- `internal/sandbox/`: persistent Docker containers, the verified Docker environment driver, and bounded shell execution.
+- `internal/sandbox/`: disposable Docker runtimes, the verified Docker environment driver, runtime restoration, and bounded shell execution.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
 - `internal/agent/`: agent and skill definitions, prompt composition, shared messages, and sequential loop.
@@ -50,7 +50,7 @@ Workspace environment values are separate user-provided development credentials.
 
 Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, and a managed cache outside the repository. Explore mounts the selected workspace read-only; Develop mounts it read-write. Preserve command, output, timeout, workspace, cache, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
 
-Each workspace keeps one named sandbox until the user stops it. Custom agent instructions and inert Markdown skills never override workspace authority or controller credential and publishing rules. Skills do not add tools or executable controller behavior. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
+Each active workspace holds one exclusive, generation-checked environment lease. Stop destroys the exact leased runtime and releases the environment while preserving the repository and cache; Resume acquires available capacity and creates a new runtime. Custom agent instructions and inert Markdown skills never override workspace authority or controller credential and publishing rules. Skills do not add tools or executable controller behavior. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
 
 ## Git changes
 

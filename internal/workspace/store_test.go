@@ -22,17 +22,18 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 	if err != nil || info.Mode().Perm() != 0o600 {
 		t.Fatalf("database permissions = %v, error = %v", info.Mode().Perm(), err)
 	}
+	repositoryPath := filepath.Join(t.TempDir(), "repo")
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "ayati/change", CreateBranch: true, Setup: "go mod download",
-		Path: filepath.Join(t.TempDir(), "repo"),
+		Path: repositoryPath,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 	if created.Status != StatusCreating || created.PreparationStage != PreparationPending ||
 		len(created.ConfigurationCandidates) != 0 || !created.CreateBranch || created.Authority != AuthorityExplore ||
-		created.SandboxName != "ayati-workspace-"+created.ID {
+		created.Path != filepath.Clean(repositoryPath) {
 		t.Fatalf("workspace = %#v", created)
 	}
 	if err := store.UpdateStatus(context.Background(), created.ID, StatusReady, ""); err != nil {

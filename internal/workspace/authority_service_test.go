@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
 )
 
 func TestServiceSealsExploreWorkspaceAfterSetup(t *testing.T) {
@@ -28,8 +27,8 @@ func TestServiceSealsExploreWorkspaceAfterSetup(t *testing.T) {
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
-	if len(environment.ensured) != 2 || environment.ensured[0].MountMode != sandbox.MountReadWrite ||
-		environment.ensured[1].MountMode != sandbox.MountReadOnly || len(environment.removed) != 1 {
+	if len(environment.ensured) != 2 || !environment.ensured[0].WorkspaceWritable ||
+		environment.ensured[1].WorkspaceWritable || len(environment.removed) != 1 {
 		t.Fatalf("sandbox lifecycle = ensured %#v, removed %#v", environment.ensured, environment.removed)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
