@@ -44,6 +44,9 @@ func (s *Server) createAgent(writer http.ResponseWriter, request *http.Request) 
 	if !s.decode(writer, request, &input) {
 		return
 	}
+	if !s.requireProvider(writer, input.ProviderID) {
+		return
+	}
 	value, err := s.store.CreateAgent(request.Context(), input)
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
@@ -62,12 +65,27 @@ func (s *Server) updateAgent(writer http.ResponseWriter, request *http.Request) 
 	if !s.decode(writer, request, &input) {
 		return
 	}
+	if !s.requireProvider(writer, input.ProviderID) {
+		return
+	}
 	value, err := s.store.UpdateAgent(request.Context(), parts[0], input)
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
 	s.writeJSON(writer, http.StatusOK, value)
+}
+
+func (s *Server) requireProvider(writer http.ResponseWriter, id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		id = agent.FireworksProviderID
+	}
+	if s.providers.Has(id) {
+		return true
+	}
+	s.writeError(writer, http.StatusBadRequest, "provider is not available")
+	return false
 }
 
 func (s *Server) agentAction(writer http.ResponseWriter, request *http.Request) {

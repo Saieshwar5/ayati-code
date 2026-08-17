@@ -58,7 +58,7 @@ Open `http://127.0.0.1:8080`. A different callback or address can be supplied wi
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
 4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and authority sealing. Ayati encrypts its environment, deterministically records the project profile and clean Git commit, creates new working branches locally, and runs dependency setup in a trusted writable initialization phase. If several applications are detected, preparation pauses for a project-root choice and continues after that choice. Explore is sealed only when setup leaves tracked and non-ignored project files unchanged, then recreated with `/workspace` read-only before the agent can run.
 5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, sandbox, branch, environment, and uncommitted changes. New sessions start with the current global default agent.
-6. Open Agent Studio to create reusable agents with their own identity, Fireworks model, instructions, step budget, shell capability, and ordered Markdown skills. The built-in Ayati agent is protected, exactly one global default always exists, and changing the default does not rewrite existing session selections.
+6. Open Agent Studio to inspect model providers and create reusable agents with their own identity, provider, model, instructions, step budget, shell capability, and ordered Markdown skills. The built-in Ayati agent is protected, exactly one global default always exists, and changing the default does not rewrite existing session selections. Fireworks is the first configured runtime; the registry keeps future adapters out of the agent loop.
 7. Create or import reusable skills from `.md` files, then attach them to editable custom agents. Skills are inert prompt guidance: they cannot add tools or override workspace, credential, and publishing rules. Attached skills must be detached before archival.
 8. Select an available agent above the chat composer. Agents do not keep their own conversation state: the selected agent receives the current workspace facts and that session's history for each run. Assistant messages retain the agent identity and attached skill revisions even when their definitions later change.
 9. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project. Agents with shell capability disabled receive no model-facing tool; enabled agents receive only `shell(command)` under the workspace's Explore or Develop authority.
@@ -78,11 +78,11 @@ If Ayati itself stops during repository preparation, the next startup marks that
 
 - SQLite: `$XDG_CONFIG_HOME/ayati/ayati.db` or `~/.config/ayati/ayati.db`
 - workspace environment key: `$XDG_CONFIG_HOME/ayati/environment.key` or `~/.config/ayati/environment.key`
-- Fireworks config: `$XDG_CONFIG_HOME/ayati/config.json`
+- private model-provider config: `$XDG_CONFIG_HOME/ayati/config.json`
 - GitHub user credential: `$XDG_CONFIG_HOME/ayati/github.json`
 - cloned workspaces: `~/.local/share/ayati/workspaces`
 
-The controller owns GitHub and Fireworks credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
+The controller owns GitHub and model-provider credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
 
 Workspace environment values are encrypted in SQLite with a private local key. APIs return names and scope but never stored values. Values are sent through standard input to a short-lived sandbox launcher for each shell command, are not stored in the repository or permanent Docker configuration, and are best-effort redacted from captured output. A command that is allowed to use a value can still read or transmit it; use narrowly scoped development credentials, especially because workspace network access is enabled.
 

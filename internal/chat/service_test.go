@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Saieshwar5/ayati-code/internal/agent"
+	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
 	"github.com/Saieshwar5/ayati-code/internal/workspace"
 )
 
@@ -48,6 +49,20 @@ func (s *fakeShell) Execute(_ context.Context, request agent.ShellRequest) agent
 	return agent.ShellResult{Command: request.Command, ExitCode: 0, Stdout: "ok"}
 }
 
+func testProviders(t *testing.T, client agent.Provider, model string) *modelprovider.Registry {
+	t.Helper()
+	registry, err := modelprovider.New(modelprovider.Registration{
+		Definition: modelprovider.Definition{
+			ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
+		},
+		Client: client, DefaultModel: model,
+	})
+	if err != nil {
+		t.Fatalf("provider.New: %v", err)
+	}
+	return registry
+}
+
 func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
 	if err != nil {
@@ -80,7 +95,8 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 		{Role: "assistant", Content: "done"},
 	}}
 	shell := &fakeShell{}
-	service, err := New(store, fakeRuntime{shell: shell, workspace: value}, provider, "test-model")
+	service, err := New(store, fakeRuntime{shell: shell, workspace: value},
+		testProviders(t, provider, "test-model"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -124,7 +140,8 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 		t.Fatalf("sessions = %#v, error = %v", sessions, err)
 	}
 	started := make(chan struct{})
-	service, err := New(store, fakeRuntime{shell: &fakeShell{}}, blockingProvider{started: started}, "test-model")
+	service, err := New(store, fakeRuntime{shell: &fakeShell{}},
+		testProviders(t, blockingProvider{started: started}, "test-model"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -182,7 +199,8 @@ func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	started := make(chan struct{})
-	service, err := New(store, fakeRuntime{shell: &fakeShell{}}, blockingProvider{started: started}, "test-model")
+	service, err := New(store, fakeRuntime{shell: &fakeShell{}},
+		testProviders(t, blockingProvider{started: started}, "test-model"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
@@ -246,7 +264,8 @@ func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
 		t.Fatalf("SelectSessionAgent: %v", err)
 	}
 	provider := &scriptedProvider{messages: []agent.Message{{Role: "assistant", Content: "reviewed"}}}
-	service, err := New(store, fakeRuntime{shell: &fakeShell{}, workspace: value}, provider, "default-model")
+	service, err := New(store, fakeRuntime{shell: &fakeShell{}, workspace: value},
+		testProviders(t, provider, "default-model"))
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

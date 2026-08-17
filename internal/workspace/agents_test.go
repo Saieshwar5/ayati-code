@@ -100,7 +100,7 @@ func TestAgentDefinitionValidationRejectsUnsupportedConfiguration(t *testing.T) 
 	for _, input := range []agent.DefinitionInput{
 		{},
 		{Name: "Too many steps", MaxSteps: 21},
-		{Name: "Unknown provider", ProviderID: "unknown", MaxSteps: 5},
+		{Name: "Invalid provider", ProviderID: "Not Valid", MaxSteps: 5},
 	} {
 		if _, err := store.CreateAgent(context.Background(), input); err == nil {
 			t.Fatalf("CreateAgent accepted %#v", input)

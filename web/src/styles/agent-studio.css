@@ -70,6 +70,17 @@
 .agent-upcoming-page .muted { max-width: 520px; margin: 0 auto 18px; }
 .agent-upcoming-page em { padding: 5px 9px; border-radius: 999px; background: #ebe8df; color: #65625b; font-size: 9px; font-style: normal; font-weight: 750; text-transform: uppercase; }
 
+.provider-summary { padding: 7px 10px; border: 1px solid #d5d2c9; border-radius: 999px; background: #fff; color: #65625b; font-size: 10px; font-weight: 720; }
+.provider-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.provider-card { min-height: 210px; padding: 22px; display: grid; grid-template-rows: auto 1fr auto; gap: 18px; border: 1px solid #d8d6cf; border-radius: 16px; background: #fff; box-shadow: 0 12px 30px rgba(31, 29, 24, .04); }
+.provider-card-mark { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 12px; background: #ebe8df; font-size: 20px; }
+.provider-card h2 { margin: 8px 0 4px; font-size: 20px; }
+.provider-card p { margin: 0; color: #77736b; font-size: 11px; }
+.provider-card small { padding-top: 13px; border-top: 1px solid #e5e2db; color: #89867e; font-size: 9px; }
+.provider-state { display: inline-block; padding: 4px 7px; border-radius: 999px; background: #efeee9; color: #77736b; font-size: 8px; font-weight: 760; letter-spacing: .05em; text-transform: uppercase; }
+.provider-state.configured { background: #e7f3e8; color: #286134; }
+.provider-foundation-note { margin-top: 20px; padding: 16px 18px; border: 1px dashed #c9c6bc; border-radius: 12px; background: #fbfaf7; }
+.provider-foundation-note p { margin: 4px 0 0; color: #77736b; font-size: 10px; line-height: 1.5; }
 .skill-heading-actions { display: flex; align-items: center; gap: 8px; }
 .skills-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
 .skills-layout.editing { grid-template-columns: minmax(280px, .8fr) minmax(360px, 1.2fr); }

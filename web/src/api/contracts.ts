@@ -114,7 +114,7 @@ export interface AgentDefinition {
   name: string;
   emoji: string;
   description: string;
-  provider_id: "fireworks";
+  provider_id: string;
   model: string;
   max_steps: number;
   shell_enabled: boolean;
@@ -132,7 +132,7 @@ export interface AgentInput {
   name: string;
   emoji: string;
   description: string;
-  provider_id: "fireworks";
+  provider_id: string;
   model: string;
   max_steps: number;
   shell_enabled: boolean;
@@ -162,6 +162,13 @@ export interface SkillReference {
   id: string;
   name: string;
   revision: number;
+}
+
+export interface ProviderDefinition {
+  id: string;
+  name: string;
+  protocol: string;
+  configured: boolean;
 }
 
 export interface AgentAttribution {

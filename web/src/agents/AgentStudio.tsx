@@ -1,6 +1,7 @@
 import type { AppRoute } from "../app/useAppRoute";
 import { AgentsPage } from "./AgentsPage";
 import { AgentEditor } from "./AgentEditor";
+import { ProvidersPage } from "./ProvidersPage";
 import { SkillsPage } from "./SkillsPage";
 import type { AgentController } from "./useAgentController";
 import type { SkillController } from "./useSkillController";
@@ -29,29 +30,7 @@ export function AgentStudio(props: AgentStudioProps) {
     return <AgentEditor creating={false} definition={definition} controller={props.controller} skillController={props.skills} onNavigate={props.onNavigate} />;
   }
   if (props.route.page === "agent-providers") {
-    return <UpcomingPage eyebrow="Model access" title="Providers" glyph="◎" description="Fireworks is Ayati’s configured provider. Write-only provider management will be implemented in its own focused branch." action="1 provider available" />;
+    return <ProvidersPage controller={props.controller} />;
   }
   return <SkillsPage controller={props.skills} />;
-}
-
-function UpcomingPage(props: {
-  eyebrow: string;
-  title: string;
-  glyph: string;
-  description: string;
-  action: string;
-}) {
-  return (
-    <section className="agent-page-scroll">
-      <div className="agent-page-frame narrow">
-        <div className="agent-upcoming-page">
-          <span aria-hidden="true">{props.glyph}</span>
-          <p className="eyebrow">{props.eyebrow}</p>
-          <h1>{props.title}</h1>
-          <p className="muted">{props.description}</p>
-          <em>{props.action}</em>
-        </div>
-      </div>
-    </section>
-  );
 }

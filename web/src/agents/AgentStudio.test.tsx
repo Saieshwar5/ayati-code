@@ -45,6 +45,9 @@ describe("AgentStudio", () => {
       if (path === "/api/repositories") return json([]);
       if (path === "/api/workspaces") return json([]);
       if (path === "/api/workspaces?archived=true") return json([]);
+      if (path === "/api/providers") return json([{
+        id: "fireworks", name: "Fireworks", protocol: "openai-chat", configured: true,
+      }]);
       if (path === "/api/agents?archived=true") return json([]);
       if (path === "/api/skills?archived=true") return json([]);
       if (path === "/api/skills") return json([reviewSkill]);
@@ -73,6 +76,12 @@ describe("AgentStudio", () => {
     expect(within(studio).getByRole("button", { name: /Providers/ })).toBeTruthy();
     expect(within(studio).getByRole("button", { name: /Skills/ })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Open Ayati" })).toBeTruthy();
+
+    await user.click(within(studio).getByRole("button", { name: /Providers/ }));
+    expect(await screen.findByRole("heading", { name: "Providers" })).toBeTruthy();
+    expect(screen.getByText("Configured")).toBeTruthy();
+
+    await user.click(within(studio).getByRole("button", { name: /Agents/ }));
 
     await user.click(screen.getByRole("button", { name: "＋ New agent" }));
     await user.clear(screen.getByLabelText("Emoji"));

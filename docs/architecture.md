@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Ayati is a single-user application running on one Linux machine. One Go process serves the browser UI, calls GitHub and Fireworks, owns SQLite, and controls local Docker containers. It deliberately has no Postgres, VM manager, worker fleet, queue, background agent service, or multi-provider abstraction.
+Ayati is a single-user application running on one Linux machine. One Go process serves the browser UI, calls GitHub and configured model providers, owns SQLite, and controls local Docker containers. It deliberately has no Postgres, VM manager, worker fleet, queue, background agent service, or executable provider-plugin runtime.
 
 The durable project object is a workspace containing one or more sessions. Reusable agent definitions are global configuration and are not owned by a workspace:
 
@@ -29,8 +29,9 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
-- `internal/fireworks` owns the single Fireworks request format.
-- `internal/config` owns private Fireworks configuration and its terminal setup command.
+- `internal/provider` owns validated provider definitions, registration, discovery, and runtime resolution.
+- `internal/fireworks` owns the Fireworks request format and implements the shared agent-provider contract.
+- `internal/config` owns versioned private provider configuration, legacy Fireworks migration, and the terminal setup command.
 
 Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
 
@@ -46,7 +47,7 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `workspaces`: repository, branch, authority, effective mount mode, local path, sandbox name, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
-- `agents`: global built-in and custom execution profiles containing identity, Fireworks model, step budget, shell capability, instructions, revision, and archive state.
+- `agents`: global built-in and custom execution profiles containing identity, provider and model, step budget, shell capability, instructions, revision, and archive state.
 - `skills`: global reusable Markdown guidance with revision and archive state.
 - `agent_skills`: ordered custom-agent skill attachments.
 - `application_settings`: the single global default-agent reference.
@@ -81,7 +82,7 @@ The container boundary includes:
 - one repository bind mount, read-only for Explore and read-write for Develop;
 - writable private `/tmp` and `/home/ayati` tmpfs mounts;
 - a workspace-owned `/cache` bind outside the repository, preserved across container recreation;
-- no Docker socket, host home, GitHub token, or Fireworks key.
+- no Docker socket, host home, GitHub token, or model-provider key.
 
 Commands run through `docker exec -i` and a fixed launcher with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. The controller supplies fixed cache variables for Go, npm, pip, Cargo, and XDG-compatible tools. It decrypts the current workspace values for each command and sends shell-quoted exports over standard input; they are never Docker command arguments or permanent container environment. Setup receives only values explicitly marked for setup. Exact configured values are redacted from captured output before tool results are recorded, though transformed values cannot be reliably recognized. Network isolation is deferred because initial dependency installation requires network access.
 
@@ -89,9 +90,11 @@ Environment values use AES-GCM with a random local 256-bit key stored beside the
 
 ## Agent Studio, execution, and authority
 
-Agent Studio has a global catalog containing one immutable built-in Ayati agent, reusable custom agents, and reusable Markdown skills. Exactly one active agent is the global default. A custom agent can change identity, Fireworks model, instructions, step limit from 1 through 20, whether the shell tool is exposed, and an ordered list of at most twelve active skills. Archiving a non-default custom agent reassigns sessions using it to the current default. A skill cannot be archived while any agent still references it.
+Agent Studio has a global catalog containing one immutable built-in Ayati agent, reusable custom agents, and reusable Markdown skills. Exactly one active agent is the global default. A custom agent can change identity, provider, model, instructions, step limit from 1 through 20, whether the shell tool is exposed, and an ordered list of at most twelve active skills. Archiving a non-default custom agent reassigns sessions using it to the current default. A skill cannot be archived while any agent still references it.
 
-Agent definitions and skills do not store conversation or workspace context. Skill Markdown is inert prompt guidance stored in SQLite; browser import and export provide `.md` interchange without allowing executable skill scripts. At the start of a run, `internal/chat` loads the session's selected agent and its ordered skills, snapshots their revisions, resolves an empty model to the private configured Fireworks default, combines the non-overridable workspace prompt with custom instructions and skill Markdown, loads the session history, and runs the model. Editing an agent or skill affects future runs only. Historical assistant messages keep the producing agent and skill revision snapshot. Attachment count and combined Markdown size are bounded before storage.
+Agent definitions and skills do not store conversation or workspace context. Skill Markdown is inert prompt guidance stored in SQLite; browser import and export provide `.md` interchange without allowing executable skill scripts. At the start of a run, `internal/chat` loads the session's selected agent and its ordered skills, snapshots their revisions, resolves the agent's provider through the registry, resolves an empty model to that provider's private configured default, combines the non-overridable workspace prompt with custom instructions and skill Markdown, loads the session history, and runs the model. Editing an agent or skill affects future runs only. Historical assistant messages keep the producing agent, provider, model, and skill revision snapshot. Attachment count and combined Markdown size are bounded before storage.
+
+Provider definitions are non-secret metadata. The registry exposes only identity, protocol, and configured state to the browser. Credentials remain in the private controller configuration file. Built-in adapters are compiled Go code; Ayati does not load native libraries, scripts, downloaded packages, or arbitrary headers as provider plugins. Fireworks is the only runtime adapter in the provider-foundation milestone. Additional providers must implement the same request contract and pass the shared shell-call conformance tests.
 
 The model receives exactly one function:
 

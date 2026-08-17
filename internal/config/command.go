@@ -27,11 +27,12 @@ func Configure(ctx context.Context, input io.Reader, output, errorOutput io.Writ
 	}
 	fmt.Fprintf(output, "Ayati configuration\nConfiguration: %s\n\n", path)
 	reader := bufio.NewReader(input)
+	fireworks, configured := values.Provider("fireworks")
 	keyLabel := "Fireworks API key: "
 	modelLabel := "Fireworks model: "
-	if exists {
+	if exists && configured {
 		keyLabel = "Fireworks API key (leave blank to keep saved key): "
-		modelLabel = fmt.Sprintf("Fireworks model [%s]: ", values.Model)
+		modelLabel = fmt.Sprintf("Fireworks model [%s]: ", fireworks.DefaultModel)
 	}
 	key, err := readSecret(ctx, reader, input, output, keyLabel)
 	if err != nil {
@@ -42,11 +43,12 @@ func Configure(ctx context.Context, input io.Reader, output, errorOutput io.Writ
 		return configError(errorOutput, err)
 	}
 	if strings.TrimSpace(key) != "" {
-		values.FireworksAPIKey = key
+		fireworks.APIKey = key
 	}
 	if strings.TrimSpace(model) != "" {
-		values.Model = model
+		fireworks.DefaultModel = model
 	}
+	values.SetProvider("fireworks", fireworks)
 	if err := Save(path, values); err != nil {
 		return configError(errorOutput, err)
 	}

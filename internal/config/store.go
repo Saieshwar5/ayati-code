@@ -11,9 +11,23 @@ import (
 
 const maxConfigBytes = 64 << 10
 
+const CurrentVersion = 1
+
+type ProviderValues struct {
+	APIKey       string `json:"api_key,omitempty"`
+	DefaultModel string `json:"default_model"`
+}
+
 type Values struct {
-	FireworksAPIKey string `json:"fireworks_api_key"`
-	Model           string `json:"model"`
+	Version   int                       `json:"version"`
+	Providers map[string]ProviderValues `json:"providers"`
+}
+
+type storedValues struct {
+	Version         int                       `json:"version,omitempty"`
+	Providers       map[string]ProviderValues `json:"providers,omitempty"`
+	FireworksAPIKey string                    `json:"fireworks_api_key,omitempty"`
+	Model           string                    `json:"model,omitempty"`
 }
 
 func DefaultPath() (string, error) {
@@ -39,8 +53,8 @@ func Load(path string) (Values, error) {
 	}
 	decoder := json.NewDecoder(io.LimitReader(file, maxConfigBytes+1))
 	decoder.DisallowUnknownFields()
-	var values Values
-	if err := decoder.Decode(&values); err != nil {
+	var stored storedValues
+	if err := decoder.Decode(&stored); err != nil {
 		return Values{}, fmt.Errorf("decode configuration: %w", err)
 	}
 	var extra any
@@ -50,7 +64,8 @@ func Load(path string) (Values, error) {
 		}
 		return Values{}, fmt.Errorf("decode configuration: %w", err)
 	}
-	if err := values.normalizeAndValidate(); err != nil {
+	values, err := migrate(stored)
+	if err != nil {
 		return Values{}, err
 	}
 	return values, nil
@@ -94,14 +109,88 @@ func Save(path string, values Values) error {
 	return nil
 }
 
+func (v Values) Provider(id string) (ProviderValues, bool) {
+	value, exists := v.Providers[strings.TrimSpace(id)]
+	return value, exists
+}
+
+func (v *Values) SetProvider(id string, value ProviderValues) {
+	if v.Providers == nil {
+		v.Providers = make(map[string]ProviderValues)
+	}
+	v.Providers[strings.TrimSpace(id)] = value
+}
+
+func migrate(stored storedValues) (Values, error) {
+	if stored.Version == 0 {
+		if len(stored.Providers) != 0 {
+			return Values{}, fmt.Errorf("configuration version is required")
+		}
+		values := Values{Version: CurrentVersion}
+		values.SetProvider("fireworks", ProviderValues{
+			APIKey: stored.FireworksAPIKey, DefaultModel: stored.Model,
+		})
+		if err := values.normalizeAndValidate(); err != nil {
+			return Values{}, err
+		}
+		return values, nil
+	}
+	if stored.FireworksAPIKey != "" || stored.Model != "" {
+		return Values{}, fmt.Errorf("legacy and versioned provider configuration cannot be combined")
+	}
+	values := Values{Version: stored.Version, Providers: stored.Providers}
+	if err := values.normalizeAndValidate(); err != nil {
+		return Values{}, err
+	}
+	return values, nil
+}
+
 func (v *Values) normalizeAndValidate() error {
-	v.FireworksAPIKey = strings.TrimSpace(v.FireworksAPIKey)
-	v.Model = strings.TrimSpace(v.Model)
-	if v.FireworksAPIKey == "" {
-		return fmt.Errorf("Fireworks API key is required")
+	if v.Version == 0 {
+		v.Version = CurrentVersion
 	}
-	if v.Model == "" {
-		return fmt.Errorf("Fireworks model is required")
+	if v.Version != CurrentVersion {
+		return fmt.Errorf("unsupported configuration version %d", v.Version)
 	}
+	if len(v.Providers) == 0 {
+		return fmt.Errorf("at least one provider configuration is required")
+	}
+	if len(v.Providers) > 64 {
+		return fmt.Errorf("provider configuration exceeds 64 entries")
+	}
+	normalized := make(map[string]ProviderValues, len(v.Providers))
+	for rawID, value := range v.Providers {
+		id := strings.TrimSpace(rawID)
+		value.APIKey = strings.TrimSpace(value.APIKey)
+		value.DefaultModel = strings.TrimSpace(value.DefaultModel)
+		if !validProviderID(id) {
+			return fmt.Errorf("provider id %q is invalid", id)
+		}
+		if _, exists := normalized[id]; exists {
+			return fmt.Errorf("provider %q is configured more than once", id)
+		}
+		if value.DefaultModel == "" {
+			return fmt.Errorf("default model for provider %q is required", id)
+		}
+		if id == "fireworks" && value.APIKey == "" {
+			return fmt.Errorf("Fireworks API key is required")
+		}
+		normalized[id] = value
+	}
+	v.Providers = normalized
 	return nil
+}
+
+func validProviderID(value string) bool {
+	if value == "" || len(value) > 64 {
+		return false
+	}
+	for index, character := range value {
+		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' ||
+			index > 0 && (character == '-' || character == '_' || character == '.') {
+			continue
+		}
+		return false
+	}
+	return true
 }

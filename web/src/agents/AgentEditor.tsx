@@ -84,7 +84,7 @@ export function AgentEditor(props: AgentEditorProps) {
           </EditorSection>
           <EditorSection eyebrow="Runtime" title="Model and execution budget">
             <div className="agent-runtime-fields">
-              <label>Provider<select value={input.provider_id} disabled={readOnly} onChange={() => {}}><option value="fireworks">Fireworks</option></select></label>
+              <label>Provider<select value={input.provider_id} disabled={readOnly} onChange={(event) => setInput({ ...input, provider_id: event.target.value })}>{props.controller.providers.map((provider) => <option key={provider.id} value={provider.id}>{provider.name}{provider.configured ? "" : " · Not configured"}</option>)}</select></label>
               <label>Model<input value={input.model} disabled={readOnly} placeholder="Use configured default model" onChange={(event) => setInput({ ...input, model: event.target.value })} /></label>
               <label>Step limit<input type="number" min={1} max={20} value={input.max_steps} disabled={readOnly} onChange={(event) => setInput({ ...input, max_steps: Number(event.target.value) })} /></label>
             </div>

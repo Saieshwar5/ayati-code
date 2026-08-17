@@ -53,3 +53,17 @@ func TestHandlerManagesAgentsAndSelectsOneForSession(t *testing.T) {
 		t.Fatalf("built-in update status = %d, body = %s", response.Code, response.Body.String())
 	}
 }
+
+func TestHandlerListsProvidersAndRejectsUnknownAgentProvider(t *testing.T) {
+	handler, _, _, _ := testHandler(t)
+	response := serve(handler, http.MethodGet, "/api/providers", "", false)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"id":"fireworks"`) ||
+		!strings.Contains(response.Body.String(), `"configured":true`) {
+		t.Fatalf("providers status = %d, body = %s", response.Code, response.Body.String())
+	}
+	create := `{"name":"Unknown provider","provider_id":"missing","max_steps":8}`
+	response = serve(handler, http.MethodPost, "/api/agents", create, true)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "provider is not available") {
+		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
+	}
+}

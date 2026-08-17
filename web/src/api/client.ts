@@ -10,6 +10,7 @@ import type {
   EnvironmentVariable,
   Message,
   PublishInput,
+  ProviderDefinition,
   Repository,
   SessionResponse,
   SkillDefinition,
@@ -49,6 +50,7 @@ export const api = {
   agents: () => request<AgentDefinition[]>("/api/agents"),
   archivedAgents: () => request<AgentDefinition[]>("/api/agents?archived=true"),
   agent: (id: string) => request<AgentDefinition>(`/api/agents/${id}`),
+  providers: () => request<ProviderDefinition[]>("/api/providers"),
   createAgent: (input: AgentInput) =>
     request<AgentDefinition>("/api/agents", { method: "POST", body: JSON.stringify(input) }),
   updateAgent: (id: string, input: AgentInput) =>
