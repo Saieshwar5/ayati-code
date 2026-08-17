@@ -57,6 +57,17 @@ func (f *fakeWorkspaceService) Stop(ctx context.Context, id string) error {
 	return f.store.UpdateStatus(ctx, id, workspace.StatusStopped, "")
 }
 
+func (f *fakeWorkspaceService) Archive(ctx context.Context, id string) error {
+	if err := f.store.UpdateStatus(ctx, id, workspace.StatusStopped, ""); err != nil {
+		return err
+	}
+	return f.store.Archive(ctx, id)
+}
+
+func (f *fakeWorkspaceService) RestoreArchived(ctx context.Context, id string) error {
+	return f.store.Restore(ctx, id)
+}
+
 func (f *fakeWorkspaceService) Delete(ctx context.Context, id string) error {
 	return f.store.Delete(ctx, id)
 }

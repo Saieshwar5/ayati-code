@@ -4,6 +4,7 @@ import { repositoryName } from "../app/format";
 
 interface WorkspaceReadinessProps {
   workspace: Workspace;
+  embedded?: boolean;
   onConfigure: (projectRoot: string) => Promise<void>;
   onRetry: () => Promise<void>;
   onResume: () => Promise<void>;
@@ -43,8 +44,8 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
   }
 
   return (
-    <section className="readiness-view" aria-live="polite">
-      <div className="readiness-heading">
+    <section className={`readiness-view${props.embedded ? " embedded" : ""}`} aria-live="polite">
+      {!props.embedded && <div className="readiness-heading">
         <div>
           <p className="eyebrow">{workspace.repository}</p>
           <h1>{readinessTitle(workspace)}</h1>
@@ -53,7 +54,7 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
           </p>
         </div>
         <span className={`status ${workspace.status}`}>{workspace.status.replaceAll("_", " ")}</span>
-      </div>
+      </div>}
 
       {workspace.status === "needs_configuration" ? (
         <ProjectSelection

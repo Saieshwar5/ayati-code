@@ -55,6 +55,9 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
+	if err := requireActiveWorkspace(value); err != nil {
+		return err
+	}
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
@@ -67,6 +70,9 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 func (s *Service) Resume(ctx context.Context, id string) error {
 	value, err := s.store.Get(ctx, id)
 	if err != nil {
+		return err
+	}
+	if err := requireActiveWorkspace(value); err != nil {
 		return err
 	}
 	if value.Status != StatusStopped {
@@ -123,6 +129,9 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace, error) {
 	value, err := s.store.Get(ctx, id)
 	if err != nil {
+		return nil, Workspace{}, err
+	}
+	if err := requireActiveWorkspace(value); err != nil {
 		return nil, Workspace{}, err
 	}
 	if value.Status != StatusReady {

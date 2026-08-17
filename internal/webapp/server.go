@@ -37,6 +37,8 @@ type workspaceService interface {
 	ChangeAuthority(context.Context, string, workspace.AuthorityChange) (workspace.Workspace, error)
 	Stop(context.Context, string) error
 	Resume(context.Context, string) error
+	Archive(context.Context, string) error
+	RestoreArchived(context.Context, string) error
 	Delete(context.Context, string) error
 	Changes(context.Context, string) (workspace.Changes, error)
 	Publish(context.Context, string, string, string, string) error
@@ -119,7 +121,7 @@ func (s *Server) Handler() http.Handler {
 }
 
 func (s *Server) index(writer http.ResponseWriter, request *http.Request) {
-	if request.URL.Path != "/" {
+	if !applicationPath(request.URL.Path) {
 		http.NotFound(writer, request)
 		return
 	}
@@ -130,6 +132,16 @@ func (s *Server) index(writer http.ResponseWriter, request *http.Request) {
 	}
 	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = writer.Write(data)
+}
+
+func applicationPath(path string) bool {
+	if path == "/" || path == "/workspaces" || path == "/workspaces/new" ||
+		path == "/workspaces/archived" || path == "/agents" || path == "/environments" {
+		return true
+	}
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	return len(parts) == 2 && parts[0] == "workspaces" ||
+		len(parts) == 4 && parts[0] == "workspaces" && parts[2] == "sessions"
 }
 
 func (s *Server) health(writer http.ResponseWriter, _ *http.Request) {

@@ -28,6 +28,7 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	error TEXT NOT NULL DEFAULT '',
 	pull_request_number INTEGER NOT NULL DEFAULT 0,
 	pull_request_url TEXT NOT NULL DEFAULT '',
+	archived_at TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 )`
@@ -79,6 +80,9 @@ func (s *Store) configure() error {
 		return err
 	}
 	if err := s.migrateWorkspaceReadiness(context.Background()); err != nil {
+		return err
+	}
+	if err := s.migrateWorkspaceArchive(context.Background()); err != nil {
 		return err
 	}
 	return s.recoverInterruptedWork(context.Background())
@@ -286,12 +290,4 @@ func tableColumns(ctx context.Context, tx *sql.Tx, table string) (map[string]boo
 		columns[name] = true
 	}
 	return columns, rows.Err()
-}
-
-func parseStoredTime(value string) (time.Time, error) {
-	parsed, err := time.Parse(time.RFC3339Nano, value)
-	if err != nil {
-		return time.Time{}, fmt.Errorf("decode stored time: %w", err)
-	}
-	return parsed, nil
 }

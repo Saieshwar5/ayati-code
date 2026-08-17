@@ -27,6 +27,9 @@ func (s *Service) ChangeAuthority(
 	if err != nil {
 		return Workspace{}, err
 	}
+	if err := requireActiveWorkspace(value); err != nil {
+		return Workspace{}, err
+	}
 	if value.Status != StatusReady {
 		return Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
