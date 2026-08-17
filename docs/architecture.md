@@ -24,10 +24,10 @@ The repository and SQLite record survive a normal Stop. Resume recreates the nam
 - `cmd/ayati` owns signal handling and selects the web server or the small `config` command.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
-- `internal/environment` owns reusable compute definitions and exclusive, generation-checked workspace leases.
+- `internal/environment` owns reusable compute definitions, exclusive generation-checked workspace leases, and runtime transition coordination.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
-- `internal/sandbox` owns persistent Docker-container creation, restoration, removal, and bounded shell execution.
+- `internal/sandbox` owns persistent Docker-container creation, restoration, removal, the Docker environment driver, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
@@ -60,10 +60,11 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `environments`: reusable runtime configuration, resolved image identity, resource policy, provisioning health, and lease generation.
 - `environment_leases`: durable acquiring, active, releasing, released, or failed assignments with unique active environment and workspace constraints.
 
-The environment tables are the first migration slice. Workspace lifecycle still uses its existing
-named container until the Docker runtime and workspace lifecycle are moved behind leases in the
-next slice. Keeping this transition explicit prevents the persistence foundation from claiming
-runtime behavior it does not yet control.
+Environment persistence and the lease-aware Docker driver are implemented. Workspace lifecycle
+still uses its existing named container until creation, preparation, Stop, Resume, authority
+changes, and shell access are moved behind the runtime service in the next slice. Keeping this
+transition explicit prevents the driver milestone from claiming workspace behavior it does not
+yet control.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
@@ -72,6 +73,21 @@ Sessions share one workspace clone, branch, sandbox, environment, and diff. They
 The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
 
 ## Sandbox lifecycle
+
+`internal/environment.RuntimeService` now owns the exact compute transition. Start first acquires
+one durable generation-checked lease, asks the selected driver to create and verify a runtime, and
+activates the lease only with the returned Docker identity. Stop first marks the active lease as
+releasing, destroys the exact verified runtime, and only then releases the environment for another
+workspace. Creation or destruction failure moves the lease to failed and quarantines the
+environment instead of making uncertain compute available again.
+
+The Docker driver names each disposable runtime from its environment and lease generation and
+labels it with the exact environment, workspace, lease, and generation identities. Before returning
+or deleting a runtime it inspects effective Docker metadata and verifies the resolved image ID,
+read-only root, non-root user, CPU, memory, PID, network, privilege, restart, tmpfs, workspace, and
+cache policies. Extra persistent mounts, mismatched labels, or stale generations are rejected. The
+driver can safely reuse a matching stopped container after a controller interruption, while a
+container belonging to another lease is never started or removed.
 
 Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Fixed rules inspect regular metadata files, resolve the repository root or one nested project, and derive Go, Node, and Python setup and verification commands. Multiple nested roots require a later user selection rather than an AI guess. The controller records the current commit and requires a clean Git status before setup.
 
