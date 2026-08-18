@@ -1,4 +1,5 @@
-.app-shell.agent-studio-view { grid-template-columns: 264px 220px minmax(0, 1fr); }
+.app-shell.agent-studio-view { grid-template-columns: 224px 220px minmax(0, 1fr); }
+.app-shell.agent-studio-view.sidebar-collapsed { grid-template-columns: 56px 220px minmax(0, 1fr); }
 .agent-studio-view > .sidebar { grid-column: 1; grid-row: 1; }
 .agent-studio-view > .agent-studio-sidebar { grid-column: 2; grid-row: 1; }
 .agent-studio-view > .conversation-pane { grid-column: 3; grid-row: 1; }
@@ -141,13 +142,15 @@
 .agent-picker select:disabled { opacity: .62; }
 
 @media (max-width: 1120px) {
-  .app-shell.agent-studio-view { grid-template-columns: 232px 196px minmax(0, 1fr); }
+  .app-shell.agent-studio-view { grid-template-columns: 208px 196px minmax(0, 1fr); }
+  .app-shell.agent-studio-view.sidebar-collapsed { grid-template-columns: 56px 196px minmax(0, 1fr); }
   .agent-editor-section { grid-template-columns: 150px minmax(0, 1fr); gap: 24px; }
   .agent-runtime-fields { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 880px) {
-  .app-shell.agent-studio-view { grid-template-columns: 210px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .app-shell.agent-studio-view { grid-template-columns: 192px minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .app-shell.agent-studio-view.sidebar-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
   .agent-studio-view > .agent-studio-sidebar { grid-column: 2; grid-row: 1; padding: 8px 12px; display: flex; align-items: center; gap: 12px; overflow-x: auto; }
   .agent-studio-view > .conversation-pane { grid-column: 2; grid-row: 2; }
   .agent-studio-sidebar header { flex: none; }
@@ -161,7 +164,8 @@
 }
 
 @media (max-width: 620px) {
-  .app-shell.agent-studio-view { grid-template-columns: 62px minmax(0, 1fr); }
+  .app-shell.agent-studio-view { grid-template-columns: 176px minmax(0, 1fr); }
+  .app-shell.agent-studio-view.sidebar-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
   .agent-studio-sidebar { padding-inline: 8px; }
   .agent-studio-sidebar header { display: none; }
   .agent-studio-sidebar nav button { min-width: 90px; }

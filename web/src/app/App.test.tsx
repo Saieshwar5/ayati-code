@@ -8,7 +8,7 @@ describe("App", () => {
   it("explains the GitHub configuration requirement", async () => {
     mockSession({ github_configured: false, authenticated: false });
     render(<App />);
-    expect(await screen.findByRole("heading", { name: "Connect Ayati to GitHub" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Connect perpetual to GitHub" })).toBeTruthy();
     expect(screen.getByText("AYATI_GITHUB_CLIENT_ID")).toBeTruthy();
   });
 
