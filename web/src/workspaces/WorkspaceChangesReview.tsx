@@ -14,6 +14,7 @@ interface WorkspaceChangesReviewProps {
   loading: boolean;
   error?: string;
   compact?: boolean;
+  embedded?: boolean;
   onFileOpen?: () => void;
   onRefresh: () => void;
   onPublish: () => void;
@@ -33,16 +34,16 @@ export function WorkspaceChangesReview(props: WorkspaceChangesReviewProps) {
   }, [files, selectedPath]);
 
   return (
-    <section className={`changes-review${props.compact ? " compact-review" : ""}`} aria-label="Workspace changes">
+    <section className={`changes-review${props.compact ? " compact-review" : ""}${props.embedded ? " embedded" : ""}`} aria-label="Workspace changes">
       <header className="changes-review-heading">
         <div>
-          <p className="eyebrow">Review</p>
+          {!props.embedded && <p className="eyebrow">Review</p>}
           <h2>{files.length ? `${files.length} changed ${files.length === 1 ? "file" : "files"}` : "Workspace changes"}</h2>
           <p>{files.length ? <><strong>+{additions}</strong> <span>−{deletions}</span></> : "Review the working tree before publishing."}</p>
         </div>
         <div>
           <button className="quiet compact" type="button" disabled={props.loading} onClick={props.onRefresh}>{props.loading ? "Refreshing…" : "Refresh"}</button>
-          <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Publish…</button>
+          {!props.embedded && <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Publish…</button>}
         </div>
       </header>
       {props.error ? (
@@ -68,8 +69,18 @@ export function WorkspaceChangesReview(props: WorkspaceChangesReviewProps) {
       ) : (
         <div className="changes-clean"><strong>Working tree is clean</strong><p>Create or run a task to begin making changes.</p></div>
       )}
+      {props.embedded && (
+        <footer className="changes-publish-bar">
+          <span>{files.length ? "Review complete? Publish a draft pull request." : "No changes to publish."}</span>
+          <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Review &amp; publish…</button>
+        </footer>
+      )}
     </section>
   );
+}
+
+export function countChangedFiles(changes: Changes): number {
+  return parseChanges(changes).length;
 }
 
 function parseChanges(changes: Changes): ChangedFile[] {

@@ -2,7 +2,6 @@ import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import type { AgentDefinition, Message, Workspace, WorkspaceSession } from "../api/contracts";
 import { repositoryName, statusLabel } from "../app/format";
-import type { WorkspacePanelSection } from "../workspaces/WorkspacePanel";
 import { ComposerContextControl } from "./ComposerContextControl";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { useConversationContexts } from "./useConversationContexts";
@@ -20,10 +19,6 @@ interface ChatPaneProps {
   onStop: () => Promise<boolean>;
   onSelectAgent: (agentID: string) => Promise<void>;
   onCreateTask?: (request: string) => void;
-  taskCount?: number;
-  workspacePanelOpen?: boolean;
-  workspacePanelSection?: WorkspacePanelSection;
-  onOpenWorkspacePanel?: (section: WorkspacePanelSection) => void;
   onResumeWorkspace?: () => void;
 }
 
@@ -81,13 +76,6 @@ export function ChatPane(props: ChatPaneProps) {
           </p>
         </div>
         <div className="conversation-heading-actions">
-          {props.onOpenWorkspacePanel && (
-            <>
-              <PanelButton section="tasks" label={`Tasks${props.taskCount ? ` ${props.taskCount}` : ""}`} open={props.workspacePanelOpen} selected={props.workspacePanelSection} onOpen={props.onOpenWorkspacePanel} />
-              <PanelButton section="changes" label="Changes" open={props.workspacePanelOpen} selected={props.workspacePanelSection} onOpen={props.onOpenWorkspacePanel} />
-              <PanelButton section="workspace" label="Workspace" open={props.workspacePanelOpen} selected={props.workspacePanelSection} onOpen={props.onOpenWorkspacePanel} />
-            </>
-          )}
           <span className={`status ${effectiveStatus}`} title={statusLabel(effectiveStatus)} aria-label={`Status: ${statusLabel(effectiveStatus)}`}>{statusLabel(effectiveStatus)}</span>
         </div>
       </div>
@@ -104,7 +92,7 @@ export function ChatPane(props: ChatPaneProps) {
           </div>
         )}
         {props.workspace.status !== "ready" && (
-          <WorkspaceStateEvent workspace={props.workspace} onResume={props.onResumeWorkspace} onOpenDetails={() => props.onOpenWorkspacePanel?.("workspace")} />
+          <WorkspaceStateEvent workspace={props.workspace} onResume={props.onResumeWorkspace} />
         )}
         {!visibleMessages.length && props.workspace.status === "ready" && (
           <div className="conversation-empty muted">
@@ -208,7 +196,7 @@ export function ChatPane(props: ChatPaneProps) {
   );
 }
 
-function WorkspaceStateEvent(props: { workspace: Workspace; onResume?: () => void; onOpenDetails: () => void }) {
+function WorkspaceStateEvent(props: { workspace: Workspace; onResume?: () => void }) {
   const status = props.workspace.status;
   const preparing = status === "creating" || status === "initializing";
   const title = preparing ? "Preparing workspace" : status === "stopped" ? "Workspace stopped" : "Workspace needs attention";
@@ -221,28 +209,8 @@ function WorkspaceStateEvent(props: { workspace: Workspace; onResume?: () => voi
     <section className="conversation-workspace-event" aria-label={title}>
       <span className={preparing ? "working" : ""} aria-hidden="true" />
       <div><p className="eyebrow">Workspace</p><h2>{title}</h2><p>{detail}</p></div>
-      {status === "stopped" && props.onResume ? <button className="primary compact" type="button" onClick={props.onResume}>Resume</button> : <button className="quiet compact" type="button" onClick={props.onOpenDetails}>View details</button>}
+      {status === "stopped" && props.onResume && <button className="primary compact" type="button" onClick={props.onResume}>Resume</button>}
     </section>
-  );
-}
-
-function PanelButton(props: {
-  section: WorkspacePanelSection;
-  label: string;
-  open?: boolean;
-  selected?: WorkspacePanelSection;
-  onOpen: (section: WorkspacePanelSection) => void;
-}) {
-  const active = Boolean(props.open && props.selected === props.section);
-  return (
-    <button
-      className={`conversation-panel-button${active ? " active" : ""}`}
-      type="button"
-      aria-pressed={active}
-      onClick={() => props.onOpen(props.section)}
-    >
-      {props.label}
-    </button>
   );
 }
 

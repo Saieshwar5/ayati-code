@@ -4,12 +4,14 @@ import { AuthorityControl } from "./AuthorityControl";
 interface WorkspaceProfilePanelProps {
   workspace: Workspace;
   agentWorking?: boolean;
+  showAuthority?: boolean;
   onAuthorityChange?: (input: AuthorityChangeInput) => Promise<void>;
 }
 
 export function WorkspaceProfilePanel({
   workspace,
   agentWorking = false,
+  showAuthority = true,
   onAuthorityChange = async () => {},
 }: WorkspaceProfilePanelProps) {
   const profile = workspace.project_profile;
@@ -22,11 +24,13 @@ export function WorkspaceProfilePanel({
         </div>
         <span className={`status ${workspace.status}`}>{workspace.status.replaceAll("_", " ")}</span>
       </div>
-      <AuthorityControl
-        workspace={workspace}
-        agentWorking={agentWorking}
-        onChange={onAuthorityChange}
-      />
+      {showAuthority && (
+        <AuthorityControl
+          workspace={workspace}
+          agentWorking={agentWorking}
+          onChange={onAuthorityChange}
+        />
+      )}
       <div className="profile-summary">
         <ProfileFact label="Preparation" value={preparationLabel(workspace)} />
       </div>
