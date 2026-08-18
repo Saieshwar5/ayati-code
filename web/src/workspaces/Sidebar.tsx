@@ -2,6 +2,7 @@ import type { AppRoute } from "../app/useAppRoute";
 import { isAgentRoute, workspacePath } from "../app/useAppRoute";
 import type { WorkspaceController } from "../app/useWorkspaceController";
 import { Icon, type IconName } from "../ui/Icon";
+import { PerpetualPendulumMark } from "../ui/PerpetualPendulumMark";
 import { WorkspaceNavigationItem } from "./WorkspaceNavigationItem";
 
 interface SidebarProps {
@@ -15,22 +16,42 @@ interface SidebarProps {
 export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNavigate }: SidebarProps) {
   const activeWorkspaceID = "workspaceID" in route ? route.workspaceID : "";
   return (
-    <aside className="sidebar" aria-label="Main navigation">
+    <aside
+      className="sidebar"
+      aria-label="Main navigation"
+      onClickCapture={() => {
+        if (collapsed) onCollapsedChange(false);
+      }}
+    >
       <div className="sidebar-top">
         <div className="brand-row">
-          <button className="brand" type="button" onClick={() => onNavigate("/workspaces")}>
-            <span className="brand-name">perpetual</span>
-          </button>
-          <button
-            aria-expanded={!collapsed}
-            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="sidebar-toggle"
-            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            type="button"
-            onClick={() => onCollapsedChange(!collapsed)}
-          >
-            <Icon name={collapsed ? "panelOpen" : "panelClose"} />
-          </button>
+          {collapsed ? (
+            <button
+              aria-expanded="false"
+              aria-label="Expand sidebar"
+              className="sidebar-brand-trigger"
+              title="Expand sidebar"
+              type="button"
+            >
+              <PerpetualPendulumMark />
+            </button>
+          ) : (
+            <>
+              <button className="brand" type="button" onClick={() => onNavigate("/workspaces")}>
+                <span className="brand-name">perpetual</span>
+              </button>
+              <button
+                aria-expanded="true"
+                aria-label="Collapse sidebar"
+                className="sidebar-toggle"
+                title="Collapse sidebar"
+                type="button"
+                onClick={() => onCollapsedChange(true)}
+              >
+                <Icon name="panelClose" />
+              </button>
+            </>
+          )}
         </div>
       </div>
 

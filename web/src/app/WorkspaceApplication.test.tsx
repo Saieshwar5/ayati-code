@@ -73,9 +73,29 @@ describe("WorkspaceApplication", () => {
 
     await user.click(collapse);
 
-    expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-expanded")).toBe("false");
+    const expand = screen.getByRole("button", { name: "Expand sidebar" });
+    expect(expand.getAttribute("aria-expanded")).toBe("false");
+    expect(expand.querySelector(".perpetual-mark-pendulum")).toBeTruthy();
     expect(document.querySelector(".app-shell")?.classList.contains("sidebar-collapsed")).toBe(true);
     expect(window.localStorage.getItem("perpetual.sidebar.collapsed")).toBe("true");
+
+    await user.click(expand);
+
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeTruthy();
+    expect(document.querySelector(".perpetual-mark")).toBeNull();
+    expect(window.localStorage.getItem("perpetual.sidebar.collapsed")).toBe("false");
+
+    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace from navigation" }));
+
+    expect(window.location.pathname).toBe("/workspaces/new");
+    expect(document.querySelector(".app-shell")?.classList.contains("sidebar-collapsed")).toBe(false);
+    expect(screen.getByRole("button", { name: "Collapse sidebar" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "Collapse sidebar" }));
+    await user.click(screen.getByRole("complementary", { name: "Main navigation" }));
+
+    expect(document.querySelector(".app-shell")?.classList.contains("sidebar-collapsed")).toBe(false);
   });
 
   it("offers GitHub reconnection when repository authorization expires", async () => {
