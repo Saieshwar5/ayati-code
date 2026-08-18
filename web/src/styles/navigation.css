@@ -11,13 +11,16 @@
 .brand { width: max-content; min-height: 30px; margin: 0; padding: 0 4px; border: 0; background: transparent; font-size: 20px; font-weight: 400; }
 .sidebar-toggle { width: 28px; min-height: 28px; padding: 0; flex: 0 0 auto; border: 0; background: transparent; color: var(--color-text-secondary); }
 .sidebar-toggle:hover { background: var(--color-surface-subtle); color: var(--color-text); }
-.new-workspace { min-height: 36px; gap: 8px; border-radius: 7px; font-size: 12px; }
 .product-navigation { padding: 4px 7px 9px; display: grid; gap: 2px; border-bottom: 1px solid var(--color-border); }
+.product-nav-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px; }
 .product-nav-item { min-height: 34px; padding: 0 9px; gap: 9px; justify-content: flex-start; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 12px; }
 .product-nav-item > .ui-icon { width: 16px; }
 .product-nav-item strong { font-weight: 500; }
 .product-nav-item:hover, .product-nav-item.active { background: var(--color-surface-subtle); color: var(--color-text); }
 .product-nav-item.active { font-weight: 600; }
+.product-nav-create { width: 30px; min-height: 30px; padding: 0; align-self: center; border: 0; background: transparent; color: var(--color-text-secondary); }
+.product-nav-create:hover { background: var(--color-surface-subtle); color: var(--color-text); }
+.product-nav-create .ui-icon { width: 14px; }
 
 .workspace-navigation { padding: 10px 7px; }
 .nav-section-heading { display: flex; align-items: center; justify-content: space-between; }
@@ -38,7 +41,6 @@
 .sidebar-collapsed .sidebar-top { padding-inline: 8px; }
 .sidebar-collapsed .brand-row { justify-content: center; }
 .sidebar-collapsed .brand,
-.sidebar-collapsed .new-workspace > span:last-child,
 .sidebar-collapsed .product-nav-item strong,
 .sidebar-collapsed .nav-section-heading,
 .sidebar-collapsed .workspace-copy,
@@ -47,13 +49,14 @@
 .sidebar-collapsed .manage-link > span,
 .sidebar-collapsed .account > span,
 .sidebar-collapsed .account > button { display: none; }
-.sidebar-collapsed .new-workspace,
 .sidebar-collapsed .product-nav-item,
 .sidebar-collapsed .workspace-link,
 .sidebar-collapsed .archive-link,
 .sidebar-collapsed .manage-link { justify-content: center; padding-inline: 0; }
 .sidebar-collapsed .product-navigation,
 .sidebar-collapsed .workspace-navigation { padding-inline: 8px; }
+.sidebar-collapsed .product-nav-row { grid-template-columns: 1fr; }
+.sidebar-collapsed .product-nav-create { width: 100%; min-height: 30px; }
 .sidebar-collapsed .sidebar-footer { padding: 9px 8px; }
 .sidebar-collapsed .account { display: grid; grid-template-columns: 1fr; place-items: center; }
 .sidebar-collapsed .account .avatar { grid-row: auto; }

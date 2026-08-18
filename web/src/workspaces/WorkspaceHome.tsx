@@ -10,6 +10,7 @@ import { NewProjectForm } from "./NewProjectForm";
 interface WorkspaceHomeProps {
   view: "empty" | "create";
   repositories: Repository[];
+  recentRepositories?: string[];
   repositoryError: string;
   repositoryReconnectRequired: boolean;
   onShowCreate: () => void;
@@ -47,20 +48,20 @@ export function WorkspaceHome(props: WorkspaceHomeProps) {
 function CreateWorkspaceForm(props: WorkspaceHomeProps) {
   const [source, setSource] = useState<"existing" | "new">("existing");
   return (
-    <section className="workspace-home">
+    <section className="workspace-home create-workspace-page">
       <div className="create-panel">
-        <div className="pane-heading">
-          <div>
-            <p className="eyebrow">New workspace</p>
-            <h1>Prepare a project</h1>
-            <p className="muted">Choose where the project comes from, then let perpetual prepare it.</p>
-          </div>
-          <button className="quiet" type="button" onClick={props.onCancel}>
-            Cancel
+        <header className="create-heading">
+          <button className="create-back" type="button" onClick={props.onCancel}>
+            <span aria-hidden="true">←</span>
+            Workspaces
           </button>
-        </div>
+          <div>
+            <h1>Create workspace</h1>
+            <p className="muted">Choose a project and configure how perpetual should prepare it.</p>
+          </div>
+        </header>
         <fieldset className="source-options">
-          <legend>Source</legend>
+          <legend className="sr-only">Project source</legend>
           <label className={source === "existing" ? "selected" : ""}>
             <input
               type="radio"
@@ -69,7 +70,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
               checked={source === "existing"}
               onChange={() => setSource("existing")}
             />
-            <span><strong>Existing repository</strong><small>Prepare a repository already connected to perpetual.</small></span>
+            <span><strong>Existing repository</strong></span>
           </label>
           <label className={source === "new" ? "selected" : ""}>
             <input
@@ -79,12 +80,13 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
               checked={source === "new"}
               onChange={() => setSource("new")}
             />
-            <span><strong>New project</strong><small>Create a GitHub repository and prepare it here.</small></span>
+            <span><strong>New GitHub project</strong></span>
           </label>
         </fieldset>
         {source === "existing" ? (
           <ExistingProjectForm
             repositories={props.repositories}
+            recentRepositories={props.recentRepositories}
             repositoryError={props.repositoryError}
             repositoryReconnectRequired={props.repositoryReconnectRequired}
             onCreate={props.onCreate}

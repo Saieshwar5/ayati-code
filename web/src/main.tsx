@@ -8,6 +8,8 @@ import "./styles/workspace-control.css";
 import "./styles/branch-selection.css";
 import "./styles/agent-studio.css";
 import "./styles/compute-environments.css";
+import "./styles/workspace-creation.css";
+import "./styles/workspace-preparation.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

@@ -7,37 +7,47 @@ interface AuthorityOptionsProps {
 
 export function AuthorityOptions({ value, onChange }: AuthorityOptionsProps) {
   return (
-    <fieldset className="authority-options">
-      <legend>Authority</legend>
-      <label className={`authority-option${value === "explore" ? " selected" : ""}`}>
-        <input
-          type="radio"
-          name="authority"
+    <section className="composer-setting" aria-labelledby="authority-title">
+      <div className="composer-setting-label">
+        <h3 id="authority-title">Access</h3>
+        <p>{value === "explore" ? "Project files stay read only." : "Read and change project files."}</p>
+      </div>
+      <fieldset className="authority-options">
+        <legend className="sr-only">Workspace access</legend>
+        <AuthorityOption
           value="explore"
-          aria-label="Explore authority"
-          checked={value === "explore"}
-          onChange={() => onChange("explore")}
+          selected={value}
+          title="Explore"
+          onChange={onChange}
         />
-        <span>
-          <strong>Explore</strong>
-          <small>Inspect, test and understand. Project files are protected.</small>
-        </span>
-        <em>Recommended</em>
-      </label>
-      <label className={`authority-option${value === "develop" ? " selected" : ""}`}>
-        <input
-          type="radio"
-          name="authority"
+        <AuthorityOption
           value="develop"
-          aria-label="Develop authority"
-          checked={value === "develop"}
-          onChange={() => onChange("develop")}
+          selected={value}
+          title="Develop"
+          onChange={onChange}
         />
-        <span>
-          <strong>Develop</strong>
-          <small>Everything in Explore, plus permission to change project files.</small>
-        </span>
-      </label>
-    </fieldset>
+      </fieldset>
+    </section>
+  );
+}
+
+function AuthorityOption(props: {
+  value: WorkspaceAuthority;
+  selected: WorkspaceAuthority;
+  title: string;
+  onChange: (value: WorkspaceAuthority) => void;
+}) {
+  return (
+    <label className={props.selected === props.value ? "selected" : ""}>
+      <input
+        type="radio"
+        name="authority"
+        value={props.value}
+        aria-label={`${props.title} authority`}
+        checked={props.selected === props.value}
+        onChange={() => props.onChange(props.value)}
+      />
+      <span>{props.title}</span>
+    </label>
   );
 }

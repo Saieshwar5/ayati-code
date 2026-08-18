@@ -132,19 +132,21 @@ describe("WorkspaceApplication", () => {
     await screen.findByRole("heading", { name: "Workspaces" });
     expect(screen.getByRole("button", { name: "perpetual" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "New workspace" }));
-    await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
+    await user.click(screen.getByRole("radio", { name: "owner/project" }));
     await waitFor(() =>
       expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     await user.click(screen.getByRole("radio", { name: "Develop authority" }));
-    await user.type(screen.getByLabelText("New working branch"), "ayati/react-ui");
+    await user.type(screen.getByLabelText("New branch name"), "ayati/react-ui");
+    await user.click(screen.getByText("Environment variables"));
     await user.click(screen.getByRole("button", { name: "Add variable" }));
     await user.type(screen.getByLabelText("Name"), "NPM_TOKEN");
     await user.type(screen.getByLabelText("Value"), "private-token");
     await user.click(screen.getByLabelText("During setup"));
-    await user.click(screen.getByRole("button", { name: "Create and initialize" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Preparing your workspace", level: 2 })).toBeTruthy();
     expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
@@ -189,12 +191,12 @@ describe("WorkspaceApplication", () => {
     await screen.findByRole("heading", { name: "Workspaces" });
     await user.click(screen.getByRole("button", { name: "New workspace" }));
     expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
-    await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
+    await user.click(screen.getByRole("radio", { name: "owner/project" }));
     await waitFor(() =>
       expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     expect(screen.queryByLabelText("New working branch")).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Create and initialize" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       authority: "explore",
@@ -244,7 +246,7 @@ describe("WorkspaceApplication", () => {
     await user.type(screen.getByLabelText("Repository name"), "new-project");
     expect((screen.getByRole("radio", { name: "Private" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
-    await user.click(screen.getByRole("button", { name: "Create and prepare" }));
+    await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(await screen.findByRole("heading", { name: "new-project", level: 1 })).toBeTruthy();
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
