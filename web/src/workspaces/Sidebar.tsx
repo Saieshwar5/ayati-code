@@ -1,5 +1,5 @@
 import type { AppRoute } from "../app/useAppRoute";
-import { isAgentRoute, workspacePath } from "../app/useAppRoute";
+import { isAgentRoute, workspaceConversationPath, workspacePath } from "../app/useAppRoute";
 import type { WorkspaceController } from "../app/useWorkspaceController";
 import { Icon, type IconName } from "../ui/Icon";
 import { PerpetualPendulumMark } from "../ui/PerpetualPendulumMark";
@@ -57,7 +57,7 @@ export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNav
 
       <nav className="product-navigation" aria-label="Product">
         <div className="product-nav-row">
-          <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
+          <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace-overview" || route.page === "workspace-conversation" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
           <button
             aria-label="Create workspace from navigation"
             className="product-nav-create"
@@ -84,7 +84,8 @@ export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNav
               key={workspace.id}
               workspace={workspace}
               active={activeWorkspaceID === workspace.id}
-              onOpen={() => onNavigate(workspacePath(workspace.id))}
+              onOpenConversation={() => onNavigate(workspaceConversationPath(workspace.id))}
+              onOpenOverview={() => onNavigate(workspacePath(workspace.id))}
             />
           ))}
         </div>

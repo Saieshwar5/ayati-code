@@ -11,7 +11,7 @@ interface WorkspaceReadinessProps {
   onDelete: () => Promise<void>;
 }
 
-const steps = ["Repository", "Project", "Dependencies", "Verify", "Ready"] as const;
+const steps = ["Repository", "Project", "Environment", "Dependencies", "Verify", "Ready"] as const;
 
 export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
   const { workspace } = props;
@@ -96,7 +96,7 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
 function PreparationProgress({ workspace }: { workspace: Workspace }) {
   const current = stageIndex(workspace.preparation_stage);
   return (
-    <PreparationFrame workspace={workspace} current={current} title={current === 4 ? "Workspace ready" : "Preparing your workspace"}>
+    <PreparationFrame workspace={workspace} current={current} title={current === 5 ? "Workspace ready" : "Preparing your workspace"}>
       <div className="preparation-current-detail">
         <span className="preparation-pulse" aria-hidden="true" />
         <div>
@@ -195,9 +195,10 @@ function candidateSummary(languages: string[], managers: string[]): string {
 
 function stageIndex(stage?: PreparationStage): number {
   if (stage === "analyzing" || stage === "needs_configuration") return 1;
-  if (stage === "installing") return 2;
-  if (stage === "verifying" || stage === "sealing") return 3;
-  if (stage === "ready") return 4;
+  if (stage === "starting_environment") return 2;
+  if (stage === "installing") return 3;
+  if (stage === "verifying" || stage === "sealing") return 4;
+  if (stage === "ready") return 5;
   return 0;
 }
 
@@ -209,6 +210,7 @@ function defaultDetail(index: number): string {
   return [
     "Cloning the selected branch.",
     "Detecting the project structure.",
+    "Assigning capacity and starting the workspace container.",
     "Installing project dependencies.",
     "Checking the baseline and applying workspace protection.",
     "The workspace is ready to use.",

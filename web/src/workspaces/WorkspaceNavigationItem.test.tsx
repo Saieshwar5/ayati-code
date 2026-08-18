@@ -21,15 +21,30 @@ const workspace: Workspace = {
 };
 
 describe("WorkspaceNavigationItem", () => {
-  it("opens the workspace without exposing session or lifecycle actions", async () => {
-    const onOpen = vi.fn();
-    render(<WorkspaceNavigationItem workspace={workspace} active onOpen={onOpen} />);
+  it("continues a ready workspace while keeping details directly available", async () => {
+    const onOpenConversation = vi.fn();
+    const onOpenOverview = vi.fn();
+    const user = userEvent.setup();
+    render(<WorkspaceNavigationItem workspace={workspace} active onOpenConversation={onOpenConversation} onOpenOverview={onOpenOverview} />);
 
-    const button = screen.getByRole("button", { name: /project/i });
+    const button = screen.getByRole("button", { name: /continue.*project/i });
     expect(button.getAttribute("aria-current")).toBe("page");
     expect(screen.getByText("perpetual/navigation")).toBeTruthy();
     expect(screen.queryByText(/session/i)).toBeNull();
-    await userEvent.setup().click(button);
-    expect(onOpen).toHaveBeenCalledOnce();
+    await user.click(button);
+    expect(onOpenConversation).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "View project workspace details" }));
+    expect(onOpenOverview).toHaveBeenCalledOnce();
+  });
+
+  it("opens setup instead of conversation when the workspace is not ready", async () => {
+    const onOpenConversation = vi.fn();
+    const onOpenOverview = vi.fn();
+    const user = userEvent.setup();
+    render(<WorkspaceNavigationItem workspace={{ ...workspace, status: "initializing" }} active={false} onOpenConversation={onOpenConversation} onOpenOverview={onOpenOverview} />);
+
+    await user.click(screen.getByRole("button", { name: /open.*project/i }));
+    expect(onOpenOverview).toHaveBeenCalledOnce();
+    expect(onOpenConversation).not.toHaveBeenCalled();
   });
 });

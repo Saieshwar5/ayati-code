@@ -189,7 +189,8 @@ func TestServiceRecordsInitializationFailure(t *testing.T) {
 		t.Fatal("Initialize succeeded")
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
-	if loaded.Status != StatusInitializationFailed || loaded.Error == "" {
+	if loaded.Status != StatusInitializationFailed || loaded.Error == "" ||
+		loaded.PreparationFailedStage != PreparationStartingEnvironment {
 		t.Fatalf("workspace = %#v", loaded)
 	}
 }

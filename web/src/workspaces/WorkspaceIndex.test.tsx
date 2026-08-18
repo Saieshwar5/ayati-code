@@ -35,6 +35,21 @@ describe("WorkspaceIndex", () => {
     expect(within(table).getByText("Ready")).toBeTruthy();
   });
 
+  it("continues ready workspaces directly and resumes stopped workspaces first", async () => {
+    const stopped = { ...workspace, id: "workspace-2", status: "stopped" as const };
+    const onContinue = vi.fn();
+    const onResume = vi.fn().mockResolvedValue(true);
+    const onOpen = vi.fn();
+    const user = userEvent.setup();
+    renderIndex({ workspaces: [workspace, stopped], onContinue, onResume, onOpen });
+
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(onContinue).toHaveBeenCalledWith(workspace.id);
+    await user.click(screen.getByRole("button", { name: "Resume & continue" }));
+    expect(onResume).toHaveBeenCalledWith(stopped);
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it("searches, filters, and sorts the active list", async () => {
     const user = userEvent.setup();
     const stopped = { ...workspace, id: "workspace-2", repository: "owner/api", branch: "main", status: "stopped" as const, updated_at: "2026-08-19T00:00:00Z" };
@@ -63,10 +78,10 @@ describe("WorkspaceIndex", () => {
     const user = userEvent.setup();
     renderIndex({ workspaces: [workspace], onOpen, onStop, onArchive });
 
-    await user.click(screen.getByRole("button", { name: "Stop" }));
+    await user.click(screen.getByLabelText("More actions for perpetual"));
+    await user.click(screen.getByRole("button", { name: "Stop environment" }));
     expect(onStop).toHaveBeenCalledWith(workspace);
     expect(onOpen).not.toHaveBeenCalled();
-    await user.click(screen.getByLabelText("More actions for perpetual"));
     await user.click(screen.getByRole("button", { name: "Archive workspace…" }));
     expect(onArchive).toHaveBeenCalledWith(workspace);
     expect(onOpen).not.toHaveBeenCalled();
@@ -124,8 +139,9 @@ function renderIndex(overrides: Partial<React.ComponentProps<typeof WorkspaceInd
     onViewChange: vi.fn(),
     onCreate: vi.fn(),
     onOpen: vi.fn(),
+    onContinue: vi.fn(),
     onStop: vi.fn().mockResolvedValue(undefined),
-    onResume: vi.fn().mockResolvedValue(undefined),
+    onResume: vi.fn().mockResolvedValue(true),
     onArchive: vi.fn().mockResolvedValue(true),
     onRestore: vi.fn().mockResolvedValue(undefined),
     onDelete: vi.fn().mockResolvedValue(true),

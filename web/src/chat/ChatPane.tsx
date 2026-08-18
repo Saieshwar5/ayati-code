@@ -19,6 +19,7 @@ interface ChatPaneProps {
   onSend: (text: string) => Promise<boolean>;
   onStop: () => Promise<boolean>;
   onSelectAgent: (agentID: string) => Promise<void>;
+  onOpenWorkspace?: () => void;
   onCreateTask?: (request: string) => void;
   onResumeWorkspace?: () => void;
 }
@@ -75,6 +76,9 @@ export function ChatPane(props: ChatPaneProps) {
     <section className="workspace-detail">
       <div className="conversation-heading">
         <div className="workspace-context">
+          <button className="conversation-workspace-back" type="button" aria-label={`Back to ${repositoryName(props.workspace.repository)} workspace`} onClick={props.onOpenWorkspace}>
+            <span aria-hidden="true">←</span>
+          </button>
           <h1>{repositoryName(props.workspace.repository)}</h1>
           <p className="context-branch">
             Conversation · {props.workspace.branch}

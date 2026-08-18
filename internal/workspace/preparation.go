@@ -77,8 +77,8 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
-		profilePreparationDetail(profile)); err != nil {
+	if err := s.store.UpdatePreparation(ctx, id, PreparationStartingEnvironment,
+		"Assigning capacity and starting the workspace container"); err != nil {
 		return s.fail(ctx, id, err)
 	}
 	if _, err := s.environment.Start(ctx, compute.StartInput{
@@ -86,6 +86,10 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		CachePath: workspaceCachePath(value.Path),
 	}); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("acquire environment: %w", err))
+	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
+		profilePreparationDetail(profile)); err != nil {
+		return s.failActivePreparation(ctx, value, err)
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
