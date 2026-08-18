@@ -32,14 +32,21 @@ export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNav
             <Icon name={collapsed ? "panelOpen" : "panelClose"} />
           </button>
         </div>
-        <button aria-label="New workspace from navigation" className="primary new-workspace" type="button" onClick={() => onNavigate("/workspaces/new")}>
-          <Icon name="plus" />
-          <span>New workspace</span>
-        </button>
       </div>
 
       <nav className="product-navigation" aria-label="Product">
-        <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
+        <div className="product-nav-row">
+          <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
+          <button
+            aria-label="Create workspace from navigation"
+            className="product-nav-create"
+            title="Create workspace"
+            type="button"
+            onClick={() => onNavigate("/workspaces/new")}
+          >
+            <Icon name="plus" />
+          </button>
+        </div>
         <NavButton label="Agents" icon="agents" active={isAgentRoute(route)} onClick={() => onNavigate("/agents")} />
         <NavButton label="Environments" icon="environments" active={route.page === "environments"} onClick={() => onNavigate("/environments")} />
       </nav>

@@ -25,9 +25,9 @@ const workspace: Workspace = {
 describe("WorkspaceReadiness", () => {
   it("shows completed, current, and pending preparation steps", () => {
     render(<WorkspaceReadiness workspace={workspace} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText("Repository cloned").closest("li")?.className).toBe("done");
-    expect(screen.getByText("Project understood").closest("li")?.className).toBe("current");
-    expect(screen.getByText("Dependencies installed").closest("li")?.className).toBe("pending");
+    expect(screen.getByText("Repository").closest("li")?.className).toBe("done");
+    expect(screen.getAllByText("Project").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
+    expect(screen.getByText("Dependencies").closest("li")?.className).toBe("pending");
     expect(screen.getByText("Inspecting project metadata")).toBeTruthy();
   });
 
@@ -74,7 +74,8 @@ describe("WorkspaceReadiness", () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { name: "Baseline verified could not finish" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Verify needs attention" })).toBeTruthy();
+    expect(screen.getByText("Verify could not finish")).toBeTruthy();
     expect(screen.getByText("setup modified package-lock.json")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Retry preparation" }));
     expect(retry).toHaveBeenCalledOnce();

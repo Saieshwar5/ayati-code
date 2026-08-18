@@ -82,6 +82,9 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
             <WorkspaceHome
               view="create"
               repositories={controller.repositories}
+              recentRepositories={[...controller.workspaces]
+                .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))
+                .map((workspace) => workspace.repository)}
               repositoryError={controller.repositoryError}
               repositoryReconnectRequired={controller.repositoryReconnectRequired}
               onShowCreate={() => navigate("/workspaces/new")}
