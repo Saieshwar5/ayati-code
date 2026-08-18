@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type fakeRuntime struct {
@@ -127,7 +127,7 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -194,7 +194,7 @@ func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -249,7 +249,7 @@ func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -301,7 +301,7 @@ func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)

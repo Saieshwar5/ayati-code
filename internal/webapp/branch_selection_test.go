@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func TestHandlerCreatesDevelopWorkspaceOnExistingBranch(t *testing.T) {

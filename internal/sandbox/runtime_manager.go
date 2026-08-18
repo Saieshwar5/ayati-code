@@ -5,8 +5,8 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type RuntimeManager struct {

@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
 )
 
 func TestEventBrokerKeepsLatestNoticeForSlowSubscriber(t *testing.T) {

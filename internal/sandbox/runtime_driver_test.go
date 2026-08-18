@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
@@ -16,10 +16,11 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	runtimeID := strings.Repeat("f", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stderr: "No such container"}, {stdout: runtimeID + "\n"}, {},
+			{stderr: "No such container"}, {stderr: "No such container"},
+			{stdout: runtimeID + "\n"}, {},
 			{stdout: runtimeMetadata(t, spec, runtimeID, true, nil)},
 		},
-		errors: []error{errors.New("missing")},
+		errors: []error{errors.New("missing"), errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	runtime, err := driver.Create(context.Background(), spec)
@@ -29,14 +30,14 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	if runtime.ID != runtimeID || runtime.Running != true || runtime.WorkspaceWritable {
 		t.Fatalf("runtime = %#v", runtime)
 	}
-	if len(runner.calls) != 4 {
+	if len(runner.calls) != 5 {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
-	create := strings.Join(runner.calls[1], " ")
+	create := strings.Join(runner.calls[2], " ")
 	for _, expected := range []string{
-		"--label ayati.runtime=true", "--label ayati.environment=" + spec.Environment.ID,
-		"--label ayati.workspace=" + spec.Lease.WorkspaceID,
-		"--label ayati.lease=" + spec.Lease.ID, "--label ayati.generation=3",
+		"--label perpetual.runtime=true", "--label perpetual.environment=" + spec.Environment.ID,
+		"--label perpetual.workspace=" + spec.Lease.WorkspaceID,
+		"--label perpetual.lease=" + spec.Lease.ID, "--label perpetual.generation=3",
 		"--read-only", "--cap-drop ALL", "--security-opt no-new-privileges",
 		"--network none", "--pids-limit 384", "--memory 6144m", "--cpus 3.500",
 		"/run/ayati:rw,nosuid,nodev", "dst=/workspace,readonly", "dst=/cache",
@@ -65,17 +66,40 @@ func TestDockerDriverRestartsMatchingRuntime(t *testing.T) {
 	}
 }
 
+func TestDockerDriverRestoresLegacyRuntimeIdentity(t *testing.T) {
+	spec := testRuntimeSpec(t, true, environment.NetworkOutbound)
+	runtimeID := strings.Repeat("7", 64)
+	runner := &fakeRunner{
+		results: []commandResult{
+			{stderr: "No such container"},
+			{stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
+				value["Config"].(map[string]any)["Labels"] = legacyRuntimeLabels(spec)
+			})},
+		},
+		errors: []error{errors.New("missing")},
+	}
+	driver := &DockerDriver{runner: runner}
+	runtime, err := driver.Create(context.Background(), spec)
+	if err != nil || runtime.ID != runtimeID || !runtime.Running {
+		t.Fatalf("runtime = %#v, error = %v", runtime, err)
+	}
+	if len(runner.calls) != 2 || runner.calls[1][4] != legacyRuntimeName(spec) {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
 func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
 	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("d", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stderr: "No such object"}, {stdout: runtimeID}, {},
+			{stderr: "No such object"}, {stderr: "No such object"},
+			{stdout: runtimeID}, {},
 			{stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
 				value["HostConfig"].(map[string]any)["Memory"] = int64(1)
 			})}, {},
 		},
-		errors: []error{errors.New("missing")},
+		errors: []error{errors.New("missing"), errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	_, err := driver.Create(context.Background(), spec)
@@ -91,8 +115,8 @@ func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
 func TestDockerDriverCleansNamedRuntimeWhenDockerReturnsInvalidIdentity(t *testing.T) {
 	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
 	runner := &fakeRunner{
-		results: []commandResult{{stderr: "No such container"}, {stdout: "not-an-id"}, {}},
-		errors:  []error{errors.New("missing")},
+		results: []commandResult{{stderr: "No such container"}, {stderr: "No such container"}, {stdout: "not-an-id"}, {}},
+		errors:  []error{errors.New("missing"), errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	_, err := driver.Create(context.Background(), spec)
@@ -212,7 +236,7 @@ func testRuntimeSpec(t *testing.T, writable bool, network string) environment.Ru
 	return environment.RuntimeSpec{
 		Environment: environment.Environment{
 			ID: strings.Repeat("1", 24), Driver: environment.DriverDocker,
-			ImageRef: "ayati-sandbox:dev", ImageDigest: "sha256:" + strings.Repeat("a", 64),
+			ImageRef: "perpetual-sandbox:dev", ImageDigest: "sha256:" + strings.Repeat("a", 64),
 			CPUMillis: 3500, MemoryMB: 6144, PIDLimit: 384, NetworkPolicy: network,
 			ProvisioningState: environment.ProvisioningReady, Generation: 3,
 		},

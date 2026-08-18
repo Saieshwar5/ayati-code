@@ -92,7 +92,7 @@ func TestServiceRestoresReadyWorkspaceEnvironment(t *testing.T) {
 }
 
 func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "ayati/change", true)
+	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "perpetual/change", true)
 	service := &Service{
 		store: store, environment: &fakeEnvironment{err: errors.New("no environment is available")},
 		git: &recordingGit{},
@@ -108,7 +108,7 @@ func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
 }
 
 func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "ayati/change", true)
+	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "perpetual/change", true)
 	if err := os.MkdirAll(value.Path, 0o700); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}

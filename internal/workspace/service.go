@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type environment interface {

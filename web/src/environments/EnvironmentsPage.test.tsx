@@ -9,7 +9,7 @@ const baseEnvironment: ComputeEnvironment = {
   id: "environment-1",
   name: "Local Docker",
   driver: "docker",
-  image_ref: "ayati-sandbox:dev",
+  image_ref: "perpetual-sandbox:dev",
   image_digest: `sha256:${"a".repeat(64)}`,
   cpu_millis: 2000,
   memory_mb: 4096,
@@ -28,7 +28,7 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/capacity",
+  branch: "perpetual/capacity",
   create_branch: true,
   authority: "develop",
   preparation_stage: "ready",
@@ -64,7 +64,7 @@ it("shows capacity and keeps occupied environments protected", async () => {
   await user.click(screen.getByRole("button", { name: "Open workspace owner/project" }));
   expect(onOpenWorkspace).toHaveBeenCalledWith(workspace.id);
   expect(screen.getByText("project")).toBeTruthy();
-  expect(screen.getByText("ayati/capacity")).toBeTruthy();
+  expect(screen.getByText("perpetual/capacity")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: /Local Docker/ }));
   expect(screen.getByText("Generation")).toBeTruthy();
   expect(screen.getByText("active · generation 2")).toBeTruthy();
@@ -106,7 +106,7 @@ it("creates and repairs local environment capacity", async () => {
   expect(await screen.findByRole("heading", { name: "Node projects" })).toBeTruthy();
   expect(createBody).toMatchObject({
     name: "Node projects",
-    image_ref: "ayati-sandbox:dev",
+    image_ref: "perpetual-sandbox:dev",
     cpu_millis: 2000,
     memory_mb: 4096,
     pid_limit: 256,

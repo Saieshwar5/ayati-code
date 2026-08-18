@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func (s *Server) listWorkspaces(writer http.ResponseWriter, request *http.Request) {
@@ -120,7 +120,7 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 	}
 	if len(parts) == 4 && parts[1] == "sessions" && parts[3] == "messages" {
 		if s.chat == nil {
-			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run ayati config")
+			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run perpetual config")
 			return
 		}
 		var input struct {

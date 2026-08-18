@@ -7,8 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type workspaceRuntime interface {

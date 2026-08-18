@@ -33,7 +33,7 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body) headers.set("Content-Type", "application/json");
-  if (init.method && init.method !== "GET") headers.set("X-Ayati-Request", "1");
+  if (init.method && init.method !== "GET") headers.set("X-Perpetual-Request", "1");
   const response = await fetch(path, { ...init, headers });
   if (response.status === 204) return undefined as T;
   const body = (await response.json().catch(() => ({}))) as { error?: string };

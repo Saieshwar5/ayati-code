@@ -143,7 +143,7 @@ function activityState(workspace: Workspace, session: WorkspaceSession): string 
   if (workspace.status === "initializing") return "Installing dependencies inside the persistent sandbox.";
   if (workspace.status === "initialization_failed") return workspace.error || "Workspace initialization failed.";
   if (workspace.status === "stopped") return "The persistent sandbox has been stopped.";
-  if (session.status === "working") return "Ayati is working. New commands and results appear below.";
+  if (session.status === "working") return "Perpetual is working. New commands and results appear below.";
   if (session.status === "review") return "This conversation finished with workspace changes ready for review.";
   if (session.status === "failed") return session.error || "The last run in this conversation failed.";
   if (session.status === "canceled") return "The last run was stopped by the user.";

@@ -15,7 +15,7 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setTitle(workspace.branch.replaceAll("-", " ").replace(/^ayati\//, ""));
+    setTitle(workspace.branch.replaceAll("-", " ").replace(/^(?:perpetual|ayati)\//, ""));
     setError("");
   }, [workspace.id, workspace.branch]);
 

@@ -9,12 +9,12 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/react-ui",
+  branch: "perpetual/react-ui",
   create_branch: false,
   authority: "develop",
   effective_mount_mode: "rw",
   preparation_stage: "cloning",
-  preparation_detail: "owner/project · ayati/react-ui",
+  preparation_detail: "owner/project · perpetual/react-ui",
   configuration_candidates: [],
   setup_command: "go mod download",
   path: "/workspace",
@@ -157,7 +157,7 @@ describe("WorkspaceApplication", () => {
       expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     await user.click(screen.getByRole("radio", { name: "Develop authority" }));
-    await user.type(screen.getByLabelText("New branch name"), "ayati/react-ui");
+    await user.type(screen.getByLabelText("New branch name"), "perpetual/react-ui");
     await user.click(screen.getByText("Environment variables"));
     await user.click(screen.getByRole("button", { name: "Add variable" }));
     await user.type(screen.getByLabelText("Name"), "NPM_TOKEN");
@@ -167,11 +167,11 @@ describe("WorkspaceApplication", () => {
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Preparing workspace", level: 2 })).toBeTruthy();
-    expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
+    expect(new Headers(createRequest?.headers).get("X-Perpetual-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
       base_branch: "main",
-      branch: "ayati/react-ui",
+      branch: "perpetual/react-ui",
       create_branch: true,
       branch_mode: "new",
       authority: "develop",

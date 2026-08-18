@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func TestServiceResolvesTheSelectedAgentProvider(t *testing.T) {

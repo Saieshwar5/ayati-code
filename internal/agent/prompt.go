@@ -38,7 +38,7 @@ func WorkspacePrompt(context WorkspaceContext) string {
 Use the shell to read, search, inspect Git history, run compatible tests, and understand the application.
 The project is physically mounted read-only. Do not attempt to create, modify, delete, commit, or switch project files or Git state.
 Research, explain, diagnose, and propose changes. If the user asks for implementation, explain that Develop authority is required.
-GitHub credentials, publishing, workspace lifecycle, and authority changes are owned by Ayati and are not available through the shell.
+GitHub credentials, publishing, workspace lifecycle, and authority changes are owned by Perpetual and are not available through the shell.
 Workspace environment values may be available by name. Never print, log, save, or commit their values.
 When finished, reply with a concise summary.
 

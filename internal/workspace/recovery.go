@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const interruptedPreparationMessage = "Workspace preparation was interrupted when Ayati restarted"
+const interruptedPreparationMessage = "Workspace preparation was interrupted when Perpetual restarted"
 
 func (s *Store) recoverInterruptedWork(ctx context.Context) error {
 	now := formatTime(time.Now().UTC())

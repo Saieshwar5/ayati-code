@@ -31,8 +31,8 @@ export function ConfigureView() {
         <p className="eyebrow">GitHub App required</p>
         <h1>Connect perpetual to GitHub</h1>
         <p className="muted">
-          Start perpetual with <code>AYATI_GITHUB_CLIENT_ID</code> and{" "}
-          <code>AYATI_GITHUB_CLIENT_SECRET</code>, using{" "}
+          Start perpetual with <code>PERPETUAL_GITHUB_CLIENT_ID</code> and{" "}
+          <code>PERPETUAL_GITHUB_CLIENT_SECRET</code>, using{" "}
           <code>http://127.0.0.1:8080/auth/github/callback</code> as the callback URL.
         </p>
       </section>

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 type ConversationMessage struct {
@@ -82,7 +82,7 @@ func (s *Store) ConversationMessages(
 		value := ConversationMessage{Message: message}
 		if message.Role == "assistant" {
 			if agentID == "" {
-				agentID, name, emoji, revision, providerID = agent.BuiltinAgentID, "Ayati", "✦", 1, agent.FireworksProviderID
+				agentID, name, emoji, revision, providerID = agent.BuiltinAgentID, "Perpetual", "✦", 1, agent.FireworksProviderID
 			}
 			value.Agent = &agent.Attribution{
 				ID: agentID, Name: name, Emoji: emoji, Revision: revision,

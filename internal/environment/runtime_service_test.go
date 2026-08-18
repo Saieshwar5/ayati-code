@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type fakeRuntimeDriver struct {

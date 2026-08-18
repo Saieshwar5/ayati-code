@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

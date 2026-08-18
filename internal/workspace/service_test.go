@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type fakeEnvironment struct {
@@ -138,7 +138,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "repo")
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", CreateBranch: true,
+		BaseBranch: "main", Branch: "perpetual/change", CreateBranch: true,
 		Authority: AuthorityDevelop,
 		Setup:     "go mod download", Path: path,
 		Environment: []EnvironmentInput{
@@ -158,7 +158,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	}
 	wantGit := [][]string{
 		{"clone", "--branch", "main", "--single-branch", "--", value.CloneURL, path},
-		{"-C", path, "switch", "-c", "ayati/change"},
+		{"-C", path, "switch", "-c", "perpetual/change"},
 	}
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
@@ -213,7 +213,7 @@ func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/delete", Root: root,
+		BaseBranch: "main", Branch: "perpetual/delete", Root: root,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -268,7 +268,7 @@ func TestServiceRefusesToDeleteWorkspaceOutsideManagedRoot(t *testing.T) {
 	}
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/delete", Path: path,
+		BaseBranch: "main", Branch: "perpetual/delete", Path: path,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -296,7 +296,7 @@ func TestServiceRefusesDeletionDuringInitialization(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/delete", Root: root,
+		BaseBranch: "main", Branch: "perpetual/delete", Root: root,
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)

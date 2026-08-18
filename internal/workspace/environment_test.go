@@ -24,7 +24,7 @@ func TestStoreEncryptsAndManagesWorkspaceEnvironment(t *testing.T) {
 	}
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/environment", Path: filepath.Join(root, "repo"),
+		BaseBranch: "main", Branch: "perpetual/environment", Path: filepath.Join(root, "repo"),
 		Environment: []EnvironmentInput{
 			{Name: "DATABASE_URL", Value: "postgres://private", ExposeDuringSetup: false},
 			{Name: "NPM_TOKEN", Value: "npm-private", ExposeDuringSetup: true},
@@ -76,6 +76,7 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 		{Name: "INVALID-NAME", Value: "value"},
 		{Name: "PATH", Value: "/tmp"},
 		{Name: "GOCACHE", Value: "/project/cache"},
+		{Name: "PERPETUAL_GITHUB_TOKEN", Value: "value"},
 		{Name: "AYATI_GITHUB_TOKEN", Value: "value"},
 		{Name: "NULL_VALUE", Value: "bad\x00value"},
 	} {
@@ -97,7 +98,7 @@ func TestStoreReopensEncryptedWorkspaceEnvironment(t *testing.T) {
 	}
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/reopen", Path: filepath.Join(root, "repo"),
+		BaseBranch: "main", Branch: "perpetual/reopen", Path: filepath.Join(root, "repo"),
 		Environment: []EnvironmentInput{{Name: "PROJECT_TOKEN", Value: "persistent-secret"}},
 	})
 	if err != nil {

@@ -15,7 +15,7 @@ func TestStorePersistsAgentRunLifecycle(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/run", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/run", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)

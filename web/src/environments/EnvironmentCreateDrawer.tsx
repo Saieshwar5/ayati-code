@@ -3,7 +3,7 @@ import type { CreateComputeEnvironmentInput } from "../api/environment-contracts
 
 const defaultInput: CreateComputeEnvironmentInput = {
   name: "",
-  image_ref: "ayati-sandbox:dev",
+  image_ref: "perpetual-sandbox:dev",
   cpu_millis: 2000,
   memory_mb: 4096,
   pid_limit: 256,

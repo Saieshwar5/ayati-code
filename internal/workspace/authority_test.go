@@ -31,7 +31,7 @@ func TestStoreMigratesExistingWorkspaceToDevelop(t *testing.T) {
 		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		sandbox_name, status, created_at, updated_at
 	) VALUES ('legacy', 'owner/project', 'https://github.com/owner/project.git', 'main',
-		'ayati/change', 1, '', '/tmp/legacy-authority', 'ayati-workspace-legacy', 'ready', ?, ?)`, now, now); err != nil {
+		'perpetual/change', 1, '', '/tmp/legacy-authority', 'ayati-workspace-legacy', 'ready', ?, ?)`, now, now); err != nil {
 		t.Fatalf("Insert legacy workspace: %v", err)
 	}
 	if err := database.Close(); err != nil {

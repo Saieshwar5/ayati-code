@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 )
 
 const (
@@ -77,7 +77,15 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve data directory: %w", err)
 	}
-	return filepath.Join(root, "ayati", "ayati.db"), nil
+	current := filepath.Join(root, "perpetual", "perpetual.db")
+	if _, err := os.Stat(current); err == nil || !errors.Is(err, os.ErrNotExist) {
+		return current, nil
+	}
+	legacy := filepath.Join(root, "ayati", "ayati.db")
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy, nil
+	}
+	return current, nil
 }
 
 func Open(path string) (*Store, error) {

@@ -8,7 +8,7 @@ import (
 )
 
 const environmentScript = `set -eu
-file=$(mktemp /tmp/ayati-environment.XXXXXX)
+file=$(mktemp /tmp/perpetual-environment.XXXXXX)
 trap 'rm -f "$file"' EXIT HUP INT TERM
 chmod 600 "$file"
 cat > "$file"

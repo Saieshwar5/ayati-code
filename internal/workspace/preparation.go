@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func (s *Service) Initialize(ctx context.Context, id string) error {

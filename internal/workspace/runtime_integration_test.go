@@ -7,15 +7,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/sandbox"
 )
 
 func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
-	if os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
-		t.Skip("set AYATI_DOCKER_INTEGRATION=1 to exercise Docker")
+	if os.Getenv("PERPETUAL_DOCKER_INTEGRATION") != "1" && os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
+		t.Skip("set PERPETUAL_DOCKER_INTEGRATION=1 to exercise Docker")
 	}
 	ctx := context.Background()
 	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
@@ -84,7 +84,7 @@ func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
 		t.Fatalf("Explore result = %#v", result)
 	}
 	updated, err := service.ChangeAuthority(ctx, value.ID, AuthorityChange{
-		Authority: AuthorityDevelop, Branch: "ayati/integration", CreateBranch: true,
+		Authority: AuthorityDevelop, Branch: "perpetual/integration", CreateBranch: true,
 	})
 	if err != nil || updated.EffectiveMountMode != "rw" {
 		t.Fatalf("ChangeAuthority: workspace = %#v, error = %v", updated, err)
