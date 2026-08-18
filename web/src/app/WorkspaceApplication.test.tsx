@@ -34,9 +34,50 @@ const session: WorkspaceSession = {
 };
 
 afterEach(() => vi.restoreAllMocks());
-beforeEach(() => window.history.replaceState({}, "", "/workspaces"));
+beforeEach(() => {
+  window.history.replaceState({}, "", "/workspaces");
+  const values = new Map<string, string>();
+  Object.defineProperty(window, "localStorage", {
+    configurable: true,
+    value: {
+      clear: () => values.clear(),
+      getItem: (key: string) => values.get(key) ?? null,
+      key: (index: number) => [...values.keys()][index] ?? null,
+      get length() { return values.size; },
+      removeItem: (key: string) => values.delete(key),
+      setItem: (key: string, value: string) => values.set(key, value),
+    } satisfies Storage,
+  });
+});
 
 describe("WorkspaceApplication", () => {
+  it("collapses the main navigation and remembers the preference", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path === "/api/repositories") return json([]);
+      if (path === "/api/workspaces") return json([]);
+      if (path === "/api/workspaces?archived=true") return json([]);
+      throw new Error(`Unexpected request: GET ${path}`);
+    });
+
+    const user = userEvent.setup();
+    render(
+      <WorkspaceApplication
+        user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}
+      />,
+    );
+
+    await screen.findByRole("heading", { name: "Workspaces" });
+    const collapse = screen.getByRole("button", { name: "Collapse sidebar" });
+    expect(collapse.getAttribute("aria-expanded")).toBe("true");
+
+    await user.click(collapse);
+
+    expect(screen.getByRole("button", { name: "Expand sidebar" }).getAttribute("aria-expanded")).toBe("false");
+    expect(document.querySelector(".app-shell")?.classList.contains("sidebar-collapsed")).toBe(true);
+    expect(window.localStorage.getItem("perpetual.sidebar.collapsed")).toBe("true");
+  });
+
   it("offers GitHub reconnection when repository authorization expires", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
@@ -89,6 +130,7 @@ describe("WorkspaceApplication", () => {
       />,
     );
     await screen.findByRole("heading", { name: "Workspaces" });
+    expect(screen.getByRole("button", { name: "perpetual" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "New workspace" }));
     await user.selectOptions(screen.getByLabelText("Repository"), "owner/project");
     await waitFor(() =>

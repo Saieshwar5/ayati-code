@@ -1,5 +1,6 @@
 import type { Workspace } from "../api/contracts";
 import { repositoryName, statusLabel } from "../app/format";
+import { Icon } from "../ui/Icon";
 
 interface WorkspaceIndexProps {
   workspaces: Workspace[];
@@ -9,38 +10,40 @@ interface WorkspaceIndexProps {
 
 export function WorkspaceIndex({ workspaces, onCreate, onOpen }: WorkspaceIndexProps) {
   return (
-    <section className="page-scroll">
+    <section className="page-scroll workspace-index">
       <div className="page-frame">
         <header className="page-title-row">
           <div>
-            <p className="eyebrow">Projects and sandboxes</p>
             <h1>Workspaces</h1>
-            <p className="muted">Open a prepared project, then choose the session you want to continue.</p>
+            <p className="muted">Your repositories, environments, and sessions.</p>
           </div>
-          <button className="primary" type="button" onClick={onCreate}>＋ New workspace</button>
+          <button className="primary compact-action" type="button" onClick={onCreate}>
+            <Icon name="plus" />
+            <span>New workspace</span>
+          </button>
         </header>
         {workspaces.length ? (
-          <div className="workspace-card-grid">
+          <div className="workspace-table" aria-label="Workspaces">
             {workspaces.map((workspace) => (
-              <button className="workspace-card" type="button" key={workspace.id} onClick={() => onOpen(workspace.id)}>
-                <span className={`workspace-card-mark ${workspace.status}`} aria-hidden="true" />
+              <button className="workspace-table-row" type="button" key={workspace.id} onClick={() => onOpen(workspace.id)}>
                 <span className="workspace-card-copy">
                   <strong>{repositoryName(workspace.repository)}</strong>
                   <span>{workspace.repository}</span>
                 </span>
-                <span className="workspace-card-meta">
-                  <span>{workspace.branch}</span>
-                  <span className={`status ${workspace.status}`}>{statusLabel(workspace.status)}</span>
-                </span>
+                <code className="workspace-branch">{workspace.branch}</code>
+                <span className={`status ${workspace.status}`}>{statusLabel(workspace.status)}</span>
+                <span className="row-arrow" aria-hidden="true">›</span>
               </button>
             ))}
           </div>
         ) : (
           <div className="workspace-empty-card">
-            <span className="empty-glyph" aria-hidden="true">◇</span>
             <h2>Create your first workspace</h2>
-            <p className="muted">Connect a repository, prepare its dependencies, and keep its sessions together.</p>
-            <button className="primary" type="button" onClick={onCreate}>Create workspace</button>
+            <p className="muted">Connect a repository and prepare a persistent development environment.</p>
+            <button className="primary compact-action" type="button" onClick={onCreate}>
+              <Icon name="plus" />
+              <span>Create workspace</span>
+            </button>
           </div>
         )}
       </div>

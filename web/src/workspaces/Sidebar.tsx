@@ -1,33 +1,47 @@
 import type { AppRoute } from "../app/useAppRoute";
 import { isAgentRoute, workspacePath } from "../app/useAppRoute";
 import type { WorkspaceController } from "../app/useWorkspaceController";
+import { Icon, type IconName } from "../ui/Icon";
 import { WorkspaceNavigationItem } from "./WorkspaceNavigationItem";
 
 interface SidebarProps {
   controller: WorkspaceController;
   route: AppRoute;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
   onNavigate: (path: string) => void;
 }
 
-export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
+export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNavigate }: SidebarProps) {
   const activeWorkspaceID = "workspaceID" in route ? route.workspaceID : "";
   return (
     <aside className="sidebar" aria-label="Main navigation">
       <div className="sidebar-top">
-        <button className="brand" type="button" onClick={() => onNavigate("/workspaces")}>
-          <span className="brand-mark" aria-hidden="true">A</span>
-          <span>Ayati</span>
-        </button>
-        <button className="primary new-workspace" type="button" onClick={() => onNavigate("/workspaces/new")}>
-          <span aria-hidden="true">＋</span>
+        <div className="brand-row">
+          <button className="brand" type="button" onClick={() => onNavigate("/workspaces")}>
+            <span className="brand-name">perpetual</span>
+          </button>
+          <button
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="sidebar-toggle"
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            type="button"
+            onClick={() => onCollapsedChange(!collapsed)}
+          >
+            <Icon name={collapsed ? "panelOpen" : "panelClose"} />
+          </button>
+        </div>
+        <button aria-label="New workspace from navigation" className="primary new-workspace" type="button" onClick={() => onNavigate("/workspaces/new")}>
+          <Icon name="plus" />
           <span>New workspace</span>
         </button>
       </div>
 
       <nav className="product-navigation" aria-label="Product">
-        <NavButton label="Workspaces" icon="◇" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
-        <NavButton label="Agents" icon="✦" active={isAgentRoute(route)} onClick={() => onNavigate("/agents")} />
-        <NavButton label="Environments" icon="⌁" active={route.page === "environments"} onClick={() => onNavigate("/environments")} />
+        <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
+        <NavButton label="Agents" icon="agents" active={isAgentRoute(route)} onClick={() => onNavigate("/agents")} />
+        <NavButton label="Environments" icon="environments" active={route.page === "environments"} onClick={() => onNavigate("/environments")} />
       </nav>
 
       <div className="workspace-navigation">
@@ -51,7 +65,7 @@ export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
           type="button"
           onClick={() => onNavigate("/workspaces/archived")}
         >
-          <span aria-hidden="true">▱</span>
+          <Icon name="archive" />
           <span>Archived</span>
           {controller.archivedWorkspaces.length > 0 && <strong>{controller.archivedWorkspaces.length}</strong>}
         </button>
@@ -59,7 +73,7 @@ export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
 
       <div className="sidebar-footer">
         <a className="manage-link" href="https://github.com/settings/installations" target="_blank" rel="noreferrer">
-          <span aria-hidden="true">↗</span>
+          <Icon name="external" />
           <span>Manage repositories</span>
         </a>
         <div className="account">
@@ -72,10 +86,10 @@ export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
   );
 }
 
-function NavButton(props: { label: string; icon: string; active: boolean; onClick: () => void }) {
+function NavButton(props: { label: string; icon: IconName; active: boolean; onClick: () => void }) {
   return (
     <button className={`product-nav-item${props.active ? " active" : ""}`} type="button" aria-current={props.active ? "page" : undefined} onClick={props.onClick}>
-      <span aria-hidden="true">{props.icon}</span>
+      <Icon name={props.icon} />
       <strong>{props.label}</strong>
     </button>
   );

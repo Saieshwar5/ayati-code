@@ -28,6 +28,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const agentStudioView = isAgentRoute(route);
   const agents = useAgentController(agentStudioView || sessionView);
   const skills = useSkillController(agentStudioView);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(initialSidebarState);
   const [inspectorCollapsed, setInspectorCollapsedState] = useState(initialInspectorState);
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
   const sessionID = route.page === "session" ? route.sessionID : "";
@@ -58,10 +59,19 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     }
   }, []);
 
+  const setSidebarCollapsed = useCallback((collapsed: boolean) => {
+    setSidebarCollapsedState(collapsed);
+    try {
+      window.localStorage.setItem("perpetual.sidebar.collapsed", String(collapsed));
+    } catch {
+      // The preference is optional when browser storage is unavailable.
+    }
+  }, []);
+
   return (
     <main>
-      <section className={`app-shell${sessionView ? " session-view" : ""}${agentStudioView ? " agent-studio-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
-        <Sidebar controller={controller} route={route} onNavigate={navigate} />
+      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${sessionView ? " session-view" : ""}${agentStudioView ? " agent-studio-view" : ""}${sessionView && inspectorCollapsed ? " inspector-collapsed" : ""}`}>
+        <Sidebar controller={controller} route={route} collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} onNavigate={navigate} />
         {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} providerCount={agents.providers.length} skillCount={skills.skills.length} onNavigate={navigate} />}
         <section className="conversation-pane">
           {controller.loading ? (
@@ -147,13 +157,24 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
 }
 
 function LoadingPage({ title, error = false }: { title: string; error?: boolean }) {
-  return <section className="workspace-home"><div className="workspace-empty" role={error ? "alert" : undefined}><p className="eyebrow">{error ? "Unable to open" : "Ayati"}</p><h1>{title}</h1></div></section>;
+  return <section className="workspace-home"><div className="workspace-empty" role={error ? "alert" : undefined}><p className="eyebrow">{error ? "Unable to open" : "perpetual"}</p><h1>{title}</h1></div></section>;
 }
 
 function initialInspectorState(): boolean {
   let collapsed = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 880px)").matches;
   try {
     const saved = window.localStorage.getItem("ayati.inspector.collapsed");
+    if (saved !== null) collapsed = saved === "true";
+  } catch {
+    // Responsive behavior remains the fallback when storage is unavailable.
+  }
+  return collapsed;
+}
+
+function initialSidebarState(): boolean {
+  let collapsed = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 620px)").matches;
+  try {
+    const saved = window.localStorage.getItem("perpetual.sidebar.collapsed");
     if (saved !== null) collapsed = saved === "true";
   } catch {
     // Responsive behavior remains the fallback when storage is unavailable.
