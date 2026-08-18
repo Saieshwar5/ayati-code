@@ -24,6 +24,12 @@
 .brand { width: max-content; min-height: 30px; margin: 0; padding: 0 4px; border: 0; background: transparent; font-size: 20px; font-weight: 400; }
 .sidebar-toggle { width: 28px; min-height: 28px; padding: 0; flex: 0 0 auto; border: 0; background: transparent; color: var(--color-text-secondary); }
 .sidebar-toggle:hover { background: var(--color-surface-subtle); color: var(--color-text); }
+.sidebar-brand-trigger { width: 32px; min-height: 32px; padding: 0; flex: 0 0 auto; border: 0; background: transparent; color: var(--color-text); }
+.sidebar-brand-trigger:hover { background: var(--color-surface-subtle); }
+.perpetual-mark { width: 24px; height: 24px; overflow: visible; animation: perpetual-mark-enter 160ms ease-out both; }
+.perpetual-mark-pivot { fill: var(--color-surface); stroke: currentColor; stroke-width: 1.6; }
+.perpetual-mark-pin { fill: currentColor; }
+.perpetual-mark-pendulum { fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; transform-box: view-box; transform-origin: 14px 4px; animation: perpetual-mark-swing 2.6s ease-in-out infinite; will-change: transform; }
 .product-navigation { padding: 4px 7px 9px; display: grid; gap: 2px; border-bottom: 1px solid var(--color-border); }
 .product-nav-row { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 2px; }
 .product-nav-item { min-height: 34px; padding: 0 9px; gap: 9px; justify-content: flex-start; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 12px; }
@@ -73,6 +79,21 @@
 .sidebar-collapsed .sidebar-footer { padding: 9px 8px; }
 .sidebar-collapsed .account { display: grid; grid-template-columns: 1fr; place-items: center; }
 .sidebar-collapsed .account .avatar { grid-row: auto; }
+
+@keyframes perpetual-mark-swing {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@keyframes perpetual-mark-enter {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .perpetual-mark,
+  .perpetual-mark-pendulum { animation: none; transform: none; }
+}
 
 @media (max-width: 1120px) {
   .app-shell { grid-template-columns: 208px minmax(0, 1fr); }
