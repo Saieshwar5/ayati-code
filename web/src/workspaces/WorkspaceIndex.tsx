@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Workspace, WorkspaceStatus } from "../api/contracts";
 import { repositoryName } from "../app/format";
 import { Icon } from "../ui/Icon";
@@ -23,17 +23,34 @@ interface WorkspaceIndexProps {
 }
 
 export function WorkspaceIndex(props: WorkspaceIndexProps) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<WorkspaceFilter>("all");
-  const [sort, setSort] = useState<WorkspaceSort>("updated");
+  const saved = savedIndexState();
+  const [query, setQuery] = useState(saved.query);
+  const [filter, setFilter] = useState<WorkspaceFilter>(saved.filter);
+  const [sort, setSort] = useState<WorkspaceSort>(saved.sort);
+  const scroll = useRef<HTMLElement>(null);
   const source = props.view === "active" ? props.workspaces : props.archivedWorkspaces;
   const visible = useMemo(
     () => selectWorkspaces(source, query, props.view === "active" ? filter : "all", sort),
     [filter, props.view, query, sort, source],
   );
 
+  useEffect(() => {
+    if (scroll.current) scroll.current.scrollTop = saved.scrollTop;
+  }, []);
+
+  function openWorkspace(workspaceID: string) {
+    const state = window.history.state && typeof window.history.state === "object" ? window.history.state : {};
+    window.history.replaceState({
+      ...state,
+      workspaceIndex: { query, filter, sort, scrollTop: scroll.current?.scrollTop || 0 },
+    }, "");
+    const transition = (document as Document & { startViewTransition?: (update: () => void) => unknown }).startViewTransition;
+    if (transition) transition.call(document, () => props.onOpen(workspaceID));
+    else props.onOpen(workspaceID);
+  }
+
   return (
-    <section className="page-scroll workspace-index">
+    <section className="page-scroll workspace-index" ref={scroll}>
       <div className="workspace-manager">
         <header className="workspace-manager-header">
           <div>
@@ -88,7 +105,7 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
                 key={workspace.id}
                 workspace={workspace}
                 archived={props.view === "archived"}
-                onOpen={() => props.onOpen(workspace.id)}
+                onOpen={() => openWorkspace(workspace.id)}
                 onStop={() => props.onStop(workspace)}
                 onResume={() => props.onResume(workspace)}
                 onArchive={() => props.onArchive(workspace)}
@@ -104,6 +121,18 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
       </div>
     </section>
   );
+}
+
+function savedIndexState(): { query: string; filter: WorkspaceFilter; sort: WorkspaceSort; scrollTop: number } {
+  const value = window.history.state?.workspaceIndex;
+  const filters: WorkspaceFilter[] = ["all", "ready", "preparing", "attention", "stopped"];
+  const sorts: WorkspaceSort[] = ["updated", "name", "created"];
+  return {
+    query: typeof value?.query === "string" ? value.query : "",
+    filter: filters.includes(value?.filter) ? value.filter : "all",
+    sort: sorts.includes(value?.sort) ? value.sort : "updated",
+    scrollTop: typeof value?.scrollTop === "number" ? value.scrollTop : 0,
+  };
 }
 
 function ViewOption(props: { label: string; count: number; value: WorkspaceView; selected: WorkspaceView; onChange: (view: WorkspaceView) => void }) {

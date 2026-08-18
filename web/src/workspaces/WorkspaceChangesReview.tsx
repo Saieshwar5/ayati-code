@@ -16,6 +16,7 @@ interface WorkspaceChangesReviewProps {
   compact?: boolean;
   embedded?: boolean;
   onFileOpen?: () => void;
+  onClose?: () => void;
   onRefresh: () => void;
   onPublish: () => void;
 }
@@ -44,6 +45,7 @@ export function WorkspaceChangesReview(props: WorkspaceChangesReviewProps) {
         <div>
           <button className="quiet compact" type="button" disabled={props.loading} onClick={props.onRefresh}>{props.loading ? "Refreshing…" : "Refresh"}</button>
           {!props.embedded && <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Publish…</button>}
+          {props.onClose && <button className="changes-close" type="button" aria-label="Close changes" onClick={props.onClose}>×</button>}
         </div>
       </header>
       {props.error ? (

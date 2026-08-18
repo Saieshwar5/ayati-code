@@ -14,6 +14,7 @@ export type PreparationStage =
   | "pending"
   | "cloning"
   | "analyzing"
+  | "starting_environment"
   | "installing"
   | "verifying"
   | "sealing"

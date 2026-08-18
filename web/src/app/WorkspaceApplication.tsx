@@ -8,11 +8,12 @@ import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { useServerEvents } from "../hooks/useServerEvents";
 import { Sidebar } from "../workspaces/Sidebar";
+import { WorkspaceChangesDrawer } from "../workspaces/WorkspaceChangesDrawer";
 import { WorkspaceHome } from "../workspaces/WorkspaceHome";
 import { WorkspaceIndex } from "../workspaces/WorkspaceIndex";
-import { WorkspacePanel, type WorkspacePanelSection } from "../workspaces/WorkspacePanel";
+import { WorkspaceOverview } from "../workspaces/WorkspaceOverview";
 import { taskMarkdownFromRequest, type WorkspaceTask } from "../workspaces/WorkspaceTasksPanel";
-import { isAgentRoute, useAppRoute, workspacePath } from "./useAppRoute";
+import { isAgentRoute, useAppRoute, workspaceConversationPath, workspacePath } from "./useAppRoute";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 interface WorkspaceApplicationProps {
@@ -22,15 +23,13 @@ interface WorkspaceApplicationProps {
 export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const controller = useWorkspaceController(user);
   const { route, navigate } = useAppRoute();
-  const workspaceChatView = route.page === "workspace";
+  const workspaceChatView = route.page === "workspace-conversation";
   const agentStudioView = isAgentRoute(route);
   const agents = useAgentController(agentStudioView || workspaceChatView);
   const skills = useSkillController(agentStudioView);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(initialSidebarState);
   const [tasksByWorkspace, setTasksByWorkspace] = useState<Record<string, WorkspaceTask[]>>({});
-  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(false);
-  const [workspacePanelExpanded, setWorkspacePanelExpanded] = useState(false);
-  const [workspacePanelSection, setWorkspacePanelSection] = useState<WorkspacePanelSection>("tasks");
+  const [changesOpen, setChangesOpen] = useState(false);
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
   const workspace = controller.workspaces.find((item) => item.id === workspaceID);
   const workspaceSessions = controller.sessions[workspaceID] || [];
@@ -41,15 +40,16 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   useEffect(() => {
     if (!workspaceID) return;
     void controller.loadSessions(workspaceID).then(async (values) => {
-      if (route.page === "workspace" && !values.length) await controller.createSession(workspaceID);
+      if (route.page === "workspace-conversation" && !values.length) await controller.createSession(workspaceID);
     });
   }, [controller.createSession, controller.loadSessions, route.page, workspaceID]);
 
   useEffect(() => {
-    setWorkspacePanelOpen(false);
-    setWorkspacePanelExpanded(false);
-    setWorkspacePanelSection("tasks");
+    setChangesOpen(false);
   }, [workspaceID]);
+  useEffect(() => {
+    if (!workspaceChatView) setChangesOpen(false);
+  }, [workspaceChatView]);
   const serverEvent = useServerEvents(workspaceID, (changedWorkspaceID) => {
     void controller.loadSessions(changedWorkspaceID);
   });
@@ -97,7 +97,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
 
   return (
     <main>
-      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${workspaceChatView ? " workspace-chat-view" : ""}${workspacePanelOpen ? " workspace-panel-open" : ""}${workspacePanelExpanded ? " workspace-panel-expanded" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
+      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${workspaceChatView ? " workspace-chat-view" : ""}${changesOpen ? " workspace-changes-open" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
         <Sidebar controller={controller} route={route} collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} onNavigate={navigate} />
         <section className="conversation-pane">
           {controller.loading ? (
@@ -150,7 +150,23 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onDelete={controller.deleteWorkspace}
               deletingWorkspaceIDs={controller.deletingWorkspaceIDs}
             />
-          ) : route.page === "workspace" && workspace && session ? (
+          ) : route.page === "workspace-overview" && workspace ? (
+            <WorkspaceOverview
+              workspace={workspace}
+              sessions={workspaceSessions}
+              controller={controller}
+              tasks={tasksByWorkspace[workspace.id] || []}
+              onBack={() => navigate("/workspaces")}
+              onOpenConversation={() => navigate(workspaceConversationPath(workspace.id))}
+              onReviewChanges={() => { setChangesOpen(true); navigate(workspaceConversationPath(workspace.id)); }}
+              onManageEnvironments={() => navigate("/environments")}
+              onCreateTask={(markdown) => createTask(workspace.id, markdown)}
+              onUpdateTask={(task) => updateTask(workspace.id, task)}
+              onDeleteTask={(taskID) => deleteTask(workspace.id, taskID)}
+              onArchived={() => navigate("/workspaces")}
+              onDeleted={() => navigate("/workspaces")}
+            />
+          ) : route.page === "workspace-conversation" && workspace && session ? (
             <ChatPane
               workspace={workspace}
               session={session}
@@ -165,10 +181,11 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onSelectAgent={async (agentID) => {
                 await controller.selectSessionAgent(workspace.id, session.id, agentID);
               }}
+              onOpenWorkspace={() => navigate(workspacePath(workspace.id))}
               onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}
               onResumeWorkspace={() => void controller.workspaceAction(workspace.id, "resume")}
             />
-          ) : route.page === "workspace" && workspace ? (
+          ) : route.page === "workspace-conversation" && workspace ? (
             <LoadingPage title="Opening conversation…" />
           ) : agentStudioView ? (
             <AgentStudio route={route} controller={agents} skills={skills} onNavigate={navigate} />
@@ -182,22 +199,11 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
           )}
         </section>
         {workspaceChatView && workspace && (
-          <WorkspacePanel
+          <WorkspaceChangesDrawer
             workspace={workspace}
-            controller={controller}
-            open={workspacePanelOpen}
-            section={workspacePanelSection}
-            expanded={workspacePanelExpanded}
-            tasks={tasksByWorkspace[workspace.id] || []}
-            onOpenChange={setWorkspacePanelOpen}
-            onSectionChange={setWorkspacePanelSection}
-            onExpandedChange={setWorkspacePanelExpanded}
-            onCreateTask={(markdown) => createTask(workspace.id, markdown)}
-            onUpdateTask={(task) => updateTask(workspace.id, task)}
-            onDeleteTask={(taskID) => deleteTask(workspace.id, taskID)}
-            onManageEnvironments={() => navigate("/environments")}
-            onArchived={() => navigate("/workspaces")}
-            onDeleted={() => navigate("/workspaces")}
+            open={changesOpen}
+            onOpenChange={setChangesOpen}
+            onWorkspaceUpdate={controller.updateWorkspace}
           />
         )}
       </section>

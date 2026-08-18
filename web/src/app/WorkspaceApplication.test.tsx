@@ -161,7 +161,9 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Preparing workspace", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Preparing your workspace", level: 2 })).toBeTruthy();
+    expect(window.location.pathname).toBe(`/workspaces/${workspace.id}`);
+    expect(screen.getByRole("button", { name: "Continue conversation" }).hasAttribute("disabled")).toBe(true);
     expect(new Headers(createRequest?.headers).get("X-Perpetual-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
@@ -265,7 +267,7 @@ describe("WorkspaceApplication", () => {
     });
   });
 
-  it("opens a workspace as chat first and manages details without leaving it", async () => {
+  it("opens a workspace overview before conversation and keeps only changes beside chat", async () => {
     const readyWorkspace: Workspace = {
       ...workspace,
       status: "ready",
@@ -287,36 +289,33 @@ describe("WorkspaceApplication", () => {
     render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
-    expect(screen.getByText(/Discuss the project/)).toBeTruthy();
     expect(window.location.pathname).toBe(`/workspaces/${workspace.id}`);
+    expect(screen.getByRole("heading", { name: "Tasks" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Changes" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Open context controls" })).toBeNull();
     const sidebar = screen.getByRole("complementary", { name: "Main navigation" });
     expect(within(sidebar).queryByText("Sessions")).toBeNull();
-    expect(screen.queryByRole("complementary", { name: "Workspace panel" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Continue conversation" }));
+    expect(window.location.pathname).toBe(`/workspaces/${workspace.id}/conversation`);
+    expect(await screen.findByRole("button", { name: "Open context controls" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Back to project workspace" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Workspace changes" })).toBeNull();
     expect(screen.getByRole("button", { name: "Open context controls" })).toBeTruthy();
     const header = document.querySelector(".conversation-heading");
     expect(header?.textContent).not.toContain("Tasks");
     expect(header?.textContent).not.toContain("Changes");
-    expect(screen.getByRole("navigation", { name: "Workspace tools" })).toBeTruthy();
-
-    await user.click(screen.getByRole("button", { name: "Tasks" }));
-    let panel = screen.getByRole("complementary", { name: "Workspace panel" });
-    expect(within(panel).getByRole("heading", { name: "Tasks" })).toBeTruthy();
-    expect(document.querySelector(".app-shell")?.classList.contains("workspace-panel-open")).toBe(true);
-
-    await user.click(within(panel).getByRole("button", { name: "Focus workspace panel" }));
-    expect(document.querySelector(".app-shell")?.classList.contains("workspace-panel-expanded")).toBe(true);
-    await user.click(within(panel).getByRole("button", { name: "Dock workspace panel" }));
-    await user.click(within(panel).getByRole("button", { name: "Collapse workspace panel" }));
-    expect(screen.queryByRole("complementary", { name: "Workspace panel" })).toBeNull();
+    expect(screen.getByRole("navigation", { name: "Conversation tools" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Tasks" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Workspace" })).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Changes" }));
-    panel = screen.getByRole("complementary", { name: "Workspace panel" });
-    expect(within(panel).getByRole("heading", { name: "Changes" })).toBeTruthy();
+    const panel = screen.getByRole("complementary", { name: "Workspace changes" });
     expect(await within(panel).findByText("Working tree is clean")).toBeTruthy();
     expect(screen.queryByText("Environment variables")).toBeNull();
     expect(screen.getByRole("button", { name: "Changes" }).getAttribute("aria-pressed")).toBe("true");
-    await user.click(screen.getByRole("button", { name: "Changes" }));
-    expect(screen.queryByRole("complementary", { name: "Workspace panel" })).toBeNull();
+    await user.click(within(panel).getByRole("button", { name: "Close changes" }));
+    expect(screen.queryByRole("complementary", { name: "Workspace changes" })).toBeNull();
   });
 });
 

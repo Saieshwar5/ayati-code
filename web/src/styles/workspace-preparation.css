@@ -5,7 +5,7 @@
 .readiness-card-heading .eyebrow { margin-bottom: 5px; font-size: 8px; }
 .readiness-card-heading h2 { margin: 0; font-size: 17px; }
 .preparation-project { max-width: 220px; overflow: hidden; color: var(--color-text-secondary); font: 500 9px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.preparation-rail { margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); list-style: none; }
+.preparation-rail { margin: 20px 0 0; padding: 0; display: grid; grid-template-columns: repeat(6, 1fr); list-style: none; }
 .preparation-rail li { min-width: 0; position: relative; display: grid; justify-items: center; gap: 7px; color: var(--color-text-tertiary); }
 .preparation-rail li:not(:last-child)::after { position: absolute; top: 10px; left: calc(50% + 12px); right: calc(-50% + 12px); height: 1px; content: ""; background: var(--color-border); }
 .preparation-rail li.done:not(:last-child)::after { background: var(--color-text); }

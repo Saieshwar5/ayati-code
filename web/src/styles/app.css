@@ -215,6 +215,8 @@ input, select, textarea {
 }
 .workspace-context { min-width: 0; display: flex; flex: 1; align-items: center; gap: 7px; }
 .conversation-heading h1 { order: 2; overflow: hidden; max-width: 44%; margin: 0; flex: 0 1 auto; font-size: 13px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-workspace-back { width: 28px; min-height: 28px; padding: 0; flex: 0 0 auto; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 14px; }
+.conversation-workspace-back:hover { background: var(--color-surface-subtle); }
 .conversation-workspace-link { min-width: 0; min-height: 28px; order: 1; overflow: hidden; padding: 0; flex: 0 1 auto; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .conversation-workspace-link:hover { color: var(--color-text); }
 .conversation-heading-actions { display: flex; align-items: center; gap: 10px; }

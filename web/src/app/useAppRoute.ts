@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from "react";
 export type AppRoute =
   | { page: "workspaces" }
   | { page: "create-workspace" }
-  | { page: "workspace"; workspaceID: string }
+  | { page: "workspace-overview"; workspaceID: string }
+  | { page: "workspace-conversation"; workspaceID: string }
   | { page: "archived" }
   | { page: "agents" }
   | { page: "agent-new" }
@@ -34,6 +35,10 @@ export function workspacePath(workspaceID: string): string {
   return `/workspaces/${encodeURIComponent(workspaceID)}`;
 }
 
+export function workspaceConversationPath(workspaceID: string): string {
+  return `${workspacePath(workspaceID)}/conversation`;
+}
+
 export function isAgentRoute(route: AppRoute): boolean {
   return route.page === "agents" || route.page === "agent-new" ||
     route.page === "agent-detail" || route.page === "agent-providers" ||
@@ -52,13 +57,13 @@ function parseRoute(pathname: string): AppRoute {
     return { page: "archived" };
   }
   if (parts[0] === "workspaces" && parts[1] && parts[2] === "conversation") {
-    return { page: "workspace", workspaceID: parts[1] };
+    return { page: "workspace-conversation", workspaceID: parts[1] };
   }
   if (parts[0] === "workspaces" && parts[1] && parts[2] === "sessions" && parts[3]) {
-    return { page: "workspace", workspaceID: parts[1] };
+    return { page: "workspace-conversation", workspaceID: parts[1] };
   }
   if (parts[0] === "workspaces" && parts[1] && parts.length === 2) {
-    return { page: "workspace", workspaceID: parts[1] };
+    return { page: "workspace-overview", workspaceID: parts[1] };
   }
   if (parts.length === 1 && parts[0] === "agents") return { page: "agents" };
   if (parts[0] === "agents" && parts[1] === "new" && parts.length === 2) {
