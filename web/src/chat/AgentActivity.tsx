@@ -87,8 +87,11 @@ export function activeRequestID(messages: Message[]): string {
 export function AgentActivity(props: { group: ActivityGroup; state: ActivityRunState }) {
   const { group, state } = props;
   const latestStepID = group.steps.at(-1)?.id || "";
+  const [timelineOpen, setTimelineOpen] = useState(state !== "completed" && state !== "idle");
   const [openStepID, setOpenStepID] = useState("");
   const parsed = useMemo(() => new Map(group.steps.map((step) => [step.id, parseResult(step.result)])), [group.steps]);
+  const duration = [...parsed.values()].reduce((total, result) => total + (result?.duration || 0), 0);
+  const summary = activitySummary(group.steps.length, state, duration);
 
   useEffect(() => {
     if (state === "working" || state === "failed" || state === "canceled") {
@@ -98,40 +101,54 @@ export function AgentActivity(props: { group: ActivityGroup; state: ActivityRunS
     }
   }, [latestStepID, state]);
 
+  useEffect(() => {
+    if (state === "completed" || state === "idle") setTimelineOpen(false);
+    if (state === "failed" || state === "canceled") setTimelineOpen(true);
+  }, [state]);
+
   return (
     <section className={`agent-activity ${state}`} aria-label="Agent activity">
-      <header className="agent-activity-heading">
+      <button
+        className="agent-activity-heading"
+        type="button"
+        aria-expanded={timelineOpen}
+        aria-label={`Agent activity: ${summary}`}
+        onClick={() => setTimelineOpen((open) => !open)}
+      >
         <span className="agent-activity-pulse" aria-hidden="true" />
         <strong>Agent activity</strong>
-        <small>{activitySummary(group.steps.length, state)}</small>
-      </header>
-      {!group.steps.length ? (
-        <div className="agent-activity-starting"><span aria-hidden="true" />Preparing the first step…</div>
-      ) : (
-        <div className="agent-step-list">
-          {group.steps.map((step, index) => {
-            const command = shellCommand(step.call);
-            const result = parsed.get(step.id);
-            const status = stepStatus(result, state);
-            const open = openStepID === step.id;
-            return (
-              <article className={`agent-step ${status}`} key={step.id}>
-                <button
-                  className="agent-step-summary"
-                  type="button"
-                  aria-expanded={open}
-                  onClick={() => setOpenStepID(open ? "" : step.id)}
-                >
-                  <span className="agent-step-marker" aria-hidden="true">{stepMarker(status)}</span>
-                  <span><strong>Step {index + 1} · {stepLabel(command)}</strong><code>{shortCommand(command)}</code></span>
-                  <small>{stepStatusLabel(status, result)}</small>
-                  <span className="agent-step-chevron" aria-hidden="true">⌄</span>
-                </button>
-                {open && <StepDetail command={command} result={result} status={status} />}
-              </article>
-            );
-          })}
-        </div>
+        <small>{summary}</small>
+        <span className="agent-activity-chevron" aria-hidden="true">⌄</span>
+      </button>
+      {timelineOpen && (
+        !group.steps.length ? (
+          <div className="agent-activity-starting"><span aria-hidden="true" />Preparing the first step…</div>
+        ) : (
+          <div className="agent-step-list">
+            {group.steps.map((step, index) => {
+              const command = shellCommand(step.call);
+              const result = parsed.get(step.id);
+              const status = stepStatus(result, state);
+              const open = openStepID === step.id;
+              return (
+                <article className={`agent-step ${status}`} key={step.id}>
+                  <button
+                    className="agent-step-summary"
+                    type="button"
+                    aria-expanded={open}
+                    onClick={() => setOpenStepID(open ? "" : step.id)}
+                  >
+                    <span className="agent-step-marker" aria-hidden="true">{stepMarker(status)}</span>
+                    <span><strong>Step {index + 1} · {stepLabel(command)}</strong><code>{shortCommand(command)}</code></span>
+                    <small>{stepStatusLabel(status, result)}</small>
+                    <span className="agent-step-chevron" aria-hidden="true">⌄</span>
+                  </button>
+                  {open && <StepDetail command={command} result={result} status={status} />}
+                </article>
+              );
+            })}
+          </div>
+        )
       )}
     </section>
   );
@@ -188,11 +205,13 @@ function stepMarker(status: string): string {
   return "";
 }
 
-function activitySummary(count: number, state: ActivityRunState): string {
+function activitySummary(count: number, state: ActivityRunState, duration: number): string {
+  const elapsed = duration ? ` · ${formatDuration(duration)}` : "";
   if (state === "working") return count ? `${count} ${count === 1 ? "step" : "steps"} · Working` : "Starting";
-  if (state === "failed") return `${count} ${count === 1 ? "step" : "steps"} · Failed`;
-  if (state === "canceled") return `${count} ${count === 1 ? "step" : "steps"} · Stopped`;
-  return `${count} ${count === 1 ? "step" : "steps"}${state === "completed" ? " completed" : ""}`;
+  if (state === "failed") return `Failed · ${count} ${count === 1 ? "step" : "steps"}${elapsed}`;
+  if (state === "canceled") return `Stopped · ${count} ${count === 1 ? "step" : "steps"}${elapsed}`;
+  if (state === "completed") return `Completed · ${count} ${count === 1 ? "step" : "steps"}${elapsed}`;
+  return `${count} ${count === 1 ? "step" : "steps"}${elapsed}`;
 }
 
 function stepLabel(command: string): string {

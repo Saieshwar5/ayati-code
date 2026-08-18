@@ -194,12 +194,15 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
 }
 
 export function reconcileMessages(current: Message[], incoming: Message[]): Message[] {
-  if (current.length > incoming.length) return incoming;
-  for (let index = 0; index < current.length; index += 1) {
+  const sharedLength = Math.min(current.length, incoming.length);
+  for (let index = 0; index < sharedLength; index += 1) {
     const currentID = current[index].id;
     const incomingID = incoming[index].id;
     if (currentID === undefined || incomingID === undefined || currentID !== incomingID) return incoming;
   }
+  // Server events can start overlapping message requests. A slower, older response
+  // must not remove tool activity that a newer response already made visible.
+  if (current.length > incoming.length) return current;
   if (current.length === incoming.length) return current;
   return [...current, ...incoming.slice(current.length)];
 }

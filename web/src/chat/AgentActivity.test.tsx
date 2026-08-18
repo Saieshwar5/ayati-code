@@ -44,8 +44,13 @@ describe("AgentActivity", () => {
     expect(secondButton.getAttribute("aria-expanded")).toBe("false");
 
     rerender(<AgentActivity group={{ ...group([first, second]), closed: true, completed: true }} state="completed" />);
-    await waitFor(() => expect(firstButton.getAttribute("aria-expanded")).toBe("false"));
-    expect(screen.getByText("2 steps completed")).toBeTruthy();
+    const activityToggle = screen.getByRole("button", { name: /Agent activity: Completed · 2 steps/ });
+    await waitFor(() => expect(activityToggle.getAttribute("aria-expanded")).toBe("false"));
+    expect(screen.queryByRole("button", { name: /Step 1 · Search project/ })).toBeNull();
+
+    await user.click(activityToggle);
+    expect(activityToggle.getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: /Step 1 · Search project/ })).toBeTruthy();
   });
 
   it("keeps a failed current command expanded with its result", () => {
