@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "../api/contracts";
 import { AgentStudio } from "../agents/AgentStudio";
-import { AgentStudioSidebar } from "../agents/AgentStudioSidebar";
 import { useAgentController } from "../agents/useAgentController";
 import { useSkillController } from "../agents/useSkillController";
 import { ChatPane } from "../chat/ChatPane";
@@ -100,7 +99,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     <main>
       <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${workspaceChatView ? " workspace-chat-view" : ""}${workspacePanelOpen ? " workspace-panel-open" : ""}${workspacePanelExpanded ? " workspace-panel-expanded" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
         <Sidebar controller={controller} route={route} collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} onNavigate={navigate} />
-        {agentStudioView && <AgentStudioSidebar route={route} agentCount={agents.agents.length} providerCount={agents.providers.length} skillCount={skills.skills.length} onNavigate={navigate} />}
         <section className="conversation-pane">
           {controller.loading ? (
             <LoadingPage title="Loading workspaces…" />
