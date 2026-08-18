@@ -14,8 +14,9 @@ interface WorkspaceIndexProps {
   onViewChange: (view: WorkspaceView) => void;
   onCreate: () => void;
   onOpen: (workspaceID: string) => void;
+  onContinue: (workspaceID: string) => void;
   onStop: (workspace: Workspace) => Promise<void>;
-  onResume: (workspace: Workspace) => Promise<void>;
+  onResume: (workspace: Workspace) => Promise<boolean>;
   onArchive: (workspace: Workspace) => Promise<boolean>;
   onRestore: (workspace: Workspace) => Promise<void>;
   onDelete: (workspace: Workspace) => Promise<boolean>;
@@ -38,15 +39,15 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
     if (scroll.current) scroll.current.scrollTop = saved.scrollTop;
   }, []);
 
-  function openWorkspace(workspaceID: string) {
+  function leaveIndex(callback: () => void) {
     const state = window.history.state && typeof window.history.state === "object" ? window.history.state : {};
     window.history.replaceState({
       ...state,
       workspaceIndex: { query, filter, sort, scrollTop: scroll.current?.scrollTop || 0 },
     }, "");
     const transition = (document as Document & { startViewTransition?: (update: () => void) => unknown }).startViewTransition;
-    if (transition) transition.call(document, () => props.onOpen(workspaceID));
-    else props.onOpen(workspaceID);
+    if (transition) transition.call(document, callback);
+    else callback();
   }
 
   return (
@@ -105,7 +106,8 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
                 key={workspace.id}
                 workspace={workspace}
                 archived={props.view === "archived"}
-                onOpen={() => openWorkspace(workspace.id)}
+                onOpen={() => leaveIndex(() => props.onOpen(workspace.id))}
+                onContinue={() => leaveIndex(() => props.onContinue(workspace.id))}
                 onStop={() => props.onStop(workspace)}
                 onResume={() => props.onResume(workspace)}
                 onArchive={() => props.onArchive(workspace)}
@@ -148,15 +150,28 @@ function WorkspaceRow(props: {
   workspace: Workspace;
   archived: boolean;
   onOpen: () => void;
+  onContinue: () => void;
   onStop: () => Promise<void>;
-  onResume: () => Promise<void>;
+  onResume: () => Promise<boolean>;
   onArchive: () => Promise<boolean>;
   onRestore: () => Promise<void>;
   onDelete: () => Promise<boolean>;
   deleting: boolean;
 }) {
   const workspace = props.workspace;
-  const action = workspace.status === "ready" ? "stop" : workspace.status === "stopped" ? "resume" : "";
+  const primary = workspacePrimaryAction(workspace.status);
+
+  async function runPrimaryAction() {
+    if (workspace.status === "ready") {
+      props.onContinue();
+      return;
+    }
+    if (workspace.status === "stopped") {
+      await props.onResume();
+      return;
+    }
+    props.onOpen();
+  }
   return (
     <article className="workspace-table-row">
       {props.archived ? (
@@ -177,9 +192,9 @@ function WorkspaceRow(props: {
         )}
         {props.archived && workspace.status !== "deletion_failed" ? (
           <button className="quiet compact workspace-lifecycle-action" type="button" disabled={props.deleting} onClick={() => void props.onRestore()}>Restore</button>
-        ) : action ? (
-          <button className="quiet compact workspace-lifecycle-action" type="button" disabled={props.deleting} onClick={() => void (action === "stop" ? props.onStop() : props.onResume())}>
-            {action === "stop" ? "Stop" : "Resume"}
+        ) : primary ? (
+          <button className="primary compact workspace-primary-action" type="button" disabled={props.deleting} onClick={() => void runPrimaryAction()}>
+            {primary}
           </button>
         ) : null}
         <details className="workspace-row-menu">
@@ -188,13 +203,25 @@ function WorkspaceRow(props: {
             {props.archived || workspace.status === "deletion_failed" ? (
               <button className="danger-text" type="button" disabled={props.deleting} onClick={() => void props.onDelete()}>{props.deleting ? "Deleting…" : workspace.status === "deletion_failed" ? "Retry deletion…" : "Delete workspace…"}</button>
             ) : (
-              <button type="button" onClick={() => void props.onArchive()}>Archive workspace…</button>
+              <>
+                {workspace.status === "ready" && <button type="button" onClick={() => void props.onStop()}>Stop environment</button>}
+                <button type="button" onClick={() => void props.onArchive()}>Archive workspace…</button>
+              </>
             )}
           </div>
         </details>
       </div>
     </article>
   );
+}
+
+function workspacePrimaryAction(status: WorkspaceStatus): string {
+  if (status === "ready") return "Continue";
+  if (status === "stopped") return "Resume & continue";
+  if (status === "creating" || status === "initializing") return "View setup";
+  if (status === "needs_configuration") return "Resolve";
+  if (status === "initialization_failed") return "Review failure";
+  return "";
 }
 
 function WorkspaceIdentity({ workspace }: { workspace: Workspace }) {

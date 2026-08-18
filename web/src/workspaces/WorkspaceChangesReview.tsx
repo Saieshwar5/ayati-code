@@ -13,10 +13,7 @@ interface WorkspaceChangesReviewProps {
   changes: Changes;
   loading: boolean;
   error?: string;
-  compact?: boolean;
-  embedded?: boolean;
   onFileOpen?: () => void;
-  onClose?: () => void;
   onRefresh: () => void;
   onPublish: () => void;
 }
@@ -35,17 +32,16 @@ export function WorkspaceChangesReview(props: WorkspaceChangesReviewProps) {
   }, [files, selectedPath]);
 
   return (
-    <section className={`changes-review${props.compact ? " compact-review" : ""}${props.embedded ? " embedded" : ""}`} aria-label="Workspace changes">
+    <section className="changes-review" aria-label="Workspace changes">
       <header className="changes-review-heading">
         <div>
-          {!props.embedded && <p className="eyebrow">Review</p>}
+          <p className="eyebrow">Review</p>
           <h2>{files.length ? `${files.length} changed ${files.length === 1 ? "file" : "files"}` : "Workspace changes"}</h2>
           <p>{files.length ? <><strong>+{additions}</strong> <span>−{deletions}</span></> : "Review the working tree before publishing."}</p>
         </div>
         <div>
           <button className="quiet compact" type="button" disabled={props.loading} onClick={props.onRefresh}>{props.loading ? "Refreshing…" : "Refresh"}</button>
-          {!props.embedded && <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Publish…</button>}
-          {props.onClose && <button className="changes-close" type="button" aria-label="Close changes" onClick={props.onClose}>×</button>}
+          <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Publish…</button>
         </div>
       </header>
       {props.error ? (
@@ -70,12 +66,6 @@ export function WorkspaceChangesReview(props: WorkspaceChangesReviewProps) {
         </div>
       ) : (
         <div className="changes-clean"><strong>Working tree is clean</strong><p>Create or run a task to begin making changes.</p></div>
-      )}
-      {props.embedded && (
-        <footer className="changes-publish-bar">
-          <span>{files.length ? "Review complete? Publish a draft pull request." : "No changes to publish."}</span>
-          <button className="primary compact" type="button" disabled={!files.length || Boolean(props.error)} onClick={props.onPublish}>Review &amp; publish…</button>
-        </footer>
       )}
     </section>
   );

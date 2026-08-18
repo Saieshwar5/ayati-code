@@ -134,8 +134,10 @@ export function useWorkspaceController(user: User) {
       if (action === "resume") await api.resumeWorkspace(workspaceID);
       if (action === "stop") await api.stopWorkspace(workspaceID);
       await refreshWorkspaces();
+      return true;
     } catch (error) {
       window.alert((error as Error).message);
+      return false;
     }
   }, [refreshWorkspaces]);
 

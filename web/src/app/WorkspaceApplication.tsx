@@ -8,7 +8,6 @@ import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { useServerEvents } from "../hooks/useServerEvents";
 import { Sidebar } from "../workspaces/Sidebar";
-import { WorkspaceChangesDrawer } from "../workspaces/WorkspaceChangesDrawer";
 import { WorkspaceHome } from "../workspaces/WorkspaceHome";
 import { WorkspaceIndex } from "../workspaces/WorkspaceIndex";
 import { WorkspaceOverview } from "../workspaces/WorkspaceOverview";
@@ -29,7 +28,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const skills = useSkillController(agentStudioView);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(initialSidebarState);
   const [tasksByWorkspace, setTasksByWorkspace] = useState<Record<string, WorkspaceTask[]>>({});
-  const [changesOpen, setChangesOpen] = useState(false);
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
   const workspace = controller.workspaces.find((item) => item.id === workspaceID);
   const workspaceSessions = controller.sessions[workspaceID] || [];
@@ -44,12 +42,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
     });
   }, [controller.createSession, controller.loadSessions, route.page, workspaceID]);
 
-  useEffect(() => {
-    setChangesOpen(false);
-  }, [workspaceID]);
-  useEffect(() => {
-    if (!workspaceChatView) setChangesOpen(false);
-  }, [workspaceChatView]);
   const serverEvent = useServerEvents(workspaceID, (changedWorkspaceID) => {
     void controller.loadSessions(changedWorkspaceID);
   });
@@ -97,7 +89,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
 
   return (
     <main>
-      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${workspaceChatView ? " workspace-chat-view" : ""}${changesOpen ? " workspace-changes-open" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
+      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
         <Sidebar controller={controller} route={route} collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} onNavigate={navigate} />
         <section className="conversation-pane">
           {controller.loading ? (
@@ -143,8 +135,13 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onViewChange={(view) => navigate(view === "archived" ? "/workspaces/archived" : "/workspaces")}
               onCreate={() => navigate("/workspaces/new")}
               onOpen={(id) => navigate(workspacePath(id))}
-              onStop={(workspace) => controller.workspaceAction(workspace.id, "stop")}
-              onResume={(workspace) => controller.workspaceAction(workspace.id, "resume")}
+              onContinue={(id) => navigate(workspaceConversationPath(id))}
+              onStop={async (workspace) => { await controller.workspaceAction(workspace.id, "stop"); }}
+              onResume={async (workspace) => {
+                const resumed = await controller.workspaceAction(workspace.id, "resume");
+                if (resumed) navigate(workspaceConversationPath(workspace.id));
+                return resumed;
+              }}
               onArchive={controller.archiveWorkspace}
               onRestore={async (workspace) => { await controller.restoreWorkspace(workspace.id); }}
               onDelete={controller.deleteWorkspace}
@@ -158,7 +155,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               tasks={tasksByWorkspace[workspace.id] || []}
               onBack={() => navigate("/workspaces")}
               onOpenConversation={() => navigate(workspaceConversationPath(workspace.id))}
-              onReviewChanges={() => { setChangesOpen(true); navigate(workspaceConversationPath(workspace.id)); }}
               onManageEnvironments={() => navigate("/environments")}
               onCreateTask={(markdown) => createTask(workspace.id, markdown)}
               onUpdateTask={(task) => updateTask(workspace.id, task)}
@@ -198,14 +194,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
             <LoadingPage title={workspaceID ? "Workspace not found" : "Conversation not found"} error />
           )}
         </section>
-        {workspaceChatView && workspace && (
-          <WorkspaceChangesDrawer
-            workspace={workspace}
-            open={changesOpen}
-            onOpenChange={setChangesOpen}
-            onWorkspaceUpdate={controller.updateWorkspace}
-          />
-        )}
       </section>
     </main>
   );

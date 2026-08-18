@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
-import type { Changes, Workspace, WorkspaceSession } from "../api/contracts";
+import type { Changes, PublishInput, Workspace, WorkspaceSession } from "../api/contracts";
 import { api } from "../api/client";
 import { repositoryName, statusLabel } from "../app/format";
 import type { WorkspaceController } from "../app/useWorkspaceController";
 import { EnvironmentPanel } from "../inspector/EnvironmentPanel";
+import { PublishPanel } from "../inspector/PublishPanel";
 import { WorkspaceProfilePanel } from "../inspector/WorkspaceProfilePanel";
 import { WorkspaceCapacity } from "./WorkspaceCapacity";
-import { countChangedFiles } from "./WorkspaceChangesReview";
+import { countChangedFiles, WorkspaceChangesReview } from "./WorkspaceChangesReview";
 import { WorkspaceReadiness } from "./WorkspaceReadiness";
 import { WorkspaceTasksPanel, type WorkspaceTask } from "./WorkspaceTasksPanel";
 
@@ -17,7 +18,6 @@ interface WorkspaceOverviewProps {
   tasks: WorkspaceTask[];
   onBack: () => void;
   onOpenConversation: () => void;
-  onReviewChanges: () => void;
   onManageEnvironments: () => void;
   onCreateTask: (markdown: string) => void;
   onUpdateTask: (task: WorkspaceTask) => void;
@@ -33,6 +33,9 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
   const [changes, setChanges] = useState<Changes>(emptyChanges);
   const [changesError, setChangesError] = useState("");
   const [loadingChanges, setLoadingChanges] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const changeCount = countChangedFiles(changes);
   const deleting = props.controller.deletingWorkspaceIDs.has(workspace.id) || workspace.status === "deleting";
   const conversationReady = workspace.status === "ready";
@@ -40,6 +43,8 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
   useEffect(() => {
     setChanges(emptyChanges);
     setChangesError("");
+    setReviewOpen(false);
+    setPublishOpen(false);
     if (workspace.status === "ready") void loadChanges();
   }, [workspace.id, workspace.status]);
 
@@ -63,6 +68,19 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
     if (await props.controller.deleteWorkspace(workspace)) props.onDeleted();
   }
 
+  async function publish(input: PublishInput) {
+    setPublishing(true);
+    try {
+      const updated = await api.publish(workspace.id, input);
+      props.controller.updateWorkspace(updated);
+      await loadChanges();
+      setPublishOpen(false);
+      return true;
+    } finally {
+      setPublishing(false);
+    }
+  }
+
   return (
     <section className="workspace-control-page workspace-overview-page">
       <header className="workspace-page-header">
@@ -82,8 +100,8 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
           <WorkspaceLifecycleMenu
             workspace={workspace}
             deleting={deleting}
-            onStop={() => props.controller.workspaceAction(workspace.id, "stop")}
-            onResume={() => props.controller.workspaceAction(workspace.id, "resume")}
+            onStop={async () => { await props.controller.workspaceAction(workspace.id, "stop"); }}
+            onResume={async () => { await props.controller.workspaceAction(workspace.id, "resume"); }}
             onArchive={archive}
             onDelete={remove}
           />
@@ -97,8 +115,8 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
               workspace={workspace}
               embedded
               onConfigure={(root) => props.controller.configureProjectRoot(workspace.id, root)}
-              onRetry={() => props.controller.workspaceAction(workspace.id, "initialize")}
-              onResume={() => props.controller.workspaceAction(workspace.id, "resume")}
+              onRetry={async () => { await props.controller.workspaceAction(workspace.id, "initialize"); }}
+              onResume={async () => { await props.controller.workspaceAction(workspace.id, "resume"); }}
               onDelete={remove}
             />
           )}
@@ -124,16 +142,28 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
                   ) : loadingChanges ? (
                     <p>Inspecting the working tree…</p>
                   ) : changeCount ? (
-                    <><strong>{changeCount} changed {changeCount === 1 ? "file" : "files"}</strong><p>Review file diffs beside the conversation before publishing.</p></>
+                    <><strong>{changeCount} changed {changeCount === 1 ? "file" : "files"}</strong><p>Review files and publish from this workspace page.</p></>
                   ) : (
                     <><strong>Working tree clean</strong><p>Changes made by the agent will appear here.</p></>
                   )}
                 </div>
                 <footer>
                   <button className="quiet compact" type="button" disabled={loadingChanges} onClick={() => void loadChanges()}>Refresh</button>
-                  <button className="primary compact" type="button" onClick={props.onReviewChanges}>Review changes</button>
+                  <button className="primary compact" type="button" onClick={() => setReviewOpen((current) => !current)}>{reviewOpen ? "Hide review" : "Review changes"}</button>
                 </footer>
               </section>
+            </div>
+          )}
+
+          {workspace.status === "ready" && reviewOpen && (
+            <div className="workspace-overview-review">
+              <WorkspaceChangesReview
+                changes={changes}
+                loading={loadingChanges}
+                error={changesError}
+                onRefresh={() => void loadChanges()}
+                onPublish={() => setPublishOpen(true)}
+              />
             </div>
           )}
 
@@ -150,6 +180,14 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
           </section>
         </div>
       </div>
+      {publishOpen && (
+        <div className="workspace-dialog-backdrop" role="presentation" onMouseDown={() => setPublishOpen(false)}>
+          <section className="workspace-dialog" role="dialog" aria-modal="true" aria-label="Publish workspace changes" onMouseDown={(event) => event.stopPropagation()}>
+            <button className="dialog-close" type="button" aria-label="Close publish dialog" onClick={() => setPublishOpen(false)}>×</button>
+            <PublishPanel workspace={workspace} publishing={publishing} onPublish={publish} />
+          </section>
+        </div>
+      )}
     </section>
   );
 }
