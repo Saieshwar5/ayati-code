@@ -11,7 +11,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Database owns the shared SQLite connection used by Ayati's domain stores.
+// Database owns the shared SQLite connection used by Perpetual's domain stores.
 type Database struct {
 	path string
 	sql  *sql.DB

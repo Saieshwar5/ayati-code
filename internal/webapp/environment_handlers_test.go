@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type fakeEnvironmentManagement struct {
@@ -74,7 +74,7 @@ func TestEnvironmentHandlersManageReusableCapacity(t *testing.T) {
 	if response.Code != http.StatusOK || response.Body.String() != "[]\n" {
 		t.Fatalf("list status = %d, body = %s", response.Code, response.Body.String())
 	}
-	input := `{"name":"Node projects","image_ref":"ayati/node:dev","cpu_millis":1500,` +
+	input := `{"name":"Node projects","image_ref":"perpetual/node:dev","cpu_millis":1500,` +
 		`"memory_mb":2048,"pid_limit":128,"network_policy":"outbound"}`
 	response = serve(handler, http.MethodPost, "/api/environments", input, true)
 	if response.Code != http.StatusCreated {

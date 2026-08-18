@@ -61,7 +61,7 @@ func (s *Store) RequireProjectSelection(
 		preparation_stage = ?, preparation_detail = ?, configuration_candidates = ?,
 		preparation_failed_stage = '', selected_project_root = '', updated_at = ? WHERE id = ?`,
 		StatusNeedsConfiguration, PreparationNeedsConfiguration,
-		"Choose the project Ayati should prepare", string(encoded), formatTime(time.Now().UTC()), id)
+		"Choose the project Perpetual should prepare", string(encoded), formatTime(time.Now().UTC()), id)
 	if err != nil {
 		return fmt.Errorf("record project selection: %w", err)
 	}

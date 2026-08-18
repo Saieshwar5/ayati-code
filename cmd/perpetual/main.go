@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/Saieshwar5/ayati-code/internal/config"
-	"github.com/Saieshwar5/ayati-code/internal/webapp"
+	"github.com/Saieshwar5/perpetual/internal/config"
+	"github.com/Saieshwar5/perpetual/internal/webapp"
 )
 
 func main() {

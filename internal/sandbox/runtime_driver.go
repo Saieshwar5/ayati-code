@@ -10,17 +10,23 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 const (
-	runtimeNamePrefix = "ayati-runtime-"
-	labelManaged      = "ayati.runtime"
-	labelEnvironment  = "ayati.environment"
-	labelWorkspace    = "ayati.workspace"
-	labelLease        = "ayati.lease"
-	labelGeneration   = "ayati.generation"
+	runtimeNamePrefix       = "perpetual-runtime-"
+	legacyRuntimeNamePrefix = "ayati-runtime-"
+	labelManaged            = "perpetual.runtime"
+	labelEnvironment        = "perpetual.environment"
+	labelWorkspace          = "perpetual.workspace"
+	labelLease              = "perpetual.lease"
+	labelGeneration         = "perpetual.generation"
+	legacyLabelManaged      = "ayati.runtime"
+	legacyLabelEnvironment  = "ayati.environment"
+	legacyLabelWorkspace    = "ayati.workspace"
+	legacyLabelLease        = "ayati.lease"
+	legacyLabelGeneration   = "ayati.generation"
 )
 
 type DockerDriver struct {
@@ -98,6 +104,20 @@ func (d *DockerDriver) Create(
 		}
 		return d.requireRuntime(ctx, spec, runtime.ID)
 	}
+	legacyName := legacyRuntimeName(spec)
+	runtime, exists, err = d.inspect(ctx, spec, legacyName)
+	if err != nil {
+		return environment.Runtime{}, err
+	}
+	if exists {
+		if runtime.Running {
+			return runtime, nil
+		}
+		if _, err := d.run(ctx, "start", runtime.ID); err != nil {
+			return environment.Runtime{}, fmt.Errorf("start existing legacy environment runtime: %w", err)
+		}
+		return d.requireRuntime(ctx, spec, runtime.ID)
+	}
 	if err := os.MkdirAll(spec.WorkspacePath, 0o700); err != nil {
 		return environment.Runtime{}, fmt.Errorf("create workspace directory: %w", err)
 	}
@@ -135,7 +155,11 @@ func (d *DockerDriver) Inspect(
 	if err != nil {
 		return environment.Runtime{}, false, err
 	}
-	return d.inspect(ctx, spec, target)
+	runtime, exists, err := d.inspect(ctx, spec, target)
+	if err != nil || exists || strings.TrimSpace(runtimeID) != "" {
+		return runtime, exists, err
+	}
+	return d.inspect(ctx, spec, legacyRuntimeName(spec))
 }
 
 func (d *DockerDriver) Destroy(
@@ -153,10 +177,15 @@ func (d *DockerDriver) Destroy(
 	if err != nil {
 		return err
 	}
-	if !exists && strings.TrimSpace(runtimeID) != "" {
-		runtime, exists, err = d.inspectForDestroy(ctx, spec, runtimeName(spec))
-		if err != nil {
-			return err
+	if !exists {
+		for _, name := range []string{runtimeName(spec), legacyRuntimeName(spec)} {
+			runtime, exists, err = d.inspectForDestroy(ctx, spec, name)
+			if err != nil {
+				return err
+			}
+			if exists {
+				break
+			}
 		}
 	}
 	if !exists {
@@ -165,7 +194,7 @@ func (d *DockerDriver) Destroy(
 	if _, err := d.run(ctx, "rm", "--force", "--volumes", runtime.ID); err != nil {
 		return fmt.Errorf("remove environment runtime: %w", err)
 	}
-	if _, exists, err := d.inspect(ctx, spec, runtimeName(spec)); err != nil {
+	if _, exists, err := d.inspect(ctx, spec, runtime.ID); err != nil {
 		return fmt.Errorf("verify environment runtime removal: %w", err)
 	} else if exists {
 		return errors.New("verify environment runtime removal: container still exists")

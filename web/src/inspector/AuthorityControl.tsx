@@ -14,14 +14,14 @@ interface AuthorityControlProps {
 export function AuthorityControl(props: AuthorityControlProps) {
   const { workspace } = props;
   const [target, setTarget] = useState<WorkspaceAuthority>();
-  const [branch, setBranch] = useState("ayati/change");
+  const [branch, setBranch] = useState("perpetual/change");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const locked = workspace.status !== "ready" || props.agentWorking || busy;
 
   useEffect(() => {
     setTarget(undefined);
-    setBranch(workspace.branch !== workspace.base_branch ? workspace.branch : "ayati/change");
+    setBranch(workspace.branch !== workspace.base_branch ? workspace.branch : "perpetual/change");
     setError("");
   }, [workspace.id, workspace.authority, workspace.base_branch, workspace.branch]);
 

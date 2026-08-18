@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func normalizeRuntimeSpec(spec environment.RuntimeSpec) (environment.RuntimeSpec, error) {
@@ -51,6 +51,10 @@ func runtimeName(spec environment.RuntimeSpec) string {
 	return runtimeNamePrefix + spec.Environment.ID + "-g" + strconv.FormatInt(spec.Lease.Generation, 10)
 }
 
+func legacyRuntimeName(spec environment.RuntimeSpec) string {
+	return legacyRuntimeNamePrefix + spec.Environment.ID + "-g" + strconv.FormatInt(spec.Lease.Generation, 10)
+}
+
 func runtimeTarget(spec environment.RuntimeSpec, runtimeID string) (string, error) {
 	runtimeID = strings.TrimSpace(runtimeID)
 	if runtimeID == "" {
@@ -75,7 +79,8 @@ func validLabelID(value string) bool {
 }
 
 func validRuntimeName(value string) bool {
-	return strings.HasPrefix(value, runtimeNamePrefix) && len(value) <= 80 && validLabelID(value)
+	return (strings.HasPrefix(value, runtimeNamePrefix) || strings.HasPrefix(value, legacyRuntimeNamePrefix)) &&
+		len(value) <= 80 && validLabelID(value)
 }
 
 func validImageID(value string) bool {
@@ -104,5 +109,13 @@ func runtimeLabels(spec environment.RuntimeSpec) map[string]string {
 		labelManaged: "true", labelEnvironment: spec.Environment.ID,
 		labelWorkspace: spec.Lease.WorkspaceID, labelLease: spec.Lease.ID,
 		labelGeneration: strconv.FormatInt(spec.Lease.Generation, 10),
+	}
+}
+
+func legacyRuntimeLabels(spec environment.RuntimeSpec) map[string]string {
+	return map[string]string{
+		legacyLabelManaged: "true", legacyLabelEnvironment: spec.Environment.ID,
+		legacyLabelWorkspace: spec.Lease.WorkspaceID, legacyLabelLease: spec.Lease.ID,
+		legacyLabelGeneration: strconv.FormatInt(spec.Lease.Generation, 10),
 	}
 }

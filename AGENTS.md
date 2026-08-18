@@ -2,13 +2,13 @@
 
 ## Project scope
 
-Ayati is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, reusable global agent profiles and Markdown skills, durable browser chat, explicit agent work, diff review, and a draft pull request.
+Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, reusable global agent profiles and Markdown skills, durable browser chat, explicit agent work, diff review, and a draft pull request.
 
 Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The model has one tool: `shell(command)`.
 
 ## Package ownership
 
-- `cmd/ayati/`: process entry point and signal setup only.
+- `cmd/perpetual/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
 - `internal/environment/`: reusable compute definitions, availability, exclusive workspace leases, and lease/runtime coordination.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.

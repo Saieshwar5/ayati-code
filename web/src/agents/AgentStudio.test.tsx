@@ -6,7 +6,7 @@ import { WorkspaceApplication } from "../app/WorkspaceApplication";
 
 const builtIn: AgentDefinition = {
   id: "builtin-ayati",
-  name: "Ayati",
+  name: "Perpetual",
   emoji: "✦",
   description: "General coding agent",
   provider_id: "fireworks",
@@ -76,7 +76,7 @@ describe("AgentStudio", () => {
     expect(within(studio).getByRole("button", { name: /Agents/ })).toBeTruthy();
     expect(within(studio).getByRole("button", { name: /Providers/ })).toBeTruthy();
     expect(within(studio).getByRole("button", { name: /Skills/ })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Open Ayati" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Open Perpetual" })).toBeTruthy();
 
     await user.click(within(studio).getByRole("button", { name: /Providers/ }));
     expect(await screen.findByRole("heading", { name: "Providers" })).toBeTruthy();
@@ -89,7 +89,7 @@ describe("AgentStudio", () => {
     await user.type(search, "missing agent");
     expect(screen.getByRole("heading", { name: "No matching agents" })).toBeTruthy();
     await user.clear(search);
-    await user.click(screen.getByLabelText("Actions for Ayati"));
+    await user.click(screen.getByLabelText("Actions for Perpetual"));
     expect(screen.getByRole("button", { name: "Duplicate" })).toBeTruthy();
 
     await user.click(screen.getByRole("button", { name: "New agent" }));

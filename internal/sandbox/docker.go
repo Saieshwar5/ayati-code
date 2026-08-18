@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 const (
-	DefaultImage   = "ayati-sandbox:dev"
+	DefaultImage   = "perpetual-sandbox:dev"
 	commandLimit   = 64 << 10
 	outputLimit    = 32 << 10
 	commandTimeout = 2 * time.Minute

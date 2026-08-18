@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 )
 
 type Store struct {

@@ -9,7 +9,7 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/navigation",
+  branch: "perpetual/navigation",
   create_branch: true,
   authority: "develop",
   preparation_stage: "ready",
@@ -28,7 +28,7 @@ describe("WorkspaceNavigationItem", () => {
 
     const button = screen.getByRole("button", { name: /project/i });
     expect(button.getAttribute("aria-current")).toBe("page");
-    expect(screen.getByText("ayati/navigation")).toBeTruthy();
+    expect(screen.getByText("perpetual/navigation")).toBeTruthy();
     expect(screen.queryByText(/session/i)).toBeNull();
     await userEvent.setup().click(button);
     expect(onOpen).toHaveBeenCalledOnce();

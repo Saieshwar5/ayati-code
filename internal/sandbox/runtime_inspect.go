@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type dockerRuntimeMetadata struct {
@@ -80,11 +80,8 @@ func verifyRuntimeMetadata(
 	if !validDockerID(metadata.ID) {
 		return environment.Runtime{}, runtimeMismatch("invalid Docker identity")
 	}
-	for name, expected := range runtimeLabels(spec) {
-		if metadata.Config.Labels[name] != expected {
-			return environment.Runtime{}, runtimeMismatch("label %s is %q, expected %q",
-				name, metadata.Config.Labels[name], expected)
-		}
+	if err := verifyRuntimeLabels(spec, metadata.Config.Labels); err != nil {
+		return environment.Runtime{}, err
 	}
 	if metadata.Config.Image != spec.Environment.ImageDigest || metadata.Image != spec.Environment.ImageDigest {
 		return environment.Runtime{}, runtimeMismatch("image identity does not match the environment")
@@ -123,6 +120,19 @@ func verifyRuntimeMetadata(
 		Generation: spec.Lease.Generation, ImageID: metadata.Image,
 		Running: metadata.State.Running, WorkspaceWritable: spec.WorkspaceWritable,
 	}, nil
+}
+
+func verifyRuntimeLabels(spec environment.RuntimeSpec, actual map[string]string) error {
+	expected := runtimeLabels(spec)
+	if actual[legacyLabelManaged] == "true" {
+		expected = legacyRuntimeLabels(spec)
+	}
+	for name, value := range expected {
+		if actual[name] != value {
+			return runtimeMismatch("label %s is %q, expected %q", name, actual[name], value)
+		}
+	}
+	return nil
 }
 
 func verifyRuntimeTmpfs(values map[string]string) error {

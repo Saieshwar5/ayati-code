@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func (s *Server) listEnvironments(writer http.ResponseWriter, request *http.Request) {

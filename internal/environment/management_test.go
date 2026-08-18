@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type fakeImageResolver struct {
@@ -29,7 +29,7 @@ func TestManagementServiceCreatesRepairsAndDeletesCapacity(t *testing.T) {
 		t.Fatalf("NewManagementService: %v", err)
 	}
 	created, err := service.Create(context.Background(), environment.CreateInput{
-		Name: "Node projects", ImageRef: "ayati/node:dev", MemoryMB: 2048,
+		Name: "Node projects", ImageRef: "perpetual/node:dev", MemoryMB: 2048,
 	})
 	if err == nil || created.State != environment.StateFailed ||
 		!strings.Contains(created.Error, "image is missing") {

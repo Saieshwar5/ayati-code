@@ -3,9 +3,9 @@ package provider
 import (
 	"context"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/fireworks"
-	"github.com/Saieshwar5/ayati-code/internal/openaichat"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/fireworks"
+	"github.com/Saieshwar5/perpetual/internal/openaichat"
 )
 
 const (

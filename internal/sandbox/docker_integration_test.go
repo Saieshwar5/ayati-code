@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func TestDockerEnvironmentRuntimeIntegration(t *testing.T) {
-	if os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
-		t.Skip("set AYATI_DOCKER_INTEGRATION=1 to exercise Docker")
+	if os.Getenv("PERPETUAL_DOCKER_INTEGRATION") != "1" && os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
+		t.Skip("set PERPETUAL_DOCKER_INTEGRATION=1 to exercise Docker")
 	}
 	driver, err := NewDockerDriver()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestDockerEnvironmentRuntimeIntegration(t *testing.T) {
 	t.Cleanup(func() { _ = driver.Destroy(context.Background(), spec, runtime.ID) })
 	result, err := driver.run(context.Background(), "exec", runtime.ID, "/bin/sh", "-c", strings.Join([]string{
 		`test "$(id -u)" = 1000`, `! touch /workspace/blocked`, `touch /cache/allowed`,
-		`touch /tmp/allowed`, `touch /run/ayati/allowed`, `test ! -e /var/run/docker.sock`,
+		`touch /tmp/allowed`, `touch /run/perpetual/allowed`, `test ! -e /var/run/docker.sock`,
 	}, " && "))
 	if err != nil {
 		t.Fatalf("verify runtime: %v: %s", err, result.stderr)

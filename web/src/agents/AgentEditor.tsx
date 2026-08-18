@@ -74,7 +74,7 @@ export function AgentEditor(props: AgentEditorProps) {
             {!readOnly && <button className="primary" type="button" disabled={saving || !input.name.trim()} onClick={() => void save()}>{saving ? "Saving…" : "Save agent"}</button>}
           </div>
         </header>
-        {readOnly && <div className="agent-readonly-note">{props.definition?.built_in ? "The built-in Ayati agent is protected. Duplicate it to create an editable version." : "Restore this agent before editing it."}</div>}
+        {readOnly && <div className="agent-readonly-note">{props.definition?.built_in ? "The built-in Perpetual agent is protected. Duplicate it to create an editable version." : "Restore this agent before editing it."}</div>}
         {error && <div className="error" role="alert">{error}</div>}
         <div className="agent-editor-sections">
           <EditorSection eyebrow="Identity" title="How this agent appears">
@@ -94,7 +94,7 @@ export function AgentEditor(props: AgentEditorProps) {
           <EditorSection eyebrow="Capabilities" title="Tools available during a run">
             <label className="agent-capability-option">
               <input type="checkbox" checked={input.shell_enabled} disabled={readOnly} onChange={(event) => setInput({ ...input, shell_enabled: event.target.checked })} />
-              <span><strong>Workspace shell</strong><small>Uses Ayati’s single shell tool under the workspace’s Explore or Develop authority.</small></span>
+              <span><strong>Workspace shell</strong><small>Uses Perpetual’s single shell tool under the workspace’s Explore or Develop authority.</small></span>
             </label>
           </EditorSection>
           <EditorSection eyebrow="Instructions" title="How this agent should approach work">

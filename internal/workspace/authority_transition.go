@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type AuthorityChange struct {

@@ -17,8 +17,24 @@ func TestDefaultPathUsesXDGConfigHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultPath: %v", err)
 	}
-	if path != filepath.Join(root, "ayati", "config.json") {
+	if path != filepath.Join(root, "perpetual", "config.json") {
 		t.Fatalf("path = %q", path)
+	}
+}
+
+func TestDefaultPathReusesLegacyConfiguration(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", root)
+	legacy := filepath.Join(root, "ayati", "config.json")
+	if err := os.MkdirAll(filepath.Dir(legacy), 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(legacy, []byte(`{}`), 0o600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	path, err := DefaultPath()
+	if err != nil || path != legacy {
+		t.Fatalf("path = %q, error = %v", path, err)
 	}
 }
 

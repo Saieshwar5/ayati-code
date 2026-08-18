@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
@@ -25,7 +25,7 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 	repositoryPath := filepath.Join(t.TempDir(), "repo")
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", CreateBranch: true, Setup: "go mod download",
+		BaseBranch: "main", Branch: "perpetual/change", CreateBranch: true, Setup: "go mod download",
 		Path: repositoryPath,
 	})
 	if err != nil {

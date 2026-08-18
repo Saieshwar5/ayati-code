@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestAgentCatalogProtectsBuiltInAndMaintainsOneDefault(t *testing.T) {

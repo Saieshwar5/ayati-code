@@ -57,12 +57,12 @@ describe("WorkspaceProfilePanel", () => {
     expect(screen.getByRole("heading", { name: "Enable development?" })).toBeTruthy();
     const branch = screen.getByLabelText("Working branch");
     await user.clear(branch);
-    await user.type(branch, "ayati/authority-switch");
+    await user.type(branch, "perpetual/authority-switch");
     await user.click(screen.getByRole("button", { name: "Enable Develop" }));
 
     expect(change).toHaveBeenCalledWith({
       authority: "develop",
-      branch: "ayati/authority-switch",
+      branch: "perpetual/authority-switch",
       create_branch: true,
     });
   });

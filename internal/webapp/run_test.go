@@ -2,18 +2,50 @@ package webapp
 
 import (
 	"context"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type fakeImageResolver struct {
 	digest string
 	calls  []string
+}
+
+func TestPreferredWorkspaceRootUsesPerpetualForNewInstall(t *testing.T) {
+	home := t.TempDir()
+	want := filepath.Join(home, ".local", "share", "perpetual", "workspaces")
+	if got := preferredWorkspaceRoot(home); got != want {
+		t.Fatalf("root = %q", got)
+	}
+}
+
+func TestPreferredWorkspaceRootReusesLegacyWorkspaces(t *testing.T) {
+	home := t.TempDir()
+	legacy := filepath.Join(home, ".local", "share", "ayati", "workspaces")
+	if err := os.MkdirAll(legacy, 0o700); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if got := preferredWorkspaceRoot(home); got != legacy {
+		t.Fatalf("root = %q", got)
+	}
+}
+
+func TestEnvironmentValuePrefersPerpetualAndFallsBackToLegacy(t *testing.T) {
+	t.Setenv("PERPETUAL_ADDRESS", "new-address")
+	t.Setenv("AYATI_ADDRESS", "legacy-address")
+	if value, legacy := envOrLegacy("PERPETUAL_ADDRESS", "AYATI_ADDRESS", "fallback"); value != "new-address" || legacy {
+		t.Fatalf("value = %q, legacy = %v", value, legacy)
+	}
+	t.Setenv("PERPETUAL_ADDRESS", "")
+	if value, legacy := envOrLegacy("PERPETUAL_ADDRESS", "AYATI_ADDRESS", "fallback"); value != "legacy-address" || !legacy {
+		t.Fatalf("value = %q, legacy = %v", value, legacy)
+	}
 }
 
 func (f *fakeImageResolver) ResolveImage(_ context.Context, image string) (string, error) {
@@ -36,7 +68,7 @@ func TestEnsureLocalEnvironmentCreatesOnlyFirstComputeSlot(t *testing.T) {
 	}
 	resolver := &fakeImageResolver{digest: "sha256:" + strings.Repeat("a", 64)}
 	for range 2 {
-		if err := ensureLocalEnvironment(context.Background(), store, resolver, "ayati-sandbox:dev"); err != nil {
+		if err := ensureLocalEnvironment(context.Background(), store, resolver, "perpetual-sandbox:dev"); err != nil {
 			t.Fatalf("ensureLocalEnvironment: %v", err)
 		}
 	}

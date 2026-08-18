@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func (f *fakeWorkspaceService) Resume(ctx context.Context, id string) error {
@@ -18,7 +18,7 @@ func TestHandlerResumesStoppedWorkspaceWithoutInitialization(t *testing.T) {
 	handler, store, workspaces, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Authority: workspace.AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change", Authority: workspace.AuthorityDevelop,
 		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {

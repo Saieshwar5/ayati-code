@@ -63,7 +63,7 @@ func (g osGit) execute(ctx context.Context, authenticated bool, arguments ...str
 			return "", err
 		}
 		cleanup = remove
-		command.Env = append(command.Env, "GIT_ASKPASS="+askpass, "AYATI_GITHUB_TOKEN="+token)
+		command.Env = append(command.Env, "GIT_ASKPASS="+askpass, "PERPETUAL_GITHUB_TOKEN="+token)
 	}
 	defer cleanup()
 	output, err := command.CombinedOutput()
@@ -77,7 +77,7 @@ func writeAskPass(token string) (string, func(), error) {
 	if strings.TrimSpace(token) == "" {
 		return "", nil, fmt.Errorf("GitHub credential is empty")
 	}
-	directory, err := os.MkdirTemp("", "ayati-git-*")
+	directory, err := os.MkdirTemp("", "perpetual-git-*")
 	if err != nil {
 		return "", nil, fmt.Errorf("create Git credential helper: %w", err)
 	}
@@ -86,7 +86,7 @@ func writeAskPass(token string) (string, func(), error) {
 	script := `#!/bin/sh
 case "$1" in
   *Username*) printf '%s' 'x-access-token' ;;
-  *) printf '%s' "$AYATI_GITHUB_TOKEN" ;;
+  *) printf '%s' "$PERPETUAL_GITHUB_TOKEN" ;;
 esac
 `
 	if err := os.WriteFile(path, []byte(script), 0o700); err != nil {

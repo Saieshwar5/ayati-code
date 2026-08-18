@@ -111,6 +111,9 @@ func (s *Store) configure() error {
 	if err := s.migrateSkillCatalog(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migratePerpetualIdentity(context.Background()); err != nil {
+		return err
+	}
 	if err := s.migrateAgentRuns(context.Background()); err != nil {
 		return err
 	}
@@ -130,7 +133,7 @@ func (s *Store) migrateAgentRuns(ctx context.Context) error {
 	}
 	now := formatTime(time.Now().UTC())
 	if _, err := s.db.ExecContext(ctx, `UPDATE agent_runs SET status = ?,
-		error = 'Agent run interrupted when Ayati restarted', finished_at = ?, updated_at = ?
+		error = 'Agent run interrupted when Perpetual restarted', finished_at = ?, updated_at = ?
 		WHERE status IN ('accepted', 'running')`, AgentRunStatusInterrupted, now, now); err != nil {
 		return fmt.Errorf("recover interrupted agent runs: %w", err)
 	}
@@ -197,7 +200,7 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE sessions SET status = ?,
-		error = 'Agent run interrupted when Ayati restarted', updated_at = ? WHERE status = ?`,
+		error = 'Agent run interrupted when Perpetual restarted', updated_at = ? WHERE status = ?`,
 		SessionStatusFailed, formatTime(time.Now().UTC()), SessionStatusWorking); err != nil {
 		return fmt.Errorf("recover interrupted sessions: %w", err)
 	}
@@ -259,7 +262,7 @@ func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
 func migratedSessionStatus(status, message string) (string, string) {
 	switch status {
 	case "working":
-		return SessionStatusFailed, "Agent run interrupted when Ayati restarted"
+		return SessionStatusFailed, "Agent run interrupted when Perpetual restarted"
 	case "agent_failed":
 		return SessionStatusFailed, message
 	case "review", "pull_request_open", "done":

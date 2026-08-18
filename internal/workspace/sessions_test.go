@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 	_ "modernc.org/sqlite"
 )
 
@@ -76,7 +76,7 @@ func TestStoreMigratesWorkspaceMessagesToOriginalSession(t *testing.T) {
 		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
 	) VALUES ('workspace-1', 'owner/project', 'https://github.com/owner/project.git', 'main',
-		'ayati/change', 0, '', '/tmp/legacy-repo', 'legacy-sandbox', 'review', '', 0, '', ?, ?)`, now, now)
+		'perpetual/change', 0, '', '/tmp/legacy-repo', 'legacy-sandbox', 'review', '', 0, '', ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert legacy workspace: %v", err)
 	}
@@ -133,7 +133,7 @@ func createTestWorkspace(t *testing.T, store *Store) Workspace {
 	t.Helper()
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create workspace: %v", err)

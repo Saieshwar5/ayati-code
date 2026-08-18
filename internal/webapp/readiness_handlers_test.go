@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func TestHandlerDefaultsWorkspaceToProtectedExplore(t *testing.T) {
@@ -79,13 +79,13 @@ func TestHandlerChangesWorkspaceAuthority(t *testing.T) {
 		t.Fatalf("CompletePreparation: %v", err)
 	}
 	response := serve(handler, http.MethodPost, "/api/workspaces/"+value.ID+"/authority",
-		`{"authority":"develop","branch":"ayati/change","create_branch":true}`, true)
+		`{"authority":"develop","branch":"perpetual/change","create_branch":true}`, true)
 	if response.Code != http.StatusOK {
 		t.Fatalf("authority status = %d, body = %s", response.Code, response.Body.String())
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
 	if err != nil || loaded.Authority != workspace.AuthorityDevelop ||
-		loaded.Branch != "ayati/change" || loaded.EffectiveMountMode != "rw" {
+		loaded.Branch != "perpetual/change" || loaded.EffectiveMountMode != "rw" {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 }
