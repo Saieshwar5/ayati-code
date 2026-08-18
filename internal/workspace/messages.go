@@ -14,7 +14,9 @@ import (
 
 type ConversationMessage struct {
 	agent.Message
-	Agent *agent.Attribution `json:"agent,omitempty"`
+	ID        int64              `json:"id"`
+	Agent     *agent.Attribution `json:"agent,omitempty"`
+	CreatedAt time.Time          `json:"created_at"`
 }
 
 func (s *Store) AppendMessage(ctx context.Context, sessionID string, message agent.Message) error {
@@ -61,8 +63,8 @@ func (s *Store) AppendAttributedMessage(
 func (s *Store) ConversationMessages(
 	ctx context.Context, sessionID string,
 ) ([]ConversationMessage, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT payload, agent_id, agent_name, agent_emoji,
-		agent_revision, agent_provider_id, agent_model, agent_skills FROM messages
+	rows, err := s.db.QueryContext(ctx, `SELECT id, payload, agent_id, agent_name, agent_emoji,
+		agent_revision, agent_provider_id, agent_model, agent_skills, created_at FROM messages
 		WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, fmt.Errorf("load conversation messages: %w", err)
@@ -70,16 +72,22 @@ func (s *Store) ConversationMessages(
 	defer rows.Close()
 	var messages []ConversationMessage
 	for rows.Next() {
-		var payload, agentID, name, emoji, providerID, model, skills string
+		var payload, agentID, name, emoji, providerID, model, skills, createdAt string
+		var id int64
 		var revision int
-		if err := rows.Scan(&payload, &agentID, &name, &emoji, &revision, &providerID, &model, &skills); err != nil {
+		if err := rows.Scan(&id, &payload, &agentID, &name, &emoji, &revision,
+			&providerID, &model, &skills, &createdAt); err != nil {
 			return nil, fmt.Errorf("scan conversation message: %w", err)
 		}
 		var message agent.Message
 		if err := json.Unmarshal([]byte(payload), &message); err != nil {
 			return nil, fmt.Errorf("decode conversation message: %w", err)
 		}
-		value := ConversationMessage{Message: message}
+		created, err := parseStoredTime(createdAt)
+		if err != nil {
+			return nil, err
+		}
+		value := ConversationMessage{ID: id, Message: message, CreatedAt: created}
 		if message.Role == "assistant" {
 			if agentID == "" {
 				agentID, name, emoji, revision, providerID = agent.BuiltinAgentID, "Perpetual", "✦", 1, agent.FireworksProviderID

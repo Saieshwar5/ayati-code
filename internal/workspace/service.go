@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
 	compute "github.com/Saieshwar5/perpetual/internal/environment"
@@ -32,6 +33,7 @@ type Service struct {
 	environment environment
 	git         gitClient
 	root        string
+	deleteMu    sync.Mutex
 }
 
 func NewService(store *Store, environment environment, token func() (string, error), root string) (*Service, error) {
@@ -96,39 +98,6 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	}
 	if err := s.store.UpdateStatus(ctx, id, StatusReady, ""); err != nil {
 		return s.releaseAfterResumeFailure(ctx, value, err)
-	}
-	return nil
-}
-
-func (s *Service) Delete(ctx context.Context, id string) error {
-	value, err := s.store.Get(ctx, id)
-	if err != nil {
-		return err
-	}
-	workspaceDirectory := filepath.Join(s.root, value.ID)
-	expectedRepository := filepath.Join(workspaceDirectory, "repo")
-	if filepath.Clean(value.Path) != filepath.Clean(expectedRepository) {
-		return errors.New("workspace path is outside the managed data root")
-	}
-	if value.Status == StatusCreating || value.Status == StatusInitializing {
-		return errors.New("workspace initialization is still running; wait before deleting it")
-	}
-	working, err := s.store.HasWorkingSession(ctx, id)
-	if err != nil {
-		return fmt.Errorf("inspect running sessions: %w", err)
-	}
-	if working {
-		return errors.New("a session is still running; stop it before deleting the workspace")
-	}
-	if err := s.environment.Cleanup(ctx,
-		runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
-		return fmt.Errorf("clean workspace environment: %w", err)
-	}
-	if err := os.RemoveAll(workspaceDirectory); err != nil {
-		return fmt.Errorf("remove workspace files: %w", err)
-	}
-	if err := s.store.Delete(ctx, id); err != nil {
-		return err
 	}
 	return nil
 }

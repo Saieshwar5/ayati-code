@@ -194,6 +194,36 @@ func TestRuntimeServiceActivatesAndReleasesExactLease(t *testing.T) {
 	}
 }
 
+func TestRuntimeServiceCleanupIsIdempotentWithoutActiveLease(t *testing.T) {
+	_, workspaces, store := openStores(t)
+	compute := createReadyEnvironment(t, store, "Deletion cleanup")
+	project := createWorkspace(t, workspaces, "owner/delete", "delete")
+	driver := &fakeRuntimeDriver{}
+	service, err := environment.NewRuntimeService(store, driver)
+	if err != nil {
+		t.Fatalf("NewRuntimeService: %v", err)
+	}
+	_, err = service.Start(context.Background(), environment.StartInput{
+		WorkspaceID: project.ID, PreferredEnvironmentID: compute.ID,
+		WorkspacePath: project.Path, CachePath: project.Path + "-cache",
+	})
+	if err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	input := environment.StopInput{
+		WorkspaceID: project.ID, WorkspacePath: project.Path, CachePath: project.Path + "-cache",
+	}
+	if err := service.Cleanup(context.Background(), input); err != nil {
+		t.Fatalf("first Cleanup: %v", err)
+	}
+	if err := service.Cleanup(context.Background(), input); err != nil {
+		t.Fatalf("second Cleanup: %v", err)
+	}
+	if len(driver.destroyed) != 1 {
+		t.Fatalf("destroyed runtimes = %#v", driver.destroyed)
+	}
+}
+
 func TestRuntimeServiceQuarantinesCreateFailure(t *testing.T) {
 	_, workspaces, store := openStores(t)
 	compute := createReadyEnvironment(t, store, "Broken creation")

@@ -51,7 +51,7 @@
 .workspace-link .workspace-status-dot { width: 7px; height: 7px; }
 .workspace-link.ready .workspace-status-dot { background: #111; }
 .workspace-link.creating .workspace-status-dot, .workspace-link.initializing .workspace-status-dot { border: 1px solid #111; background: #fff; }
-.workspace-link.initialization_failed .workspace-status-dot { background: #777; }
+.workspace-link.initialization_failed .workspace-status-dot, .workspace-link.deletion_failed .workspace-status-dot { background: #777; }
 .workspace-copy strong { font-size: 12px; }
 .archive-link { width: 100%; min-height: 34px; margin-top: 8px; padding: 0 9px; gap: 9px; justify-content: flex-start; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; color: var(--color-text-secondary); font-size: 12px; }
 .archive-link:hover, .archive-link.active { background: var(--color-surface-subtle); color: var(--color-text); }

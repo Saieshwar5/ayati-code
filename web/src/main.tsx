@@ -12,6 +12,7 @@ import "./styles/compute-environments.css";
 import "./styles/workspace-creation.css";
 import "./styles/workspace-preparation.css";
 import "./styles/composer-context.css";
+import "./styles/agent-activity.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

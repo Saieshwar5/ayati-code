@@ -30,12 +30,21 @@ func (s *Service) Recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list workspaces for recovery: %w", err)
 	}
+	archived, err := s.store.ListArchived(ctx)
+	if err != nil {
+		return fmt.Errorf("list archived workspaces for recovery: %w", err)
+	}
 	for _, value := range values {
 		if value.Status == StatusInitializationFailed && value.Error == interruptedPreparationMessage {
 			writable := value.EffectiveMountMode != "ro"
 			if err := s.environment.Stop(ctx, runtimeInput(value, writable)); err != nil && !errors.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("release interrupted environment for %s: %w", value.ID, err)
 			}
+		}
+	}
+	for _, value := range append(values, archived...) {
+		if value.Status == StatusDeleting || value.Status == StatusDeletionFailed {
+			_ = s.Delete(ctx, value.ID)
 		}
 	}
 	for _, value := range values {

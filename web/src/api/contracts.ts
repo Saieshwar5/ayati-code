@@ -4,7 +4,9 @@ export type WorkspaceStatus =
   | "initialization_failed"
   | "needs_configuration"
   | "ready"
-  | "stopped";
+  | "stopped"
+  | "deleting"
+  | "deletion_failed";
 
 export type SessionStatus = "idle" | "working" | "review" | "failed" | "canceled";
 export type WorkspaceAuthority = "explore" | "develop";
@@ -213,11 +215,13 @@ export interface ToolCall {
 }
 
 export interface Message {
+  id?: number;
   role: "user" | "assistant" | "tool" | string;
   content?: string;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
   agent?: AgentAttribution;
+  created_at?: string;
 }
 
 export interface Changes {
