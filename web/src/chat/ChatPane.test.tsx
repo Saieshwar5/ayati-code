@@ -156,6 +156,102 @@ describe("ChatPane", () => {
     expect(selectAgent).toHaveBeenCalledWith(reviewerAgent.id);
   });
 
+  it("creates a task draft from the conversation without sending an agent message", async () => {
+    const onCreateTask = vi.fn();
+    const onSend = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ChatPane
+        workspace={workspace}
+        session={session}
+        workspaceSessions={[session]}
+        messages={[]}
+        error=""
+        sending={false}
+        stopping={false}
+        agents={[builtInAgent]}
+        onSend={onSend}
+        onStop={vi.fn()}
+        onSelectAgent={vi.fn()}
+        onCreateTask={onCreateTask}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(screen.getByRole("button", { name: "Task mode" }).getAttribute("aria-pressed")).toBe("true");
+    await user.type(screen.getByRole("textbox"), "Add context compaction");
+    await user.click(screen.getByRole("button", { name: "Create task" }));
+    expect(onCreateTask).toHaveBeenCalledWith("Add context compaction");
+    expect(onSend).not.toHaveBeenCalled();
+  });
+
+  it("starts fresh and keeps the previous conversation available as read-only history", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatPane
+        workspace={workspace}
+        session={session}
+        workspaceSessions={[session]}
+        messages={[{ role: "user", content: "Improve workspace navigation" }]}
+        error=""
+        sending={false}
+        stopping={false}
+        agents={[builtInAgent]}
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+        onSelectAgent={vi.fn()}
+      />,
+    );
+
+    await user.type(screen.getByRole("textbox"), "Keep this draft");
+    expect(document.querySelector(".conversation-heading")?.textContent).not.toContain("Context");
+    await user.click(screen.getByRole("button", { name: "Open context controls" }));
+    const tray = screen.getByRole("region", { name: "Context controls" });
+    expect(screen.getByText(/Runtime connection pending/)).toBeTruthy();
+    expect(tray.textContent).toContain("No past conversations");
+
+    await user.click(screen.getByRole("button", { name: /Start fresh conversation/ }));
+    expect(screen.queryByRole("region", { name: "Context controls" })).toBeNull();
+    expect(screen.queryByText("Improve workspace navigation")).toBeNull();
+    expect(screen.getByText(/Fresh conversation started/)).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Keep this draft");
+
+    await user.click(screen.getByRole("button", { name: "Open context controls" }));
+    await user.click(screen.getByRole("button", { name: /Improve workspace navigation/ }));
+    expect(screen.getAllByText("Improve workspace navigation").length).toBeGreaterThan(0);
+    expect(screen.getByText("Viewing history · messages are read-only")).toBeTruthy();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Return to current conversation" }));
+    expect(screen.getByText(/Fresh conversation started/)).toBeTruthy();
+    expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("Keep this draft");
+  });
+
+  it("shows compaction progress inside the current conversation row", async () => {
+    const user = userEvent.setup();
+    render(
+      <ChatPane
+        workspace={workspace}
+        session={session}
+        workspaceSessions={[session]}
+        messages={[{ role: "user", content: "Review the current context" }]}
+        error=""
+        sending={false}
+        stopping={false}
+        agents={[builtInAgent]}
+        onSend={vi.fn()}
+        onStop={vi.fn()}
+        onSelectAgent={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open context controls" }));
+    const current = screen.getByLabelText("Current conversation");
+    await user.click(screen.getByRole("button", { name: "Compact" }));
+    expect(screen.getByRole("button", { name: "Compacting…" })).toBeTruthy();
+    expect(current.classList.contains("working")).toBe(true);
+    expect(current.querySelector(".context-compact-progress")).toBeTruthy();
+  });
+
   it("blocks this composer while another session is working", () => {
     const working = { ...session, id: "session-2", status: "working" as const };
     render(
@@ -175,7 +271,7 @@ describe("ChatPane", () => {
     );
     const textbox = screen.getByRole("textbox") as HTMLTextAreaElement;
     expect(textbox.disabled).toBe(true);
-    expect(textbox.placeholder).toContain("Another session");
+    expect(textbox.placeholder).toContain("Another conversation");
   });
 
   it("lets the user stop the active session run", async () => {

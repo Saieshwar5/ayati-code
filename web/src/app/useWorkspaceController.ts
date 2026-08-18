@@ -85,7 +85,7 @@ export function useWorkspaceController(user: User) {
   }, [loadSessions]);
 
   const renameSession = useCallback(async (workspaceID: string, session: WorkspaceSession) => {
-    const title = window.prompt("Rename session", session.title)?.trim();
+    const title = window.prompt("Rename conversation", session.title)?.trim();
     if (!title || title === session.title) return;
     const updated = await api.renameSession(workspaceID, session.id, title);
     setSessions((current) => ({
@@ -152,7 +152,7 @@ export function useWorkspaceController(user: User) {
   }, []);
 
   const archiveWorkspace = useCallback(async (workspace: Workspace) => {
-    if (!window.confirm(`Archive “${repositoryName(workspace.repository)}”?\n\nIts repository, sessions, and history will be preserved.`)) return false;
+    if (!window.confirm(`Archive “${repositoryName(workspace.repository)}”?\n\nIts repository and conversation history will be preserved.`)) return false;
     try {
       await api.archiveWorkspace(workspace.id);
       await refreshWorkspaces();
@@ -170,7 +170,7 @@ export function useWorkspaceController(user: User) {
 
   const deleteWorkspace = useCallback(async (workspace: Workspace) => {
     const confirmed = window.confirm(
-      `Delete workspace “${repositoryName(workspace.repository)}”?\n\nThis permanently removes its local clone, sessions, and history. The GitHub repository is not deleted.`,
+      `Delete workspace “${repositoryName(workspace.repository)}”?\n\nThis permanently removes its local clone and conversation history. The GitHub repository is not deleted.`,
     );
     if (!confirmed) return false;
     try {

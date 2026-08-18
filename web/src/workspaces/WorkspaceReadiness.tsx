@@ -52,7 +52,7 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
       {workspace.status === "stopped" ? (
         <section className="readiness-card readiness-state-card">
           <p className="eyebrow">Environment stopped</p>
-          <h2>Your project and sessions are preserved</h2>
+          <h2>Your project and conversations are preserved</h2>
           <p className="muted">Resume to recreate the sandbox with the same workspace access.</p>
           <div className="readiness-actions">
             <button className="primary" type="button" disabled={busy} onClick={() => run(props.onResume)}>{busy ? "Resuming…" : "Resume environment"}</button>
@@ -159,7 +159,7 @@ function PreparationFailure(props: Pick<WorkspaceReadinessProps, "workspace"> & 
     <div className="preparation-failure">
       <strong>{stageLabel(props.workspace.preparation_failed_stage)} could not finish</strong>
       <p className="failure-message">{props.workspace.error || "Workspace preparation failed."}</p>
-      <p className="muted">The repository and session history are preserved.</p>
+      <p className="muted">The repository and conversation history are preserved.</p>
       <div className="readiness-actions">
         <button className="primary" type="button" disabled={props.busy} onClick={props.onRetry}>Retry preparation</button>
         <button className="quiet danger" type="button" disabled={props.busy} onClick={props.onDelete}>Delete workspace…</button>

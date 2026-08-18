@@ -57,7 +57,7 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
         </div>
         <p className="scope-note">
           This workspace is working directly on <code>{workspace.branch}</code>. GitHub cannot
-          create a pull request when its source and target are the same branch, and Ayati will
+          create a pull request when its source and target are the same branch, and perpetual will
           never silently push directly to that branch.
         </p>
       </section>
@@ -73,7 +73,7 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
         </div>
       </div>
       <p className="scope-note">
-        Publishing includes all current workspace changes, including work from other sessions.
+        Publishing includes all current workspace changes, including work from other conversations.
       </p>
       {workspace.pull_request_url && (
         <a className="pull-link" href={workspace.pull_request_url} target="_blank" rel="noreferrer">

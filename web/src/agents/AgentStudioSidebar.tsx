@@ -29,7 +29,7 @@ export function AgentStudioSidebar(props: AgentStudioSidebarProps) {
         <StudioLink active={props.route.page === "agent-providers"} icon="◎" label="Providers" count={props.providerCount} onClick={() => props.onNavigate("/agents/providers")} />
         <StudioLink active={props.route.page === "agent-skills"} icon="◇" label="Skills" count={props.skillCount} onClick={() => props.onNavigate("/agents/skills")} />
       </nav>
-      <p className="agent-studio-note">Agents are reusable across every workspace. Sessions provide their conversation context.</p>
+      <p className="agent-studio-note">Agents are reusable across every workspace. Each conversation keeps its own context.</p>
     </aside>
   );
 }
