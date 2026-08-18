@@ -17,7 +17,7 @@ export function AgentsPage({ controller, onNavigate }: AgentsPageProps) {
           <div>
             <p className="eyebrow">Reusable behavior</p>
             <h1>Agents</h1>
-            <p className="muted">Create focused agents and use them in any workspace session.</p>
+            <p className="muted">Create focused agents and use them in any workspace conversation.</p>
           </div>
           <button className="primary" type="button" onClick={() => onNavigate("/agents/new")}>＋ New agent</button>
         </header>

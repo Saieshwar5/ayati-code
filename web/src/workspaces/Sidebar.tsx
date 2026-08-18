@@ -36,7 +36,7 @@ export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNav
 
       <nav className="product-navigation" aria-label="Product">
         <div className="product-nav-row">
-          <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "session" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
+          <NavButton label="Workspaces" icon="workspaces" active={route.page === "workspaces" || route.page === "workspace" || route.page === "create-workspace"} onClick={() => onNavigate("/workspaces")} />
           <button
             aria-label="Create workspace from navigation"
             className="product-nav-create"

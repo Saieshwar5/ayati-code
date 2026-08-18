@@ -146,7 +146,7 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "Preparing your workspace", level: 2 })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Preparing workspace", level: 2 })).toBeTruthy();
     expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
@@ -257,7 +257,7 @@ describe("WorkspaceApplication", () => {
     });
   });
 
-  it("keeps sessions in the workspace page and limits the inspector to session activity", async () => {
+  it("opens a workspace as chat first and manages details without leaving it", async () => {
     const readyWorkspace: Workspace = {
       ...workspace,
       status: "ready",
@@ -278,13 +278,29 @@ describe("WorkspaceApplication", () => {
     const user = userEvent.setup();
     render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
 
-    expect(await screen.findByRole("heading", { name: "Sessions" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
+    expect(screen.getByText(/Discuss the project/)).toBeTruthy();
+    expect(window.location.pathname).toBe(`/workspaces/${workspace.id}`);
     const sidebar = screen.getByRole("complementary", { name: "Main navigation" });
     expect(within(sidebar).queryByText("Sessions")).toBeNull();
-    expect(screen.getByRole("button", { name: "＋ New session" })).toBeTruthy();
+    expect(screen.queryByRole("complementary", { name: "Workspace panel" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Open context controls" })).toBeTruthy();
 
-    await user.click(screen.getByRole("button", { name: /Original session/i }));
-    expect(await screen.findByRole("complementary", { name: "Session activity" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Tasks" }));
+    let panel = screen.getByRole("complementary", { name: "Workspace panel" });
+    expect(within(panel).getByRole("heading", { name: "Tasks" })).toBeTruthy();
+    expect(document.querySelector(".app-shell")?.classList.contains("workspace-panel-open")).toBe(true);
+
+    await user.click(within(panel).getByRole("button", { name: "Expand workspace panel" }));
+    expect(document.querySelector(".app-shell")?.classList.contains("workspace-panel-expanded")).toBe(true);
+    await user.click(within(panel).getByRole("button", { name: "Dock workspace panel" }));
+    await user.click(within(panel).getByRole("button", { name: "Close workspace panel" }));
+    expect(screen.queryByRole("complementary", { name: "Workspace panel" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Changes" }));
+    panel = screen.getByRole("complementary", { name: "Workspace panel" });
+    expect(within(panel).getByRole("heading", { name: "Changes" })).toBeTruthy();
+    expect(await within(panel).findByText("Working tree is clean")).toBeTruthy();
     expect(screen.queryByText("Environment variables")).toBeNull();
   });
 });

@@ -3,8 +3,21 @@
 .app-shell.session-view { grid-template-columns: 224px minmax(480px, 1fr) 380px; }
 .app-shell.session-view.inspector-collapsed { grid-template-columns: 224px minmax(480px, 1fr) 48px; }
 .app-shell.sidebar-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+.app-shell.workspace-chat-view { position: relative; grid-template-columns: 224px minmax(0, 1fr) 0; }
+.app-shell.workspace-chat-view.sidebar-collapsed { grid-template-columns: 56px minmax(0, 1fr) 0; }
+.app-shell.workspace-chat-view.workspace-panel-open { grid-template-columns: 224px minmax(480px, 1fr) 360px; }
+.app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-open { grid-template-columns: 56px minmax(480px, 1fr) 360px; }
+.app-shell.workspace-chat-view.workspace-panel-expanded { grid-template-columns: 224px 0 minmax(0, 1fr); }
+.app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-expanded { grid-template-columns: 56px 0 minmax(0, 1fr); }
+.workspace-panel-expanded > .conversation-pane { visibility: hidden; pointer-events: none; }
 .app-shell.session-view.sidebar-collapsed { grid-template-columns: 56px minmax(480px, 1fr) 380px; }
 .app-shell.session-view.sidebar-collapsed.inspector-collapsed { grid-template-columns: 56px minmax(480px, 1fr) 48px; }
+.app-shell.session-view { position: relative; }
+.app-shell.session-view.tasks-collapsed { grid-template-columns: 224px minmax(480px, 1fr) 0; }
+.app-shell.session-view.sidebar-collapsed.tasks-collapsed { grid-template-columns: 56px minmax(480px, 1fr) 0; }
+.tasks-collapsed > .conversation-tasks-drawer { display: none; }
+.conversation-tasks-drawer { min-width: 0; min-height: 0; }
+.conversation-tasks-drawer > .workspace-tasks-panel { height: 100%; }
 
 .sidebar-top { padding: 14px 12px 10px; }
 .brand-row { min-height: 32px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; gap: 6px; }
@@ -65,6 +78,12 @@
   .app-shell { grid-template-columns: 208px minmax(0, 1fr); }
   .app-shell.session-view { grid-template-columns: 208px minmax(430px, 1fr) 340px; }
   .app-shell.session-view.inspector-collapsed { grid-template-columns: 208px minmax(430px, 1fr) 48px; }
+  .app-shell.workspace-chat-view { grid-template-columns: 208px minmax(0, 1fr) 0; }
+  .app-shell.workspace-chat-view.sidebar-collapsed { grid-template-columns: 56px minmax(0, 1fr) 0; }
+  .app-shell.workspace-chat-view.workspace-panel-open { grid-template-columns: 208px minmax(430px, 1fr) 320px; }
+  .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-open { grid-template-columns: 56px minmax(430px, 1fr) 320px; }
+  .app-shell.workspace-chat-view.workspace-panel-expanded { grid-template-columns: 208px 0 minmax(0, 1fr); }
+  .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-expanded { grid-template-columns: 56px 0 minmax(0, 1fr); }
 }
 
 @media (max-width: 880px) {
@@ -72,9 +91,31 @@
   .app-shell.session-view.inspector-collapsed { grid-template-columns: 192px minmax(0, 1fr); }
   .app-shell.sidebar-collapsed, .app-shell.session-view.sidebar-collapsed, .app-shell.session-view.sidebar-collapsed.inspector-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
   .sidebar-collapsed .inspector { width: min(410px, calc(100% - 56px)); }
+  .app-shell.session-view.tasks-collapsed, .app-shell.session-view.sidebar-collapsed.tasks-collapsed { grid-template-columns: 192px minmax(0, 1fr); }
+  .app-shell.session-view.sidebar-collapsed.tasks-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+  .conversation-tasks-drawer { width: min(300px, calc(100% - 192px)); position: absolute; z-index: 7; top: 0; right: 0; bottom: 0; box-shadow: -16px 0 40px rgba(0, 0, 0, .12); }
+  .sidebar-collapsed > .conversation-tasks-drawer { width: min(300px, calc(100% - 56px)); }
+  .app-shell.workspace-chat-view, .app-shell.workspace-chat-view.workspace-panel-open { grid-template-columns: 192px minmax(0, 1fr); }
+  .app-shell.workspace-chat-view.sidebar-collapsed, .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-open { grid-template-columns: 56px minmax(0, 1fr); }
+  .app-shell.workspace-chat-view.workspace-panel-expanded { grid-template-columns: 192px minmax(0, 1fr); }
+  .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-expanded { grid-template-columns: 56px minmax(0, 1fr); }
+  .workspace-chat-view > .workspace-side-panel { width: min(360px, calc(100% - 192px)); position: absolute; z-index: 8; top: 0; right: 0; bottom: 0; box-shadow: -16px 0 40px rgba(0, 0, 0, .12); }
+  .workspace-chat-view.sidebar-collapsed > .workspace-side-panel { width: min(360px, calc(100% - 56px)); }
+  .workspace-chat-view.workspace-panel-expanded > .workspace-side-panel { width: calc(100% - 192px); }
+  .workspace-chat-view.sidebar-collapsed.workspace-panel-expanded > .workspace-side-panel { width: calc(100% - 56px); }
 }
 
 @media (max-width: 620px) {
   .app-shell, .app-shell.session-view, .app-shell.session-view.inspector-collapsed { grid-template-columns: 176px minmax(0, 1fr); }
   .app-shell.sidebar-collapsed, .app-shell.session-view.sidebar-collapsed, .app-shell.session-view.sidebar-collapsed.inspector-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+  .app-shell.session-view.tasks-collapsed { grid-template-columns: 176px minmax(0, 1fr); }
+  .app-shell.session-view.sidebar-collapsed.tasks-collapsed { grid-template-columns: 56px minmax(0, 1fr); }
+  .conversation-tasks-drawer { width: min(280px, calc(100% - 176px)); }
+  .sidebar-collapsed > .conversation-tasks-drawer { width: min(280px, calc(100% - 56px)); }
+  .app-shell.workspace-chat-view, .app-shell.workspace-chat-view.workspace-panel-open, .app-shell.workspace-chat-view.workspace-panel-expanded { grid-template-columns: 176px minmax(0, 1fr); }
+  .app-shell.workspace-chat-view.sidebar-collapsed, .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-open, .app-shell.workspace-chat-view.sidebar-collapsed.workspace-panel-expanded { grid-template-columns: 56px minmax(0, 1fr); }
+  .workspace-chat-view > .workspace-side-panel { width: min(320px, calc(100% - 176px)); }
+  .workspace-chat-view.sidebar-collapsed > .workspace-side-panel { width: min(320px, calc(100% - 56px)); }
+  .workspace-chat-view.workspace-panel-expanded > .workspace-side-panel { width: calc(100% - 176px); }
+  .workspace-chat-view.sidebar-collapsed.workspace-panel-expanded > .workspace-side-panel { width: calc(100% - 56px); }
 }
