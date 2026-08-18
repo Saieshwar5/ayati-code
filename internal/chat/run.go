@@ -96,7 +96,7 @@ func (s *Service) runLoop(
 
 func workspacePromptContext(value workspace.Workspace) agent.WorkspaceContext {
 	result := agent.WorkspaceContext{
-		Repository: value.Repository, Branch: value.Branch, Authority: string(value.Authority),
+		Repository: value.Repository, Branch: value.Branch,
 	}
 	if profile := value.Profile; profile != nil {
 		result.ProjectRoot = profile.ProjectRoot

@@ -43,7 +43,7 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
           <div>
             <p className="eyebrow">{workspace.repository}</p>
             <h1>{readinessTitle(workspace)}</h1>
-            <p className="muted">{workspace.branch} · {workspace.authority === "explore" ? "Protected Explore" : "Develop"}</p>
+            <p className="muted">{workspace.branch}</p>
           </div>
           <span className={`status ${workspace.status}`}>{workspace.status.replaceAll("_", " ")}</span>
         </div>

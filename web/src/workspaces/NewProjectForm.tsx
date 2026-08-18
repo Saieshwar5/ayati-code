@@ -3,9 +3,7 @@ import { useState } from "react";
 import type {
   CreateNewProjectInput,
   EnvironmentInput,
-  WorkspaceAuthority,
 } from "../api/contracts";
-import { AuthorityOptions } from "./AuthorityOptions";
 import { WorkspaceCreateAction } from "./WorkspaceSetupSummary";
 import { WorkspaceSetupOptions } from "./WorkspaceSetupOptions";
 
@@ -17,7 +15,6 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setPrivate] = useState(true);
-  const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
   const [branch, setBranch] = useState("perpetual/initial");
   const [setup, setSetup] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
@@ -33,8 +30,7 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
         name,
         description,
         private: isPrivate,
-        authority,
-        branch: authority === "develop" ? branch : "",
+        branch,
         setup_command: setup,
         environment,
       });
@@ -46,7 +42,7 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
   }
 
   const environmentComplete = environment.every((value) => value.name.trim() && value.value);
-  const canSubmit = Boolean(name.trim() && (authority === "explore" || branch.trim()) && environmentComplete);
+  const canSubmit = Boolean(name.trim() && branch.trim() && environmentComplete);
 
   return (
     <form className="workspace-composer new-project-composer" onSubmit={(event) => void submit(event)}>
@@ -74,19 +70,13 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
           </div>
           <span className="repository-visibility">{isPrivate ? "Private" : "Public"}</span>
         </header>
-        <AuthorityOptions value={authority} onChange={setAuthority} />
-
         <section className="composer-setting" aria-labelledby="initial-branch-title">
           <div className="composer-setting-label">
             <h3 id="initial-branch-title">Branch</h3>
-            <p>{authority === "develop" ? "Where development begins." : "GitHub default, read only."}</p>
+            <p>Start development away from the repository default branch.</p>
           </div>
           <div className="composer-setting-control">
-            {authority === "develop" ? (
-              <label>New working branch<input value={branch} required placeholder="perpetual/initial" onChange={(event) => setBranch(event.target.value)} /></label>
-            ) : (
-              <div className="selection-metadata"><span>Created with a README</span><code>Default branch</code></div>
-            )}
+            <label>New working branch<input value={branch} required placeholder="perpetual/initial" onChange={(event) => setBranch(event.target.value)} /></label>
           </div>
         </section>
 
@@ -95,8 +85,7 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
         {error && <div className="error" role="alert">{error}</div>}
         <WorkspaceCreateAction
           project={name}
-          authority={authority}
-          branch={authority === "develop" ? branch : "Default branch"}
+          branch={branch}
           environmentCount={environment.length}
           hasSetupCommand={Boolean(setup.trim())}
           canSubmit={canSubmit}

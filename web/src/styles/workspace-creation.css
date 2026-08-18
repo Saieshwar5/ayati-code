@@ -72,13 +72,7 @@
 .composer-setting input, .composer-setting select, .project-identity-pane input { min-height: 34px; border-color: var(--color-border-strong); border-radius: 6px; font-size: 10px; }
 .composer-setting select:disabled { background: var(--color-surface-subtle); color: var(--color-text-tertiary); }
 
-.authority-options, .branch-mode-options { padding: 3px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-subtle); }
-.authority-options { width: min(220px, 100%); justify-self: start; }
-.authority-options > label { min-height: 30px; padding: 0 12px; display: flex; align-items: center; justify-content: center; border: 0; border-radius: 4px; color: var(--color-text-secondary); cursor: pointer; }
-.authority-options > label.selected { background: var(--color-text); color: var(--color-surface); box-shadow: none; }
-.authority-options input { position: absolute; width: 1px; min-height: 1px; opacity: 0; }
-.authority-options label:focus-within { outline: 2px solid var(--color-text); outline-offset: 2px; }
-.authority-options span { font-size: 9px; font-weight: 600; }
+.branch-mode-options { padding: 3px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-subtle); }
 .branch-mode-options > label { min-width: 0; min-height: 36px; padding: 5px 7px; display: flex; align-items: center; gap: 7px; border: 0; border-radius: 4px; cursor: pointer; }
 .branch-mode-options > label.selected { background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border); }
 .branch-mode-options input { width: 12px; min-height: 12px; margin: 0; accent-color: var(--color-text); }

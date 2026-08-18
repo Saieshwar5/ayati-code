@@ -105,7 +105,7 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 		t.Fatalf("completion = %#v, commands = %#v, error = %v", completion, shell.commands, err)
 	}
 	if len(provider.requests) == 0 ||
-		!strings.Contains(provider.requests[0].SystemPrompt, "physically mounted read-only") ||
+		!strings.Contains(provider.requests[0].SystemPrompt, "explicitly asks you to work") ||
 		!strings.Contains(provider.requests[0].SystemPrompt, "Project root: apps/web") {
 		t.Fatalf("system prompt = %q", provider.requests[0].SystemPrompt)
 	}

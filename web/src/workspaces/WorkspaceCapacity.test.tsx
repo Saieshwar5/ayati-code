@@ -12,8 +12,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "perpetual/capacity",
   create_branch: true,
-  authority: "develop",
-  effective_mount_mode: "rw",
   preparation_stage: "ready",
   configuration_candidates: [],
   setup_command: "",

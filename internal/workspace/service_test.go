@@ -26,19 +26,12 @@ type fakeEnvironment struct {
 func (f *fakeEnvironment) Ensure(ctx context.Context, input compute.StopInput) (compute.Assignment, error) {
 	return f.Start(ctx, compute.StartInput{
 		WorkspaceID: input.WorkspaceID, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+		CachePath: input.CachePath,
 	})
 }
 
 func (f *fakeEnvironment) Start(_ context.Context, input compute.StartInput) (compute.Assignment, error) {
-	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath, input.WorkspaceWritable)
-	f.ensured = append(f.ensured, spec)
-	return compute.Assignment{}, f.nextError()
-}
-
-func (f *fakeEnvironment) Replace(_ context.Context, input compute.ReplaceInput) (compute.Assignment, error) {
-	f.removed = append(f.removed, input.WorkspaceID)
-	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath, input.WorkspaceWritable)
+	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath)
 	f.ensured = append(f.ensured, spec)
 	return compute.Assignment{}, f.nextError()
 }
@@ -69,15 +62,14 @@ func (f *fakeEnvironment) Cleanup(ctx context.Context, input compute.StopInput) 
 }
 
 type recordedRuntime struct {
-	WorkspaceID       string
-	WorkspacePath     string
-	CachePath         string
-	WorkspaceWritable bool
+	WorkspaceID   string
+	WorkspacePath string
+	CachePath     string
 }
 
-func recordedRuntimeSpec(id, path, cache string, writable bool) recordedRuntime {
+func recordedRuntimeSpec(id, path, cache string) recordedRuntime {
 	return recordedRuntime{
-		WorkspaceID: id, WorkspacePath: path, CachePath: cache, WorkspaceWritable: writable,
+		WorkspaceID: id, WorkspacePath: path, CachePath: cache,
 	}
 }
 
@@ -139,8 +131,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "perpetual/change", CreateBranch: true,
-		Authority: AuthorityDevelop,
-		Setup:     "go mod download", Path: path,
+		Setup: "go mod download", Path: path,
 		Environment: []EnvironmentInput{
 			{Name: "SETUP_TOKEN", Value: "setup-secret", ExposeDuringSetup: true},
 			{Name: "RUNTIME_TOKEN", Value: "runtime-secret"},
@@ -163,8 +154,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
 	}
-	if len(environment.ensured) != 1 || !environment.ensured[0].WorkspaceWritable ||
-		shell.commands[0] != "go mod download" {
+	if len(environment.ensured) != 1 || shell.commands[0] != "go mod download" {
 		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
 	}
 	if len(environment.variables) != 1 || environment.variables[0]["SETUP_TOKEN"] != "setup-secret" ||

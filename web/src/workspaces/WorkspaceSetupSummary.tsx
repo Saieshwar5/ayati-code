@@ -1,8 +1,5 @@
-import type { WorkspaceAuthority } from "../api/contracts";
-
 interface WorkspaceSetupSummaryProps {
   project: string;
-  authority: WorkspaceAuthority;
   branch: string;
   environmentCount: number;
   hasSetupCommand: boolean;
@@ -15,7 +12,7 @@ interface WorkspaceCreateActionProps extends WorkspaceSetupSummaryProps {
 
 export function WorkspaceCreateAction(props: WorkspaceCreateActionProps) {
   const outcome = props.canSubmit
-    ? `${props.authority === "explore" ? "Read-only" : "Writable"} workspace on ${props.branch}`
+    ? `Workspace on ${props.branch}`
     : "Choose a project and branch to continue";
   return (
     <footer className="workspace-create-final" aria-labelledby="workspace-create-final-title">

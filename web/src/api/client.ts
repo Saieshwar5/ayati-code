@@ -3,7 +3,6 @@ import type {
   AgentInput,
   AgentRun,
   Branch,
-  AuthorityChangeInput,
   Changes,
   CreateNewProjectInput,
   CreateWorkspaceInput,
@@ -108,11 +107,6 @@ export const api = {
     request<void>(`/api/workspaces/${id}/configure`, {
       method: "POST",
       body: JSON.stringify({ project_root: projectRoot }),
-    }),
-  changeWorkspaceAuthority: (id: string, input: AuthorityChangeInput) =>
-    request<Workspace>(`/api/workspaces/${id}/authority`, {
-      method: "POST",
-      body: JSON.stringify(input),
     }),
   stopWorkspace: (id: string) =>
     request<void>(`/api/workspaces/${id}/stop`, { method: "POST" }),

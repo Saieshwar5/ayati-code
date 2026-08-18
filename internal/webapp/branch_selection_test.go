@@ -9,10 +9,10 @@ import (
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
-func TestHandlerCreatesDevelopWorkspaceOnExistingBranch(t *testing.T) {
+func TestHandlerCreatesWorkspaceOnExistingBranch(t *testing.T) {
 	handler, _, workspaces, _ := testHandler(t)
 	body := `{"repository":"owner/project","base_branch":"main","branch":"feature/existing",` +
-		`"create_branch":false,"branch_mode":"existing","authority":"develop","environment":[]}`
+		`"create_branch":false,"branch_mode":"existing","environment":[]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", body, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -30,7 +30,7 @@ func TestHandlerCreatesDevelopWorkspaceOnExistingBranch(t *testing.T) {
 func TestHandlerAllowsDirectBranchButRejectsPublishing(t *testing.T) {
 	handler, _, workspaces, _ := testHandler(t)
 	body := `{"repository":"owner/project","base_branch":"main","branch":"main",` +
-		`"create_branch":false,"branch_mode":"direct","authority":"develop","environment":[]}`
+		`"create_branch":false,"branch_mode":"direct","environment":[]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", body, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -53,7 +53,7 @@ func TestHandlerAllowsDirectBranchButRejectsPublishing(t *testing.T) {
 func TestHandlerRejectsNewBranchThatAlreadyExists(t *testing.T) {
 	handler, _, _, _ := testHandler(t)
 	body := `{"repository":"owner/project","base_branch":"main","branch":"feature/existing",` +
-		`"create_branch":true,"branch_mode":"new","authority":"develop","environment":[]}`
+		`"create_branch":true,"branch_mode":"new","environment":[]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", body, true)
 	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), "already exists") {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())

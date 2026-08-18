@@ -11,7 +11,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "main",
   create_branch: false,
-  authority: "explore",
   preparation_stage: "analyzing",
   preparation_detail: "Inspecting project metadata",
   configuration_candidates: [],

@@ -81,7 +81,7 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
         {visible.length ? (
           <div className="workspace-table" aria-label={`${props.view === "active" ? "Active" : "Archived"} workspaces`}>
             <div className="workspace-table-header" aria-hidden="true">
-              <span>Workspace</span><span>Access</span><span>Updated</span><span>Status</span><span />
+              <span>Workspace</span><span>Updated</span><span>Status</span><span />
             </div>
             {visible.map((workspace) => (
               <WorkspaceRow
@@ -140,7 +140,6 @@ function WorkspaceRow(props: {
           <span className="sr-only">Open workspace</span>
         </button>
       )}
-      <span className="workspace-access">{workspace.authority === "explore" ? "Explore" : "Develop"}</span>
       <time className="workspace-updated" dateTime={workspace.updated_at}>{relativeTime(workspace.updated_at)}</time>
       <span className={`workspace-state ${workspace.status}`}><i aria-hidden="true" />{workspaceStateLabel(workspace.status)}</span>
       <div className="workspace-row-actions">

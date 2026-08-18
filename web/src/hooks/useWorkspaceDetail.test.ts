@@ -16,7 +16,7 @@ vi.mock("../api/client", () => ({ api: apiMock }));
 
 const workspace: Workspace = {
   id: "workspace-1", repository: "owner/project", clone_url: "https://github.com/owner/project.git",
-  base_branch: "main", branch: "perpetual/activity", create_branch: true, authority: "develop",
+  base_branch: "main", branch: "perpetual/activity", create_branch: true,
   preparation_stage: "ready", configuration_candidates: [], setup_command: "", path: "/workspace",
   status: "ready", created_at: "2026-08-18T00:00:00Z", updated_at: "2026-08-18T00:00:00Z",
 };

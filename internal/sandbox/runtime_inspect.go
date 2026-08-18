@@ -44,10 +44,22 @@ type dockerRuntimeMetadata struct {
 	} `json:"Mounts"`
 }
 
-var errWorkspaceAccessMismatch = errors.New("workspace mount access does not match the lease")
+var errWorkspaceMountReadOnly = errors.New("workspace mount is read-only")
 
 func (d *DockerDriver) inspect(
 	ctx context.Context, spec environment.RuntimeSpec, target string,
+) (environment.Runtime, bool, error) {
+	return d.inspectRuntime(ctx, spec, target, true)
+}
+
+func (d *DockerDriver) inspectAllowingLegacyReadOnly(
+	ctx context.Context, spec environment.RuntimeSpec, target string,
+) (environment.Runtime, bool, error) {
+	return d.inspectRuntime(ctx, spec, target, false)
+}
+
+func (d *DockerDriver) inspectRuntime(
+	ctx context.Context, spec environment.RuntimeSpec, target string, requireWritable bool,
 ) (environment.Runtime, bool, error) {
 	result, err := d.runner.Run(ctx, "container", "inspect", "--format", "{{json .}}", target)
 	if err != nil {
@@ -67,7 +79,7 @@ func (d *DockerDriver) inspect(
 	if err := json.Unmarshal([]byte(strings.TrimSpace(result.stdout)), &metadata); err != nil {
 		return environment.Runtime{}, false, fmt.Errorf("inspect environment runtime metadata: %w", err)
 	}
-	runtime, err := verifyRuntimeMetadata(spec, metadata)
+	runtime, err := verifyRuntimeMetadata(spec, metadata, requireWritable)
 	if err != nil {
 		return environment.Runtime{}, false, err
 	}
@@ -75,7 +87,7 @@ func (d *DockerDriver) inspect(
 }
 
 func verifyRuntimeMetadata(
-	spec environment.RuntimeSpec, metadata dockerRuntimeMetadata,
+	spec environment.RuntimeSpec, metadata dockerRuntimeMetadata, requireWritable bool,
 ) (environment.Runtime, error) {
 	if !validDockerID(metadata.ID) {
 		return environment.Runtime{}, runtimeMismatch("invalid Docker identity")
@@ -111,14 +123,14 @@ func verifyRuntimeMetadata(
 	if err := verifyRuntimeTmpfs(metadata.HostConfig.Tmpfs); err != nil {
 		return environment.Runtime{}, err
 	}
-	if err := verifyRuntimeMounts(spec, metadata.Mounts); err != nil {
+	if err := verifyRuntimeMounts(spec, metadata.Mounts, requireWritable); err != nil {
 		return environment.Runtime{}, err
 	}
 	return environment.Runtime{
 		ID: metadata.ID, Name: runtimeName(spec), EnvironmentID: spec.Environment.ID,
 		WorkspaceID: spec.Lease.WorkspaceID, LeaseID: spec.Lease.ID,
 		Generation: spec.Lease.Generation, ImageID: metadata.Image,
-		Running: metadata.State.Running, WorkspaceWritable: spec.WorkspaceWritable,
+		Running: metadata.State.Running,
 	}, nil
 }
 
@@ -157,7 +169,7 @@ func verifyRuntimeMounts(spec environment.RuntimeSpec, mounts []struct {
 	Source      string `json:"Source"`
 	Destination string `json:"Destination"`
 	RW          bool   `json:"RW"`
-}) error {
+}, requireWritable bool) error {
 	found := map[string]bool{}
 	for _, mount := range mounts {
 		if mount.Type == "tmpfs" {
@@ -175,8 +187,8 @@ func verifyRuntimeMounts(spec environment.RuntimeSpec, mounts []struct {
 			if filepath.Clean(mount.Source) != spec.WorkspacePath {
 				return runtimeMismatch("workspace mount does not match the lease")
 			}
-			if mount.RW != spec.WorkspaceWritable {
-				return errWorkspaceAccessMismatch
+			if requireWritable && !mount.RW {
+				return errWorkspaceMountReadOnly
 			}
 		case "/cache":
 			if filepath.Clean(mount.Source) != spec.CachePath || !mount.RW {

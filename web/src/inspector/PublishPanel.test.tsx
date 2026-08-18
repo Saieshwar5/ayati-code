@@ -10,8 +10,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "main",
   create_branch: false,
-  authority: "explore",
-  effective_mount_mode: "ro",
   preparation_stage: "ready",
   configuration_candidates: [],
   setup_command: "",
@@ -22,16 +20,10 @@ const workspace: Workspace = {
 };
 
 describe("PublishPanel", () => {
-  it("does not offer publishing from Explore", () => {
-    render(<PublishPanel workspace={workspace} publishing={false} onPublish={vi.fn()} />);
-    expect(screen.getByRole("heading", { name: "Publishing protected" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /pull request/i })).toBeNull();
-  });
-
-  it("does not push a Develop workspace directly to its base branch", () => {
+  it("does not push a workspace directly to its base branch", () => {
     render(
       <PublishPanel
-        workspace={{ ...workspace, authority: "develop", effective_mount_mode: "rw" }}
+        workspace={workspace}
         publishing={false}
         onPublish={vi.fn()}
       />,

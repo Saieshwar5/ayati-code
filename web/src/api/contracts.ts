@@ -9,7 +9,6 @@ export type WorkspaceStatus =
   | "deletion_failed";
 
 export type SessionStatus = "idle" | "working" | "review" | "failed" | "canceled";
-export type WorkspaceAuthority = "explore" | "develop";
 export type BranchMode = "new" | "existing" | "direct";
 export type PreparationStage =
   | "pending"
@@ -80,8 +79,6 @@ export interface Workspace {
   base_branch: string;
   branch: string;
   create_branch: boolean;
-  authority: WorkspaceAuthority;
-  effective_mount_mode?: "ro" | "rw";
   preparation_stage: PreparationStage;
   preparation_detail?: string;
   preparation_failed_stage?: PreparationStage;
@@ -248,7 +245,6 @@ export interface CreateWorkspaceInput {
   branch: string;
   create_branch: boolean;
   branch_mode: BranchMode;
-  authority: WorkspaceAuthority;
   setup_command: string;
   environment: EnvironmentInput[];
 }
@@ -257,16 +253,9 @@ export interface CreateNewProjectInput {
   name: string;
   description: string;
   private: boolean;
-  authority: WorkspaceAuthority;
   branch: string;
   setup_command: string;
   environment: EnvironmentInput[];
-}
-
-export interface AuthorityChangeInput {
-  authority: WorkspaceAuthority;
-  branch: string;
-  create_branch: boolean;
 }
 
 export interface PublishInput {

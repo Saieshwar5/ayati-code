@@ -11,8 +11,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "feature/compact-home",
   create_branch: true,
-  authority: "develop",
-  effective_mount_mode: "rw",
   preparation_stage: "ready",
   preparation_detail: "",
   configuration_candidates: [],
@@ -33,7 +31,7 @@ describe("WorkspaceIndex", () => {
 
     expect(onOpen).toHaveBeenCalledWith("workspace-1");
     const table = screen.getByLabelText("Active workspaces");
-    expect(screen.getByText("Develop")).toBeTruthy();
+    expect(screen.queryByText("Access")).toBeNull();
     expect(within(table).getByText("Ready")).toBeTruthy();
   });
 

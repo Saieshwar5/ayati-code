@@ -24,10 +24,10 @@ func (f *fakeGitHub) CreateRepository(
 	}, nil
 }
 
-func TestHandlerCreatesPrivateExploreWorkspaceForNewProject(t *testing.T) {
+func TestHandlerCreatesPrivateWorkspaceForNewProject(t *testing.T) {
 	handler, _, workspaces, github := testHandler(t)
 	response := serve(handler, http.MethodPost, "/api/workspaces/new-project",
-		`{"name":"new-project","description":"A new project","authority":"explore","setup_command":"","environment":[]}`, true)
+		`{"name":"new-project","description":"A new project","branch":"perpetual/initial","setup_command":"","environment":[]}`, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
 	}
@@ -39,16 +39,15 @@ func TestHandlerCreatesPrivateExploreWorkspaceForNewProject(t *testing.T) {
 		t.Fatalf("initialized workspace = %q", initialized)
 	}
 	if len(github.created) != 1 || !github.created[0].Private || created.Repository != "octocat/new-project" ||
-		created.BaseBranch != "trunk" || created.Branch != "trunk" || created.CreateBranch ||
-		created.Authority != workspace.AuthorityExplore {
+		created.BaseBranch != "trunk" || created.Branch != "perpetual/initial" || !created.CreateBranch {
 		t.Fatalf("created repository = %#v, workspace = %#v", github.created, created)
 	}
 }
 
-func TestHandlerCreatesDevelopWorkspaceOnLocalBranch(t *testing.T) {
+func TestHandlerCreatesPublicWorkspaceOnLocalBranch(t *testing.T) {
 	handler, _, workspaces, github := testHandler(t)
 	response := serve(handler, http.MethodPost, "/api/workspaces/new-project",
-		`{"name":"public-project","private":false,"authority":"develop","branch":"perpetual/initial","environment":[]}`, true)
+		`{"name":"public-project","private":false,"branch":"perpetual/initial","environment":[]}`, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
 	}
@@ -57,8 +56,7 @@ func TestHandlerCreatesDevelopWorkspaceOnLocalBranch(t *testing.T) {
 		t.Fatalf("decode workspace: %v", err)
 	}
 	<-workspaces.initialized
-	if github.created[0].Private || created.Branch != "perpetual/initial" || !created.CreateBranch ||
-		created.Authority != workspace.AuthorityDevelop {
+	if github.created[0].Private || created.Branch != "perpetual/initial" || !created.CreateBranch {
 		t.Fatalf("created repository = %#v, workspace = %#v", github.created, created)
 	}
 }
@@ -67,7 +65,7 @@ func TestHandlerExplainsMissingRepositoryPermission(t *testing.T) {
 	handler, _, _, github := testHandler(t)
 	github.createError = githubapp.APIError{StatusCode: http.StatusForbidden, Status: "403 Forbidden"}
 	response := serve(handler, http.MethodPost, "/api/workspaces/new-project",
-		`{"name":"new-project","authority":"explore","environment":[]}`, true)
+		`{"name":"new-project","branch":"perpetual/initial","environment":[]}`, true)
 	if response.Code != http.StatusForbidden ||
 		response.Body.String() != "{\"error\":\"GitHub App needs Administration: write permission to create repositories\"}\n" {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
