@@ -103,6 +103,7 @@ describe("ChatPane", () => {
               { id: "call-1", type: "function", function: { name: "shell", arguments: "{}" } },
             ],
           },
+          { role: "tool", tool_call_id: "call-1", content: "{\"stdout\":\"\",\"exit_code\":0}" },
           {
             role: "assistant",
             content: "The project is ready.",
@@ -125,6 +126,7 @@ describe("ChatPane", () => {
     expect(screen.getByText("Please inspect this.")).toBeTruthy();
     expect(screen.getByText("The project is ready.")).toBeTruthy();
     expect(screen.getByText("Perpetual")).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Agent activity: Completed · 1 step/ })).toBeTruthy();
     expect(screen.queryByText("shell")).toBeNull();
     await user.type(screen.getByRole("textbox"), "Implement the change");
     await user.click(screen.getByRole("button", { name: "Send message" }));

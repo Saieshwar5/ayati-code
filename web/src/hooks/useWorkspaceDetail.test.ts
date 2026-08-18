@@ -55,6 +55,19 @@ describe("reconcileMessages", () => {
     expect(reconcileMessages(current, incoming)).toBe(incoming);
   });
 
+  it("does not remove durable activity when an older server response arrives late", () => {
+    const current: Message[] = [
+      { id: 1, role: "user", content: "Inspect the project" },
+      { id: 2, role: "assistant", tool_calls: [{
+        id: "call-1", type: "function", function: { name: "shell", arguments: "{}" },
+      }] },
+      { id: 3, role: "tool", tool_call_id: "call-1", content: "{}" },
+      { id: 4, role: "assistant", content: "Complete" },
+    ];
+
+    expect(reconcileMessages(current, current.slice(0, 1))).toBe(current);
+  });
+
   it("keeps messages visible when a server event replaces the session object", async () => {
     const message: Message = { id: 1, role: "user", content: "Inspect the project" };
     apiMock.messages.mockResolvedValue([message]);
