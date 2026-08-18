@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   AuthorityChangeInput,
   CreateNewProjectInput,
@@ -22,6 +22,8 @@ export function useWorkspaceController(user: User) {
   const [sessions, setSessions] = useState<Record<string, WorkspaceSession[]>>({});
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
+  const [deletingWorkspaceIDs, setDeletingWorkspaceIDs] = useState<ReadonlySet<string>>(new Set());
+  const deletingWorkspaceIDsRef = useRef(new Set<string>());
 
   const refreshWorkspaces = useCallback(async () => {
     const [active, archived] = await Promise.all([api.workspaces(), api.archivedWorkspaces()]);
@@ -169,17 +171,24 @@ export function useWorkspaceController(user: User) {
   }, [refreshWorkspaces]);
 
   const deleteWorkspace = useCallback(async (workspace: Workspace) => {
+    if (deletingWorkspaceIDsRef.current.has(workspace.id)) return false;
     const confirmed = window.confirm(
-      `Delete workspace “${repositoryName(workspace.repository)}”?\n\nThis permanently removes its local clone and conversation history. The GitHub repository is not deleted.`,
+      `Permanently delete local workspace “${repositoryName(workspace.repository)}”?\n\nThis removes its local clone, cache, conversations, and unpublished changes. The GitHub repository, remote branches, and pull requests will not be changed.`,
     );
     if (!confirmed) return false;
+    deletingWorkspaceIDsRef.current.add(workspace.id);
+    setDeletingWorkspaceIDs(new Set(deletingWorkspaceIDsRef.current));
     try {
       await api.deleteWorkspace(workspace.id);
       await refreshWorkspaces();
       return true;
     } catch (error) {
+      await refreshWorkspaces().catch(() => undefined);
       window.alert((error as Error).message);
       return false;
+    } finally {
+      deletingWorkspaceIDsRef.current.delete(workspace.id);
+      setDeletingWorkspaceIDs(new Set(deletingWorkspaceIDsRef.current));
     }
   }, [refreshWorkspaces]);
 
@@ -203,7 +212,7 @@ export function useWorkspaceController(user: User) {
 
   return {
     user, repositories, repositoryError, repositoryReconnectRequired,
-    workspaces, archivedWorkspaces, sessions, loading, loadError,
+    workspaces, archivedWorkspaces, sessions, loading, loadError, deletingWorkspaceIDs,
     createWorkspace, createNewProject, createSession, renameSession, selectSessionAgent, deleteSession,
     workspaceAction, configureProjectRoot, changeWorkspaceAuthority,
     archiveWorkspace, restoreWorkspace, deleteWorkspace,

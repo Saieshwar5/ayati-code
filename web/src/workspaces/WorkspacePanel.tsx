@@ -152,6 +152,8 @@ function WorkspaceDetails(props: {
   onDelete: () => Promise<void>;
 }) {
   const working = props.sessions.some((session) => session.status === "working");
+  const deleting = props.controller.deletingWorkspaceIDs.has(props.workspace.id) || props.workspace.status === "deleting";
+  const deletionPending = deleting || props.workspace.status === "deletion_failed";
   return (
     <div className={`workspace-panel-details${props.expanded ? " expanded" : ""}`}>
       {props.workspace.status !== "ready" && (
@@ -178,9 +180,9 @@ function WorkspaceDetails(props: {
       <details>
         <summary><span>Lifecycle</span><small>Manage</small></summary>
         <div className="workspace-panel-lifecycle">
-          <button className="quiet compact" type="button" onClick={props.onManageEnvironments}>Manage compute</button>
-          <button className="quiet compact" type="button" onClick={() => void props.onArchive()}>Archive workspace…</button>
-          <button className="quiet compact danger-text" type="button" onClick={() => void props.onDelete()}>Delete workspace…</button>
+          <button className="quiet compact" type="button" disabled={deletionPending} onClick={props.onManageEnvironments}>Manage compute</button>
+          <button className="quiet compact" type="button" disabled={deletionPending} onClick={() => void props.onArchive()}>Archive workspace…</button>
+          <button className="quiet compact danger-text" type="button" disabled={deleting} onClick={() => void props.onDelete()}>{deleting ? "Deleting…" : props.workspace.status === "deletion_failed" ? "Retry deletion…" : "Delete workspace…"}</button>
         </div>
       </details>
     </div>

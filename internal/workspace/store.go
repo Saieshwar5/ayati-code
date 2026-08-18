@@ -20,11 +20,14 @@ const (
 	StatusNeedsConfiguration   = "needs_configuration"
 	StatusReady                = "ready"
 	StatusStopped              = "stopped"
+	StatusDeleting             = "deleting"
+	StatusDeletionFailed       = "deletion_failed"
 )
 
 var statuses = map[string]bool{
 	StatusCreating: true, StatusInitializing: true, StatusInitializationFailed: true,
 	StatusNeedsConfiguration: true, StatusReady: true, StatusStopped: true,
+	StatusDeleting: true, StatusDeletionFailed: true,
 }
 
 type Workspace struct {

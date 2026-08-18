@@ -33,7 +33,7 @@
 .workspace-state { display: flex; align-items: center; gap: 6px; color: var(--color-text-secondary); font-size: 8px; font-weight: 550; }
 .workspace-state i { width: 6px; height: 6px; flex: 0 0 auto; border: 1px solid var(--color-text); border-radius: 50%; background: var(--color-surface); }
 .workspace-state.ready i { background: var(--color-text); }
-.workspace-state.initialization_failed i, .workspace-state.needs_configuration i { border-radius: 1px; background: var(--color-text-secondary); }
+.workspace-state.initialization_failed i, .workspace-state.needs_configuration i, .workspace-state.deletion_failed i { border-radius: 1px; background: var(--color-text-secondary); }
 .workspace-state.stopped i { border-color: var(--color-text-tertiary); }
 .workspace-row-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
 .workspace-lifecycle-action { min-width: 58px; min-height: 28px; padding-inline: 8px; font-size: 8px; }

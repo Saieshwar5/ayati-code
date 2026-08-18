@@ -93,6 +93,18 @@ describe("WorkspaceIndex", () => {
     expect(onViewChange).toHaveBeenCalledWith("active");
   });
 
+  it("keeps a failed local deletion visible and retryable", async () => {
+    const failed = { ...workspace, status: "deletion_failed" as const, error: "read-only cache" };
+    const onDelete = vi.fn().mockResolvedValue(true);
+    const user = userEvent.setup();
+    renderIndex({ workspaces: [failed], onDelete });
+
+    expect(within(screen.getByLabelText("Active workspaces")).getByText("Deletion failed")).toBeTruthy();
+    await user.click(screen.getByLabelText("More actions for perpetual"));
+    await user.click(screen.getByRole("button", { name: "Retry deletion…" }));
+    expect(onDelete).toHaveBeenCalledWith(failed);
+  });
+
   it("keeps empty and no-result states specific", async () => {
     const user = userEvent.setup();
     renderIndex({ workspaces: [] });

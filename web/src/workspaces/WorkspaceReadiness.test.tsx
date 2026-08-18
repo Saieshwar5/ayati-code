@@ -98,4 +98,22 @@ describe("WorkspaceReadiness", () => {
     expect(resume).toHaveBeenCalledOnce();
     expect(retry).not.toHaveBeenCalled();
   });
+
+  it("explains that a failed deletion is local and can be retried", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceReadiness
+        workspace={{ ...workspace, status: "deletion_failed", error: "read-only cache" }}
+        onConfigure={vi.fn()}
+        onRetry={vi.fn()}
+        onResume={vi.fn()}
+        onDelete={remove}
+      />,
+    );
+    expect(screen.getByText("read-only cache")).toBeTruthy();
+    expect(screen.getByText(/GitHub repository, remote branches, and pull requests are unchanged/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry deletion" }));
+    expect(remove).toHaveBeenCalledOnce();
+  });
 });

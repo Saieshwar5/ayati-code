@@ -14,6 +14,7 @@ export function WorkspaceNavigationItem({ workspace, active, onOpen }: Workspace
       type="button"
       title={`${workspace.repository} · ${workspace.branch}`}
       aria-current={active ? "page" : undefined}
+      disabled={workspace.status === "deleting"}
       onClick={onOpen}
     >
       <span className="workspace-status-dot" aria-hidden="true" />

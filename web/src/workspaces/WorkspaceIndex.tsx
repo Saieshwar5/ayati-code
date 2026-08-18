@@ -19,6 +19,7 @@ interface WorkspaceIndexProps {
   onArchive: (workspace: Workspace) => Promise<boolean>;
   onRestore: (workspace: Workspace) => Promise<void>;
   onDelete: (workspace: Workspace) => Promise<boolean>;
+  deletingWorkspaceIDs?: ReadonlySet<string>;
 }
 
 export function WorkspaceIndex(props: WorkspaceIndexProps) {
@@ -93,6 +94,7 @@ export function WorkspaceIndex(props: WorkspaceIndexProps) {
                 onArchive={() => props.onArchive(workspace)}
                 onRestore={() => props.onRestore(workspace)}
                 onDelete={() => props.onDelete(workspace)}
+                deleting={props.deletingWorkspaceIDs?.has(workspace.id) || workspace.status === "deleting"}
               />
             ))}
           </div>
@@ -122,6 +124,7 @@ function WorkspaceRow(props: {
   onArchive: () => Promise<boolean>;
   onRestore: () => Promise<void>;
   onDelete: () => Promise<boolean>;
+  deleting: boolean;
 }) {
   const workspace = props.workspace;
   const action = workspace.status === "ready" ? "stop" : workspace.status === "stopped" ? "resume" : "";
@@ -132,7 +135,7 @@ function WorkspaceRow(props: {
           <WorkspaceIdentity workspace={workspace} />
         </div>
       ) : (
-        <button className="workspace-row-open" type="button" onClick={props.onOpen}>
+        <button className="workspace-row-open" type="button" disabled={props.deleting} onClick={props.onOpen}>
           <WorkspaceIdentity workspace={workspace} />
           <span className="sr-only">Open workspace</span>
         </button>
@@ -144,18 +147,18 @@ function WorkspaceRow(props: {
         {workspace.pull_request_url && !props.archived && (
           <a className="workspace-pr-link" href={workspace.pull_request_url} target="_blank" rel="noreferrer" aria-label={`Open pull request ${workspace.pull_request_number}`}>PR #{workspace.pull_request_number}</a>
         )}
-        {props.archived ? (
-          <button className="quiet compact workspace-lifecycle-action" type="button" onClick={() => void props.onRestore()}>Restore</button>
+        {props.archived && workspace.status !== "deletion_failed" ? (
+          <button className="quiet compact workspace-lifecycle-action" type="button" disabled={props.deleting} onClick={() => void props.onRestore()}>Restore</button>
         ) : action ? (
-          <button className="quiet compact workspace-lifecycle-action" type="button" onClick={() => void (action === "stop" ? props.onStop() : props.onResume())}>
+          <button className="quiet compact workspace-lifecycle-action" type="button" disabled={props.deleting} onClick={() => void (action === "stop" ? props.onStop() : props.onResume())}>
             {action === "stop" ? "Stop" : "Resume"}
           </button>
         ) : null}
         <details className="workspace-row-menu">
           <summary aria-label={`More actions for ${repositoryName(workspace.repository)}`}>•••</summary>
           <div>
-            {props.archived ? (
-              <button className="danger-text" type="button" onClick={() => void props.onDelete()}>Delete workspace…</button>
+            {props.archived || workspace.status === "deletion_failed" ? (
+              <button className="danger-text" type="button" disabled={props.deleting} onClick={() => void props.onDelete()}>{props.deleting ? "Deleting…" : workspace.status === "deletion_failed" ? "Retry deletion…" : "Delete workspace…"}</button>
             ) : (
               <button type="button" onClick={() => void props.onArchive()}>Archive workspace…</button>
             )}
@@ -204,8 +207,8 @@ function selectWorkspaces(values: Workspace[], query: string, filter: WorkspaceF
 }
 
 function workspaceGroup(status: WorkspaceStatus): WorkspaceFilter {
-  if (status === "creating" || status === "initializing") return "preparing";
-  if (status === "needs_configuration" || status === "initialization_failed") return "attention";
+  if (status === "creating" || status === "initializing" || status === "deleting") return "preparing";
+  if (status === "needs_configuration" || status === "initialization_failed" || status === "deletion_failed") return "attention";
   return status;
 }
 
@@ -213,6 +216,8 @@ function workspaceStateLabel(status: WorkspaceStatus): string {
   if (status === "creating" || status === "initializing") return "Preparing";
   if (status === "needs_configuration") return "Needs input";
   if (status === "initialization_failed") return "Needs attention";
+  if (status === "deleting") return "Deleting";
+  if (status === "deletion_failed") return "Deletion failed";
   return status[0].toUpperCase() + status.slice(1);
 }
 

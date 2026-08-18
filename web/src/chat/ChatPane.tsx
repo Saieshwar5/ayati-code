@@ -1,7 +1,8 @@
 import type { FormEvent, KeyboardEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgentDefinition, Message, Workspace, WorkspaceSession } from "../api/contracts";
 import { repositoryName, statusLabel } from "../app/format";
+import { activeRequestID, AgentActivity, buildConversationFeed, type ActivityRunState } from "./AgentActivity";
 import { ComposerContextControl } from "./ComposerContextControl";
 import { MarkdownMessage } from "./MarkdownMessage";
 import { useConversationContexts } from "./useConversationContexts";
@@ -27,22 +28,26 @@ export function ChatPane(props: ChatPaneProps) {
   const [taskMode, setTaskMode] = useState(false);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const messagesElement = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
   const working = props.workspaceSessions.find((session) => session.status === "working");
   const currentSessionWorking = working?.id === props.session.id || props.sending;
   const enabled = props.workspace.status === "ready" && !working && !props.sending;
-  const conversationMessages = props.messages.filter(isConversationMessage);
-  const contexts = useConversationContexts(props.session.id, conversationMessages);
+  const contexts = useConversationContexts(props.session.id, props.messages);
   const visibleMessages = contexts.displayedMessages;
+  const feed = useMemo(() => buildConversationFeed(visibleMessages), [visibleMessages]);
+  const hasPendingActivity = feed.some((item) => item.kind === "activity" && !item.closed);
+  const showStartingActivity = currentSessionWorking && !hasPendingActivity && visibleMessages.at(-1)?.role === "user";
   const effectiveStatus = props.workspace.status === "ready" ? props.session.status : props.workspace.status;
   const detailError = props.workspace.error || (props.session.status === "failed" ? props.session.error : "");
 
   useEffect(() => {
     setText("");
+    stickToBottom.current = true;
   }, [props.session.id]);
 
   useEffect(() => {
     const element = messagesElement.current;
-    if (element) element.scrollTop = element.scrollHeight;
+    if (element && stickToBottom.current) element.scrollTop = element.scrollHeight;
   }, [props.messages, contexts.viewedEntry?.id]);
 
   useEffect(() => resizeTextarea(textarea.current), [text]);
@@ -84,7 +89,7 @@ export function ChatPane(props: ChatPaneProps) {
           {detailError}
         </div>
       )}
-      <div className="messages" ref={messagesElement}>
+      <div className="messages" ref={messagesElement} onScroll={() => updateScrollPreference(messagesElement.current, stickToBottom)}>
         {contexts.viewedEntry && (
           <div className="past-conversation-heading">
             <div><p className="eyebrow">Past conversation</p><strong>{contexts.viewedEntry.title}</strong></div>
@@ -94,27 +99,27 @@ export function ChatPane(props: ChatPaneProps) {
         {props.workspace.status !== "ready" && (
           <WorkspaceStateEvent workspace={props.workspace} onResume={props.onResumeWorkspace} />
         )}
-        {!visibleMessages.length && props.workspace.status === "ready" && (
+        {!feed.length && props.workspace.status === "ready" && (
           <div className="conversation-empty muted">
             {contexts.history.length
               ? "Fresh conversation started. Previous conversations remain available from Context."
               : "Discuss the project, clarify intent, or create a durable task when the direction is ready."}
           </div>
         )}
-        {visibleMessages.map((message, index) => (
-          <div className={`message-entry ${message.role}`} key={`${message.role}-${index}`}>
-            {message.role === "assistant" && message.agent && (
-              <div className="message-agent"><span aria-hidden="true">{message.agent.emoji}</span><strong>{message.agent.name}</strong></div>
-            )}
-            <div className={`message ${message.role}`}>
-              {message.role === "assistant" ? (
-                <MarkdownMessage content={message.content || ""} />
-              ) : (
-                message.content
-              )}
-            </div>
-          </div>
-        ))}
+        {feed.map((item) => item.kind === "activity" ? (
+          <AgentActivity
+            key={item.id}
+            group={item}
+            state={item.completed ? "completed" : item.closed ? "idle" : activityRunState(props.session, currentSessionWorking)}
+          />
+        ) : <ConversationMessage key={item.id} message={item.message} />)}
+        {showStartingActivity && (
+          <AgentActivity
+            key={activeRequestID(visibleMessages)}
+            group={{ kind: "activity", id: activeRequestID(visibleMessages), closed: false, completed: false, steps: [] }}
+            state="working"
+          />
+        )}
       </div>
       {contexts.viewedEntry ? (
         <div className="past-conversation-bar">
@@ -177,7 +182,7 @@ export function ChatPane(props: ChatPaneProps) {
           </label>
           <ComposerContextControl
             key={props.session.id}
-            currentMessageCount={contexts.activeMessages.length}
+            currentMessageCount={contexts.activeMessages.filter(isConversationMessage).length}
             history={contexts.history}
             disabled={!enabled}
             taskMode={taskMode}
@@ -193,6 +198,19 @@ export function ChatPane(props: ChatPaneProps) {
         </div>
       </form>}
     </section>
+  );
+}
+
+function ConversationMessage({ message }: { message: Message }) {
+  return (
+    <div className={`message-entry ${message.role}`}>
+      {message.role === "assistant" && message.agent && (
+        <div className="message-agent"><span aria-hidden="true">{message.agent.emoji}</span><strong>{message.agent.name}</strong></div>
+      )}
+      <div className={`message ${message.role}`}>
+        {message.role === "assistant" ? <MarkdownMessage content={message.content || ""} /> : message.content}
+      </div>
+    </div>
   );
 }
 
@@ -218,6 +236,18 @@ function isConversationMessage(message: Message): boolean {
   if (message.role === "tool") return false;
   if (message.role === "assistant" && message.tool_calls?.length) return false;
   return Boolean(message.content);
+}
+
+function activityRunState(session: WorkspaceSession, working: boolean): ActivityRunState {
+  return working ? "working" : session.status;
+}
+
+function updateScrollPreference(
+  element: HTMLDivElement | null,
+  preference: React.MutableRefObject<boolean>,
+) {
+  if (!element) return;
+  preference.current = element.scrollHeight - element.scrollTop - element.clientHeight < 80;
 }
 
 function composerPlaceholder(

@@ -148,6 +148,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onArchive={controller.archiveWorkspace}
               onRestore={async (workspace) => { await controller.restoreWorkspace(workspace.id); }}
               onDelete={controller.deleteWorkspace}
+              deletingWorkspaceIDs={controller.deletingWorkspaceIDs}
             />
           ) : route.page === "workspace" && workspace && session ? (
             <ChatPane

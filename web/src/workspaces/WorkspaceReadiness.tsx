@@ -49,7 +49,19 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
         </div>
       )}
 
-      {workspace.status === "stopped" ? (
+      {workspace.status === "deleting" || workspace.status === "deletion_failed" ? (
+        <section className="readiness-card readiness-state-card">
+          <p className="eyebrow">Local workspace deletion</p>
+          <h2>{workspace.status === "deleting" ? "Deleting local workspace…" : "Deletion needs attention"}</h2>
+          <p className="muted">{workspace.status === "deleting" ? "Removing the local runtime, clone, cache, and conversation history." : workspace.error || "The local workspace could not be completely removed."}</p>
+          <p className="muted">The GitHub repository, remote branches, and pull requests are unchanged.</p>
+          {workspace.status === "deletion_failed" && (
+            <div className="readiness-actions">
+              <button className="quiet danger" type="button" disabled={busy} onClick={() => run(props.onDelete)}>{busy ? "Deleting…" : "Retry deletion"}</button>
+            </div>
+          )}
+        </section>
+      ) : workspace.status === "stopped" ? (
         <section className="readiness-card readiness-state-card">
           <p className="eyebrow">Environment stopped</p>
           <h2>Your project and conversations are preserved</h2>
@@ -169,6 +181,8 @@ function PreparationFailure(props: Pick<WorkspaceReadinessProps, "workspace"> & 
 }
 
 function readinessTitle(workspace: Workspace): string {
+  if (workspace.status === "deleting") return "Deleting local workspace";
+  if (workspace.status === "deletion_failed") return "Deletion needs attention";
   if (workspace.status === "needs_configuration") return "Choose a project";
   if (workspace.status === "initialization_failed") return "Preparation needs attention";
   if (workspace.status === "stopped") return `${repositoryName(workspace.repository)} is stopped`;

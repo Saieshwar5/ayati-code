@@ -79,6 +79,10 @@ func TestStorePersistsCompleteAgentMessages(t *testing.T) {
 	if err != nil || len(messages) != 1 || messages[0].ToolCalls[0].ID != "call-1" {
 		t.Fatalf("messages = %#v, error = %v", messages, err)
 	}
+	conversation, err := store.ConversationMessages(context.Background(), sessions[0].ID)
+	if err != nil || len(conversation) != 1 || conversation[0].ID < 1 || conversation[0].CreatedAt.IsZero() {
+		t.Fatalf("conversation messages = %#v, error = %v", conversation, err)
+	}
 }
 
 func TestStoreRejectsInvalidWorkspaceAndStatus(t *testing.T) {

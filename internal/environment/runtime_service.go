@@ -59,6 +59,10 @@ func (s *RuntimeService) Stop(ctx context.Context, input StopInput) error {
 	if err != nil {
 		return err
 	}
+	return s.release(ctx, lease, spec)
+}
+
+func (s *RuntimeService) release(ctx context.Context, lease Lease, spec RuntimeSpec) error {
 	if lease.State != LeaseReleasing {
 		if err := s.store.BeginRelease(ctx, lease.ID, lease.Generation); err != nil {
 			return err
@@ -169,7 +173,15 @@ func (s *RuntimeService) Current(ctx context.Context, input StopInput) (Assignme
 func (s *RuntimeService) Cleanup(ctx context.Context, input StopInput) error {
 	lease, err := s.store.ActiveForWorkspace(ctx, strings.TrimSpace(input.WorkspaceID))
 	if err == nil {
-		return s.Stop(ctx, input)
+		value, loadErr := s.store.Get(ctx, lease.EnvironmentID)
+		if loadErr != nil {
+			return fmt.Errorf("load leased environment: %w", loadErr)
+		}
+		spec := RuntimeSpec{
+			Environment: value, Lease: lease, WorkspacePath: input.WorkspacePath,
+			CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+		}
+		return s.release(ctx, lease, spec)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("load active workspace environment lease: %w", err)
