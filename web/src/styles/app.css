@@ -238,8 +238,6 @@ input, select, textarea {
 .conversation-workspace-link { min-width: 0; min-height: 28px; order: 1; overflow: hidden; padding: 0; flex: 0 1 auto; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
 .conversation-workspace-link:hover { color: var(--color-text); }
 .conversation-heading-actions { display: flex; align-items: center; gap: 10px; }
-.conversation-panel-button { min-height: 28px; padding: 0 7px; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 8px; }
-.conversation-panel-button:hover, .conversation-panel-button.active { background: var(--color-surface-subtle); color: var(--color-text); }
 .conversation-heading .eyebrow { order: 2; overflow: hidden; max-width: 180px; margin: 0; color: #77736b; font-size: 10px; letter-spacing: 0; text-overflow: ellipsis; text-transform: none; white-space: nowrap; }
 .conversation-heading .eyebrow::before { content: "·"; margin-right: 7px; color: #aaa69c; }
 .context-branch { order: 3; overflow: hidden; min-width: 0; margin: 0; flex: 1; color: #8a867e; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }

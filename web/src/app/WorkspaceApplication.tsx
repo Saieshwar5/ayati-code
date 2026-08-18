@@ -167,13 +167,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
                 await controller.selectSessionAgent(workspace.id, session.id, agentID);
               }}
               onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}
-              taskCount={(tasksByWorkspace[workspace.id] || []).length}
-              workspacePanelOpen={workspacePanelOpen}
-              workspacePanelSection={workspacePanelSection}
-              onOpenWorkspacePanel={(section) => {
-                setWorkspacePanelSection(section);
-                setWorkspacePanelOpen(true);
-              }}
               onResumeWorkspace={() => void controller.workspaceAction(workspace.id, "resume")}
             />
           ) : route.page === "workspace" && workspace ? (
@@ -189,16 +182,17 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
             <LoadingPage title={workspaceID ? "Workspace not found" : "Conversation not found"} error />
           )}
         </section>
-        {workspaceChatView && workspace && workspacePanelOpen && (
+        {workspaceChatView && workspace && (
           <WorkspacePanel
             workspace={workspace}
             controller={controller}
+            open={workspacePanelOpen}
             section={workspacePanelSection}
             expanded={workspacePanelExpanded}
             tasks={tasksByWorkspace[workspace.id] || []}
+            onOpenChange={setWorkspacePanelOpen}
             onSectionChange={setWorkspacePanelSection}
             onExpandedChange={setWorkspacePanelExpanded}
-            onClose={() => { setWorkspacePanelOpen(false); setWorkspacePanelExpanded(false); }}
             onCreateTask={(markdown) => createTask(workspace.id, markdown)}
             onUpdateTask={(task) => updateTask(workspace.id, task)}
             onDeleteTask={(taskID) => deleteTask(workspace.id, taskID)}

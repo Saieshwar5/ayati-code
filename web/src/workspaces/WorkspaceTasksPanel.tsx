@@ -13,6 +13,7 @@ interface WorkspaceTasksPanelProps {
   onCreate: (markdown: string) => void;
   onUpdate: (task: WorkspaceTask) => void;
   onDelete: (taskID: string) => void;
+  embedded?: boolean;
 }
 
 const emptyTask = `# Task title
@@ -86,11 +87,16 @@ export function WorkspaceTasksPanel(props: WorkspaceTasksPanelProps) {
   }
 
   return (
-    <aside className="workspace-tasks-panel" aria-label="Workspace tasks">
-      <header className="tasks-panel-heading">
+    <aside className={`workspace-tasks-panel${props.embedded ? " embedded" : ""}`} aria-label="Workspace tasks">
+      {!props.embedded && <header className="tasks-panel-heading">
         <div><p className="eyebrow">Workspace</p><h2>Tasks <span>{props.tasks.length}</span></h2></div>
         <button className="tasks-add" type="button" aria-label="Create task" onClick={create}>+</button>
-      </header>
+      </header>}
+      {props.embedded && (
+        <button className="tasks-create-row" type="button" onClick={create}>
+          <span aria-hidden="true">+</span><span><strong>Create task</strong><small>Add an editable Markdown task</small></span>
+        </button>
+      )}
       <div className="tasks-panel-list">
         {props.tasks.length ? props.tasks.map((task) => (
           <article className={`workspace-task ${task.status}`} key={task.id}>
