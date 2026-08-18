@@ -30,7 +30,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "perpetual/capacity",
   create_branch: true,
-  authority: "develop",
   preparation_stage: "ready",
   configuration_candidates: [],
   setup_command: "",

@@ -67,8 +67,7 @@ func (s *Service) Archive(ctx context.Context, id string) error {
 		return errors.New("a session is still running; stop it before archiving the workspace")
 	}
 	if value.Status == StatusReady {
-		if err := s.environment.Stop(ctx,
-			runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+		if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
 			return fmt.Errorf("release environment before archive: %w", err)
 		}
 		if err := s.store.UpdateStatus(ctx, id, StatusStopped, ""); err != nil {

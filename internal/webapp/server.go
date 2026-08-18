@@ -35,7 +35,6 @@ type githubClient interface {
 type workspaceService interface {
 	Initialize(context.Context, string) error
 	ConfigureProjectRoot(context.Context, string, string) error
-	ChangeAuthority(context.Context, string, workspace.AuthorityChange) (workspace.Workspace, error)
 	Stop(context.Context, string) error
 	Resume(context.Context, string) error
 	Archive(context.Context, string) error

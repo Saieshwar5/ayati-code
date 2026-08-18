@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
-  AuthorityChangeInput,
   CreateNewProjectInput,
   CreateWorkspaceInput,
   Repository,
@@ -145,14 +144,6 @@ export function useWorkspaceController(user: User) {
     await refreshWorkspaces();
   }, [refreshWorkspaces]);
 
-  const changeWorkspaceAuthority = useCallback(async (
-    workspaceID: string,
-    input: AuthorityChangeInput,
-  ) => {
-    const updated = await api.changeWorkspaceAuthority(workspaceID, input);
-    updateWorkspaceIn(setWorkspaces, updated);
-  }, []);
-
   const archiveWorkspace = useCallback(async (workspace: Workspace) => {
     if (!window.confirm(`Archive “${repositoryName(workspace.repository)}”?\n\nIts repository and conversation history will be preserved.`)) return false;
     try {
@@ -214,7 +205,7 @@ export function useWorkspaceController(user: User) {
     user, repositories, repositoryError, repositoryReconnectRequired,
     workspaces, archivedWorkspaces, sessions, loading, loadError, deletingWorkspaceIDs,
     createWorkspace, createNewProject, createSession, renameSession, selectSessionAgent, deleteSession,
-    workspaceAction, configureProjectRoot, changeWorkspaceAuthority,
+    workspaceAction, configureProjectRoot,
     archiveWorkspace, restoreWorkspace, deleteWorkspace,
     refreshWorkspaces, loadSessions, updateSession, updateWorkspace, logout,
   };

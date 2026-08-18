@@ -17,7 +17,6 @@ type environment interface {
 	Cleanup(context.Context, compute.StopInput) error
 	Ensure(context.Context, compute.StopInput) (compute.Assignment, error)
 	Start(context.Context, compute.StartInput) (compute.Assignment, error)
-	Replace(context.Context, compute.ReplaceInput) (compute.Assignment, error)
 	Stop(context.Context, compute.StopInput) error
 	Open(context.Context, compute.StopInput, map[string]string) (agent.Shell, error)
 }
@@ -66,7 +65,7 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	if err := s.environment.Stop(ctx, runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
 		return fmt.Errorf("release environment: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
@@ -88,13 +87,10 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	}
 	_, err = s.environment.Start(ctx, compute.StartInput{
 		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: value.Authority == AuthorityDevelop,
+		CachePath: workspaceCachePath(value.Path),
 	})
 	if err != nil {
 		return fmt.Errorf("resume environment: %w", err)
-	}
-	if err := s.store.UpdateEffectiveMountMode(ctx, id, effectiveMountMode(value.Authority)); err != nil {
-		return s.releaseAfterResumeFailure(ctx, value, err)
 	}
 	if err := s.store.UpdateStatus(ctx, id, StatusReady, ""); err != nil {
 		return s.releaseAfterResumeFailure(ctx, value, err)
@@ -113,39 +109,23 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if value.Status != StatusReady {
 		return nil, Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	writable := value.Authority == AuthorityDevelop
-	mode := effectiveMountMode(value.Authority)
-	if value.EffectiveMountMode != mode {
-		if err := s.store.UpdateEffectiveMountMode(ctx, id, mode); err != nil {
-			return nil, Workspace{}, err
-		}
-		value.EffectiveMountMode = mode
-	}
 	variables, err := s.store.EnvironmentValues(ctx, id, false)
 	if err != nil {
 		return nil, Workspace{}, err
 	}
-	shell, err := s.environment.Open(ctx, runtimeInput(value, writable), runtimeEnvironment(variables))
+	shell, err := s.environment.Open(ctx, runtimeInput(value), runtimeEnvironment(variables))
 	return shell, value, err
 }
 
-func runtimeInput(value Workspace, writable bool) compute.StopInput {
+func runtimeInput(value Workspace) compute.StopInput {
 	return compute.StopInput{
 		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: writable,
+		CachePath: workspaceCachePath(value.Path),
 	}
-}
-
-func effectiveMountMode(authority Authority) string {
-	if authority == AuthorityDevelop {
-		return "rw"
-	}
-	return "ro"
 }
 
 func (s *Service) releaseAfterResumeFailure(ctx context.Context, value Workspace, cause error) error {
-	if err := s.environment.Stop(ctx,
-		runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
 		return errors.Join(cause, fmt.Errorf("release resumed environment: %w", err))
 	}
 	return cause

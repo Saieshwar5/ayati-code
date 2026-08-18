@@ -29,23 +29,6 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
     }
   }
 
-  if (workspace.authority === "explore") {
-    return (
-      <section className="inspector-panel active" role="tabpanel">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">GitHub</p>
-            <h3>Publishing protected</h3>
-          </div>
-        </div>
-        <p className="scope-note">
-          Explore workspaces cannot commit, push or open pull requests. Switch the workspace to
-          Develop before publishing changes.
-        </p>
-      </section>
-    );
-  }
-
   if (workspace.branch === workspace.base_branch) {
     return (
       <section className="inspector-panel active" role="tabpanel">

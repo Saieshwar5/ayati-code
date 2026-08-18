@@ -3,7 +3,6 @@ import type { Changes, PublishInput, Workspace, WorkspaceSession } from "../api/
 import { api } from "../api/client";
 import { repositoryName, statusLabel } from "../app/format";
 import type { WorkspaceController } from "../app/useWorkspaceController";
-import { AuthorityControl } from "../inspector/AuthorityControl";
 import { EnvironmentPanel } from "../inspector/EnvironmentPanel";
 import { PublishPanel } from "../inspector/PublishPanel";
 import { WorkspaceProfilePanel } from "../inspector/WorkspaceProfilePanel";
@@ -151,7 +150,6 @@ function WorkspaceDetails(props: {
   onArchive: () => Promise<void>;
   onDelete: () => Promise<void>;
 }) {
-  const working = props.sessions.some((session) => session.status === "working");
   const deleting = props.controller.deletingWorkspaceIDs.has(props.workspace.id) || props.workspace.status === "deleting";
   const deletionPending = deleting || props.workspace.status === "deletion_failed";
   return (
@@ -166,12 +164,8 @@ function WorkspaceDetails(props: {
         <div><span>Base</span><code>{props.workspace.base_branch}</code></div>
       </section>
       <details>
-        <summary><span>Access</span><small>{props.workspace.authority === "explore" ? "Explore" : "Develop"}</small></summary>
-        <div className="workspace-utility-detail"><AuthorityControl workspace={props.workspace} agentWorking={working} onChange={(input) => props.controller.changeWorkspaceAuthority(props.workspace.id, input)} /></div>
-      </details>
-      <details>
         <summary><span>Project profile</span><small>{repositoryName(props.workspace.repository)}</small></summary>
-        <WorkspaceProfilePanel workspace={props.workspace} agentWorking={working} showAuthority={false} />
+        <WorkspaceProfilePanel workspace={props.workspace} />
       </details>
       <details>
         <summary><span>Environment variables</span><small>Configure</small></summary>

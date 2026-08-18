@@ -14,8 +14,6 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	base_branch TEXT NOT NULL,
 	branch TEXT NOT NULL,
 	create_branch INTEGER NOT NULL,
-	authority TEXT NOT NULL DEFAULT 'explore' CHECK (authority IN ('explore', 'develop')),
-	effective_mount_mode TEXT NOT NULL DEFAULT '',
 	preparation_stage TEXT NOT NULL DEFAULT 'pending',
 	preparation_detail TEXT NOT NULL DEFAULT '',
 	preparation_failed_stage TEXT NOT NULL DEFAULT '',
@@ -93,9 +91,6 @@ func (s *Store) configure() error {
 	if err := s.migrateSessions(context.Background()); err != nil {
 		return err
 	}
-	if err := s.migrateWorkspaceAuthority(context.Background()); err != nil {
-		return err
-	}
 	if err := s.migrateProjectProfiles(context.Background()); err != nil {
 		return err
 	}
@@ -117,50 +112,10 @@ func (s *Store) configure() error {
 	if err := s.migrateAgentRuns(context.Background()); err != nil {
 		return err
 	}
-	return s.recoverInterruptedWork(context.Background())
-}
-
-func (s *Store) migrateAgentRuns(ctx context.Context) error {
-	for _, statement := range []string{
-		agentRunSchema,
-		`CREATE INDEX IF NOT EXISTS agent_runs_session_created ON agent_runs(session_id, created_at DESC)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS agent_runs_workspace_active ON agent_runs(workspace_id)
-			WHERE status IN ('accepted', 'running')`,
-	} {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("migrate agent runs: %w", err)
-		}
-	}
-	now := formatTime(time.Now().UTC())
-	if _, err := s.db.ExecContext(ctx, `UPDATE agent_runs SET status = ?,
-		error = 'Agent run interrupted when Perpetual restarted', finished_at = ?, updated_at = ?
-		WHERE status IN ('accepted', 'running')`, AgentRunStatusInterrupted, now, now); err != nil {
-		return fmt.Errorf("recover interrupted agent runs: %w", err)
-	}
-	return nil
-}
-
-func (s *Store) migrateWorkspaceAuthority(ctx context.Context) error {
-	columns, err := databaseColumns(ctx, s.db, "workspaces")
-	if err != nil {
+	if err := s.migrateSingleWorkspaceMode(context.Background()); err != nil {
 		return err
 	}
-	statements := []string{}
-	if !columns["authority"] {
-		statements = append(statements,
-			`ALTER TABLE workspaces ADD COLUMN authority TEXT NOT NULL DEFAULT 'develop'`)
-	}
-	if !columns["effective_mount_mode"] {
-		statements = append(statements,
-			`ALTER TABLE workspaces ADD COLUMN effective_mount_mode TEXT NOT NULL DEFAULT ''`)
-	}
-	statements = append(statements, `PRAGMA user_version = 3`)
-	for _, statement := range statements {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
-			return fmt.Errorf("migrate workspace authority: %w", err)
-		}
-	}
-	return nil
+	return s.recoverInterruptedWork(context.Background())
 }
 
 func (s *Store) migrateSessions(ctx context.Context) error {

@@ -16,7 +16,6 @@ When finished, reply with a concise summary.`
 type WorkspaceContext struct {
 	Repository       string
 	Branch           string
-	Authority        string
 	ProjectRoot      string
 	Languages        []string
 	RuntimeVersions  []string
@@ -33,19 +32,8 @@ func WorkspacePrompt(context WorkspaceContext) string {
 	repository := strings.TrimSpace(context.Repository)
 	branch := strings.TrimSpace(context.Branch)
 	facts := workspaceFacts(context, repository, branch)
-	if strings.EqualFold(strings.TrimSpace(context.Authority), "explore") {
-		return `You are a coding agent exploring a prepared project.
-Use the shell to read, search, inspect Git history, run compatible tests, and understand the application.
-The project is physically mounted read-only. Do not attempt to create, modify, delete, commit, or switch project files or Git state.
-Research, explain, diagnose, and propose changes. If the user asks for implementation, explain that Develop authority is required.
-GitHub credentials, publishing, workspace lifecycle, and authority changes are owned by Perpetual and are not available through the shell.
-Workspace environment values may be available by name. Never print, log, save, or commit their values.
-When finished, reply with a concise summary.
-
-` + facts
-	}
-	return SystemPrompt + "\n\nWorkspace authority: Develop\n" + facts +
-		"\nGitHub credentials, publishing, workspace lifecycle, and authority changes remain controller-owned."
+	return SystemPrompt + "\n\n" + facts +
+		"\nGitHub credentials, publishing, and workspace lifecycle remain controller-owned."
 }
 
 func workspaceFacts(context WorkspaceContext, repository, branch string) string {

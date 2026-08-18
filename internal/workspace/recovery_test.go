@@ -48,7 +48,7 @@ func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
 	if err != nil || loaded.Status != StatusInitializationFailed ||
 		loaded.PreparationStage != PreparationFailed ||
 		loaded.PreparationFailedStage != PreparationInstalling ||
-		!strings.Contains(loaded.Error, "interrupted") || loaded.EffectiveMountMode != "" {
+		!strings.Contains(loaded.Error, "interrupted") {
 		t.Fatalf("recovered workspace = %#v, error = %v", loaded, err)
 	}
 	sessions, err = store.ListSessions(context.Background(), interrupted.ID)
@@ -63,7 +63,7 @@ func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
 }
 
 func TestServiceRemovesInterruptedPreparationSandbox(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	store, value := readyWorkspace(t, "main", false)
 	if err := store.UpdateStatus(context.Background(), value.ID,
 		StatusInitializationFailed, interruptedPreparationMessage); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
@@ -79,20 +79,19 @@ func TestServiceRemovesInterruptedPreparationSandbox(t *testing.T) {
 }
 
 func TestServiceRestoresReadyWorkspaceEnvironment(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	store, value := readyWorkspace(t, "main", false)
 	environment := &fakeEnvironment{}
 	service := &Service{store: store, environment: environment, git: &recordingGit{}}
 	if err := service.Recover(context.Background()); err != nil {
 		t.Fatalf("Recover: %v", err)
 	}
-	if len(environment.ensured) != 1 || environment.ensured[0].WorkspaceWritable ||
-		environment.ensured[0].WorkspaceID != value.ID {
+	if len(environment.ensured) != 1 || environment.ensured[0].WorkspaceID != value.ID {
 		t.Fatalf("restored environments = %#v", environment.ensured)
 	}
 }
 
 func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "perpetual/change", true)
+	store, value := readyWorkspace(t, "perpetual/change", true)
 	service := &Service{
 		store: store, environment: &fakeEnvironment{err: errors.New("no environment is available")},
 		git: &recordingGit{},
@@ -107,8 +106,8 @@ func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
 	}
 }
 
-func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "perpetual/change", true)
+func TestServiceResumesStoppedWorkspaceWithoutReinitializing(t *testing.T) {
+	store, value := readyWorkspace(t, "perpetual/change", true)
 	if err := os.MkdirAll(value.Path, 0o700); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
@@ -125,11 +124,10 @@ func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T
 		t.Fatalf("Resume: %v", err)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
-	if err != nil || loaded.Status != StatusReady || loaded.EffectiveMountMode != "rw" {
+	if err != nil || loaded.Status != StatusReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
-	if len(environment.removed) != 1 || len(environment.ensured) != 1 ||
-		!environment.ensured[0].WorkspaceWritable || len(git.calls) != 0 {
+	if len(environment.removed) != 1 || len(environment.ensured) != 1 || len(git.calls) != 0 {
 		t.Fatalf("sandbox = removed %#v ensured %#v, git = %#v",
 			environment.removed, environment.ensured, git.calls)
 	}
@@ -140,7 +138,7 @@ func TestServiceResumesStoppedDevelopWorkspaceWithoutReinitializing(t *testing.T
 }
 
 func TestServiceRejectsInitializationOutsideCreationOrRetry(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityExplore, "main", false)
+	store, value := readyWorkspace(t, "main", false)
 	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}}
 	if err := service.Initialize(context.Background(), value.ID); err == nil ||
 		!strings.Contains(err.Error(), "cannot be initialized") {
@@ -157,4 +155,25 @@ func TestServiceRejectsInitializationOutsideCreationOrRetry(t *testing.T) {
 		!strings.Contains(err.Error(), "not ready") {
 		t.Fatalf("Stop error = %v", err)
 	}
+}
+
+func readyWorkspace(t *testing.T, branch string, createBranch bool) (*Store, Workspace) {
+	t.Helper()
+	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	value, err := store.Create(context.Background(), Create{
+		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		BaseBranch: "main", Branch: branch, CreateBranch: createBranch,
+		Path: filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := store.CompletePreparation(context.Background(), value.ID); err != nil {
+		t.Fatalf("CompletePreparation: %v", err)
+	}
+	return store, value
 }

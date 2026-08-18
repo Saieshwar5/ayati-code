@@ -11,8 +11,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "perpetual/react-ui",
   create_branch: false,
-  authority: "develop",
-  effective_mount_mode: "rw",
   preparation_stage: "cloning",
   preparation_detail: "owner/project · perpetual/react-ui",
   configuration_candidates: [],
@@ -153,10 +151,7 @@ describe("WorkspaceApplication", () => {
     expect(screen.getByRole("button", { name: "perpetual" })).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "New workspace" }));
     await user.click(screen.getByRole("radio", { name: "owner/project" }));
-    await waitFor(() =>
-      expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
-    );
-    await user.click(screen.getByRole("radio", { name: "Develop authority" }));
+    await screen.findByLabelText("Base branch");
     await user.type(screen.getByLabelText("New branch name"), "perpetual/react-ui");
     await user.click(screen.getByText("Environment variables"));
     await user.click(screen.getByRole("button", { name: "Add variable" }));
@@ -174,14 +169,13 @@ describe("WorkspaceApplication", () => {
       branch: "perpetual/react-ui",
       create_branch: true,
       branch_mode: "new",
-      authority: "develop",
       environment: [
         { name: "NPM_TOKEN", value: "private-token", expose_during_setup: true },
       ],
     });
   });
 
-  it("defaults new workspaces to protected Explore authority", async () => {
+  it("defaults new workspaces to a new working branch", async () => {
     let createRequest: RequestInit | undefined;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const path = String(input);
@@ -190,7 +184,7 @@ describe("WorkspaceApplication", () => {
       }
       if (path === "/api/workspaces" && init?.method === "POST") {
         createRequest = init;
-        return json({ ...workspace, authority: "explore", branch: "main", create_branch: false }, 202);
+        return json({ ...workspace, branch: "perpetual/default-flow", create_branch: true }, 202);
       }
       if (path === "/api/workspaces") return json([]);
       if (path === "/api/workspaces?archived=true") return json([]);
@@ -210,32 +204,28 @@ describe("WorkspaceApplication", () => {
     );
     await screen.findByRole("heading", { name: "Workspaces" });
     await user.click(screen.getByRole("button", { name: "New workspace" }));
-    expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
     await user.click(screen.getByRole("radio", { name: "owner/project" }));
-    await waitFor(() =>
-      expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
-    );
-    expect(screen.queryByLabelText("New working branch")).toBeNull();
+    await screen.findByLabelText("Base branch");
+    expect((screen.getByRole("radio", { name: "Create new branch" }) as HTMLInputElement).checked).toBe(true);
+    await user.type(screen.getByLabelText("New branch name"), "perpetual/default-flow");
     await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
-      authority: "explore",
       base_branch: "main",
-      branch: "main",
-      create_branch: false,
-      branch_mode: "direct",
+      branch: "perpetual/default-flow",
+      create_branch: true,
+      branch_mode: "new",
     });
   });
 
-  it("creates a private GitHub project and prepares it in Explore", async () => {
+  it("creates a private GitHub project with a working branch", async () => {
     const createdWorkspace: Workspace = {
       ...workspace,
       repository: "octocat/new-project",
       clone_url: "https://github.com/octocat/new-project.git",
       base_branch: "trunk",
-      branch: "trunk",
-      create_branch: false,
-      authority: "explore",
+      branch: "perpetual/initial",
+      create_branch: true,
     };
     let created = false;
     let createRequest: RequestInit | undefined;
@@ -265,15 +255,13 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByRole("radio", { name: "New project" }));
     await user.type(screen.getByLabelText("Repository name"), "new-project");
     expect((screen.getByRole("radio", { name: "Private" }) as HTMLInputElement).checked).toBe(true);
-    expect((screen.getByRole("radio", { name: "Explore authority" }) as HTMLInputElement).checked).toBe(true);
     await user.click(screen.getByRole("button", { name: "Create workspace" }));
 
     expect(await screen.findByRole("heading", { name: "new-project", level: 1 })).toBeTruthy();
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       name: "new-project",
       private: true,
-      authority: "explore",
-      branch: "",
+      branch: "perpetual/initial",
     });
   });
 

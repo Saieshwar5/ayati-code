@@ -92,6 +92,12 @@ func (d *DockerDriver) Create(
 	}
 	name := runtimeName(spec)
 	runtime, exists, err := d.inspect(ctx, spec, name)
+	if errors.Is(err, errWorkspaceMountReadOnly) {
+		if destroyErr := d.Destroy(ctx, spec, ""); destroyErr != nil {
+			return environment.Runtime{}, fmt.Errorf("replace legacy read-only runtime: %w", destroyErr)
+		}
+		runtime, exists, err = environment.Runtime{}, false, nil
+	}
 	if err != nil {
 		return environment.Runtime{}, err
 	}
@@ -106,6 +112,12 @@ func (d *DockerDriver) Create(
 	}
 	legacyName := legacyRuntimeName(spec)
 	runtime, exists, err = d.inspect(ctx, spec, legacyName)
+	if errors.Is(err, errWorkspaceMountReadOnly) {
+		if destroyErr := d.Destroy(ctx, spec, ""); destroyErr != nil {
+			return environment.Runtime{}, fmt.Errorf("replace legacy read-only runtime: %w", destroyErr)
+		}
+		runtime, exists, err = environment.Runtime{}, false, nil
+	}
 	if err != nil {
 		return environment.Runtime{}, err
 	}
@@ -206,11 +218,10 @@ func (d *DockerDriver) inspectForDestroy(
 	ctx context.Context, spec environment.RuntimeSpec, target string,
 ) (environment.Runtime, bool, error) {
 	runtime, exists, err := d.inspect(ctx, spec, target)
-	if !errors.Is(err, errWorkspaceAccessMismatch) {
+	if !errors.Is(err, errWorkspaceMountReadOnly) {
 		return runtime, exists, err
 	}
-	spec.WorkspaceWritable = !spec.WorkspaceWritable
-	return d.inspect(ctx, spec, target)
+	return d.inspectAllowingLegacyReadOnly(ctx, spec, target)
 }
 
 func (d *DockerDriver) requireRuntime(
@@ -255,9 +266,6 @@ func (d *DockerDriver) run(ctx context.Context, arguments ...string) (commandRes
 
 func runtimeCreateArguments(spec environment.RuntimeSpec, name string) []string {
 	workspaceMount := "type=bind,src=" + spec.WorkspacePath + ",dst=/workspace"
-	if !spec.WorkspaceWritable {
-		workspaceMount += ",readonly"
-	}
 	network := "bridge"
 	if spec.Environment.NetworkPolicy == environment.NetworkDisabled {
 		network = "none"

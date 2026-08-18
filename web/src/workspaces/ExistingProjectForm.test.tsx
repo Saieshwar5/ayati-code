@@ -26,9 +26,8 @@ describe("ExistingProjectForm branch selection", () => {
 
     expect((screen.getByRole("button", { name: "Create workspace" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole("radio", { name: "owner/project" }));
-    await waitFor(() => expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"));
-    expect((screen.getByRole("button", { name: "Create workspace" }) as HTMLButtonElement).disabled).toBe(false);
-    await user.click(screen.getByRole("radio", { name: "Develop authority" }));
+    await waitFor(() => expect((screen.getByLabelText("Base branch") as HTMLSelectElement).value).toBe("main"));
+    expect((screen.getByRole("button", { name: "Create workspace" }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole("radio", { name: "Use existing branch" }));
     await user.selectOptions(screen.getByLabelText("Working branch"), "feature/existing");
     expect(screen.getByText(/pull requests will target/i).textContent).toContain("main");
@@ -49,8 +48,7 @@ describe("ExistingProjectForm branch selection", () => {
     renderForm(onCreate);
 
     await user.click(screen.getByRole("radio", { name: "owner/project" }));
-    await screen.findByLabelText("Branch to inspect");
-    await user.click(screen.getByRole("radio", { name: "Develop authority" }));
+    await screen.findByLabelText("Base branch");
     await user.click(screen.getByRole("radio", { name: "Use existing branch" }));
     await user.selectOptions(screen.getByLabelText("Working branch"), "main");
     expect(screen.getByText(/pull request cannot be created/i)).toBeTruthy();

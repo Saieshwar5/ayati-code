@@ -18,7 +18,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "perpetual/change", Authority: AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change",
 		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
@@ -52,7 +52,7 @@ func TestServiceRefusesDirectBranchPublishing(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "main", Authority: AuthorityDevelop,
+		BaseBranch: "main", Branch: "main",
 		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {

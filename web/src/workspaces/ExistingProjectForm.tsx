@@ -5,11 +5,9 @@ import type {
   CreateWorkspaceInput,
   EnvironmentInput,
   Repository,
-  WorkspaceAuthority,
 } from "../api/contracts";
 import { api } from "../api/client";
-import { AuthorityOptions } from "./AuthorityOptions";
-import { BranchSelect, BranchSelection, type CreationBranchMode } from "./BranchSelection";
+import { BranchSelection, type CreationBranchMode } from "./BranchSelection";
 import { RepositoryPicker } from "./RepositoryPicker";
 import { WorkspaceCreateAction } from "./WorkspaceSetupSummary";
 import { WorkspaceSetupOptions } from "./WorkspaceSetupOptions";
@@ -29,7 +27,6 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
   const [newBranch, setNewBranch] = useState("");
   const [existingBranch, setExistingBranch] = useState("");
   const [branchMode, setBranchMode] = useState<CreationBranchMode>("new");
-  const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
   const [setup, setSetup] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
   const [branchesLoading, setBranchesLoading] = useState(false);
@@ -87,16 +84,10 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
   }
 
   function createInput(): CreateWorkspaceInput {
-    if (authority === "explore") {
-      return {
-        repository, base_branch: baseBranch, branch: baseBranch,
-        create_branch: false, branch_mode: "direct", authority, setup_command: setup, environment,
-      };
-    }
     if (branchMode === "new") {
       return {
         repository, base_branch: baseBranch, branch: newBranch,
-        create_branch: true, branch_mode: branchMode, authority, setup_command: setup, environment,
+        create_branch: true, branch_mode: branchMode, setup_command: setup, environment,
       };
     }
     const worksDirectlyOnDefault = existingBranch === defaultBranch;
@@ -106,17 +97,12 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
       branch: existingBranch,
       create_branch: false,
       branch_mode: worksDirectlyOnDefault ? "direct" : "existing",
-      authority,
       setup_command: setup,
       environment,
     };
   }
 
-  const selectedBranch = authority === "explore"
-    ? baseBranch
-    : branchMode === "new"
-      ? newBranch
-      : existingBranch;
+  const selectedBranch = branchMode === "new" ? newBranch : existingBranch;
   const environmentComplete = environment.every((value) => value.name.trim() && value.value);
   const canSubmit = Boolean(repository && selectedBranch && environmentComplete);
 
@@ -136,37 +122,23 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
             </div>
           )}
         </header>
-        <AuthorityOptions value={authority} onChange={setAuthority} />
-
-        {authority === "explore" ? (
-          <section className="composer-setting" aria-labelledby="branch-title">
-            <div className="composer-setting-label">
-              <h3 id="branch-title">Branch</h3>
-              <p>Choose what to inspect.</p>
-            </div>
-            <div className="composer-setting-control">
-              <BranchSelect label="Branch to inspect" value={baseBranch} branches={branches} defaultBranch={defaultBranch} loading={branchesLoading} repository={repository} onChange={setBaseBranch} />
-            </div>
-          </section>
-        ) : (
-          <BranchSelection
-            mode={branchMode}
-            branches={branches}
-            defaultBranch={defaultBranch}
-            baseBranch={baseBranch}
-            newBranch={newBranch}
-            existingBranch={existingBranch}
-            loading={branchesLoading}
-            repository={repository}
-            onModeChange={(mode) => {
-              setBranchMode(mode);
-              if (mode === "existing") setBaseBranch(defaultBranch);
-            }}
-            onBaseChange={setBaseBranch}
-            onNewChange={setNewBranch}
-            onExistingChange={setExistingBranch}
-          />
-        )}
+        <BranchSelection
+          mode={branchMode}
+          branches={branches}
+          defaultBranch={defaultBranch}
+          baseBranch={baseBranch}
+          newBranch={newBranch}
+          existingBranch={existingBranch}
+          loading={branchesLoading}
+          repository={repository}
+          onModeChange={(mode) => {
+            setBranchMode(mode);
+            if (mode === "existing") setBaseBranch(defaultBranch);
+          }}
+          onBaseChange={setBaseBranch}
+          onNewChange={setNewBranch}
+          onExistingChange={setExistingBranch}
+        />
 
         <WorkspaceSetupOptions setup={setup} environment={environment} setupPlaceholder="go mod download" onSetupChange={setSetup} onEnvironmentChange={setEnvironment} />
 
@@ -178,7 +150,6 @@ export function ExistingProjectForm(props: ExistingProjectFormProps) {
         )}
         <WorkspaceCreateAction
           project={repository}
-          authority={authority}
           branch={selectedBranch}
           environmentCount={environment.length}
           hasSetupCommand={Boolean(setup.trim())}

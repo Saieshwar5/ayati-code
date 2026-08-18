@@ -18,7 +18,7 @@
 .workspace-view-toggle em { min-width: 16px; padding: 1px 4px; border-radius: 999px; background: var(--color-surface-active); font-size: 7px; font-style: normal; text-align: center; }
 .workspace-search input, .workspace-filter select, .workspace-sort select { width: 100%; min-height: 36px; border-color: var(--color-border); border-radius: 7px; background: var(--color-surface); font-size: 10px; }
 .workspace-table { overflow: visible; border: 1px solid var(--color-border); border-radius: 9px; background: var(--color-surface); }
-.workspace-table-header, .workspace-table-row { display: grid; grid-template-columns: minmax(250px, 1fr) 74px 78px 104px minmax(132px, auto); align-items: center; gap: 14px; }
+.workspace-table-header, .workspace-table-row { display: grid; grid-template-columns: minmax(250px, 1fr) 78px 104px minmax(132px, auto); align-items: center; gap: 14px; }
 .workspace-table-header { min-height: 32px; padding: 0 12px; border-bottom: 1px solid var(--color-border); background: var(--color-surface-subtle); color: var(--color-text-tertiary); font-size: 7px; font-weight: 650; letter-spacing: .05em; text-transform: uppercase; }
 .workspace-table-row { min-width: 0; min-height: 54px; padding: 5px 8px 5px 12px; position: relative; }
 .workspace-table-row + .workspace-table-row { border-top: 1px solid var(--color-border); }
@@ -29,7 +29,7 @@
 .workspace-card-copy strong { overflow: hidden; font-size: 11px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-card-copy > span { overflow: hidden; color: var(--color-text-secondary); font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-card-copy code { padding: 0; background: transparent; color: var(--color-text); font-size: 8px; }
-.workspace-access, .workspace-updated { color: var(--color-text-secondary); font-size: 8px; }
+.workspace-updated { color: var(--color-text-secondary); font-size: 8px; }
 .workspace-state { display: flex; align-items: center; gap: 6px; color: var(--color-text-secondary); font-size: 8px; font-weight: 550; }
 .workspace-state i { width: 6px; height: 6px; flex: 0 0 auto; border: 1px solid var(--color-text); border-radius: 50%; background: var(--color-surface); }
 .workspace-state.ready i { background: var(--color-text); }
@@ -213,7 +213,7 @@
   .workspace-sort { display: none; }
   .workspace-table-header { display: none; }
   .workspace-table-row { min-height: 62px; grid-template-columns: minmax(0, 1fr) 86px auto; gap: 8px; padding: 7px 6px 7px 10px; }
-  .workspace-access, .workspace-updated { display: none; }
+  .workspace-updated { display: none; }
   .workspace-state { justify-self: start; }
   .workspace-row-actions { gap: 2px; }
   .workspace-pr-link { display: none; }

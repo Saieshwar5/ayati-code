@@ -94,13 +94,13 @@ export function AgentEditor(props: AgentEditorProps) {
           <EditorSection eyebrow="Capabilities" title="Tools available during a run">
             <label className="agent-capability-option">
               <input type="checkbox" checked={input.shell_enabled} disabled={readOnly} onChange={(event) => setInput({ ...input, shell_enabled: event.target.checked })} />
-              <span><strong>Workspace shell</strong><small>Uses Perpetual’s single shell tool under the workspace’s Explore or Develop authority.</small></span>
+              <span><strong>Workspace shell</strong><small>Uses Perpetual’s single shell tool inside the prepared workspace.</small></span>
             </label>
           </EditorSection>
           <EditorSection eyebrow="Instructions" title="How this agent should approach work">
             <label className="sr-only" htmlFor="agent-instructions">Agent instructions</label>
             <textarea id="agent-instructions" className="agent-instructions" value={input.instructions} disabled={readOnly} maxLength={32768} placeholder="Describe the agent’s responsibilities, priorities and working style…" onChange={(event) => setInput({ ...input, instructions: event.target.value })} />
-            <p className="agent-field-note">Workspace authority, credential isolation and publishing rules always take priority.</p>
+            <p className="agent-field-note">Credential isolation and controller-owned publishing rules always take priority.</p>
           </EditorSection>
           <EditorSection eyebrow="Skills" title="Reusable Markdown guidance">
             <AgentSkillPicker

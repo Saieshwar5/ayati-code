@@ -19,7 +19,6 @@ func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *
 		Name        string                       `json:"name"`
 		Description string                       `json:"description"`
 		Private     *bool                        `json:"private"`
-		Authority   string                       `json:"authority"`
 		Branch      string                       `json:"branch"`
 		Setup       string                       `json:"setup_command"`
 		Environment []workspace.EnvironmentInput `json:"environment"`
@@ -27,14 +26,9 @@ func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *
 	if !s.decode(writer, request, &input) {
 		return
 	}
-	authority, err := workspace.ParseAuthority(input.Authority)
-	if err != nil {
-		s.writeError(writer, http.StatusBadRequest, err.Error())
-		return
-	}
 	input.Branch = strings.TrimSpace(input.Branch)
-	if authority == workspace.AuthorityDevelop && input.Branch == "" {
-		s.writeError(writer, http.StatusBadRequest, "Develop authority requires a working branch")
+	if input.Branch == "" {
+		s.writeError(writer, http.StatusBadRequest, "working branch is required")
 		return
 	}
 	if err := workspace.ValidateEnvironment(input.Environment); err != nil {
@@ -52,20 +46,16 @@ func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *
 		return
 	}
 	baseBranch := strings.TrimSpace(repository.DefaultBranch)
-	createBranch := authority == workspace.AuthorityDevelop
-	branch := baseBranch
-	if createBranch {
-		branch = input.Branch
-		if branch == baseBranch {
-			s.writeError(writer, http.StatusBadRequest,
-				"GitHub repository was created as "+repository.FullName+", but the working branch must differ from "+baseBranch)
-			return
-		}
+	branch := input.Branch
+	if branch == baseBranch {
+		s.writeError(writer, http.StatusBadRequest,
+			"GitHub repository was created as "+repository.FullName+", but the working branch must differ from "+baseBranch)
+		return
 	}
 	value, err := s.createManagedWorkspace(request.Context(), workspace.Create{
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
-		BaseBranch: baseBranch, Branch: branch, CreateBranch: createBranch,
-		Authority: authority, Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
+		BaseBranch: baseBranch, Branch: branch, CreateBranch: true,
+		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
 	})
 	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError,
