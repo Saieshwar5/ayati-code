@@ -103,7 +103,6 @@ export interface WorkspaceSession {
   title: string;
   status: SessionStatus;
   error?: string;
-  selected_agent_id: string;
   active_run_id?: string;
   created_at: string;
   updated_at: string;
@@ -121,91 +120,6 @@ export interface AgentRun {
   updated_at: string;
 }
 
-export interface AgentDefinition {
-  id: string;
-  name: string;
-  emoji: string;
-  description: string;
-  provider_id: string;
-  model: string;
-  max_steps: number;
-  shell_enabled: boolean;
-  instructions: string;
-  skill_ids: string[];
-  revision: number;
-  built_in: boolean;
-  default: boolean;
-  archived_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface AgentInput {
-  name: string;
-  emoji: string;
-  description: string;
-  provider_id: string;
-  model: string;
-  max_steps: number;
-  shell_enabled: boolean;
-  instructions: string;
-  skill_ids: string[];
-}
-
-export interface SkillDefinition {
-  id: string;
-  name: string;
-  description: string;
-  markdown: string;
-  revision: number;
-  attached_agents: number;
-  archived_at?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface SkillInput {
-  name: string;
-  description: string;
-  markdown: string;
-}
-
-export interface SkillReference {
-  id: string;
-  name: string;
-  revision: number;
-}
-
-export interface ProviderDefinition {
-  id: string;
-  name: string;
-  protocol: string;
-  configured: boolean;
-  configurable: boolean;
-  supports_test: boolean;
-  supports_models: boolean;
-  default_model?: string;
-}
-
-export interface ProviderModel {
-  id: string;
-}
-
-export interface ProviderConnectionInput {
-  api_key: string;
-  default_model: string;
-}
-
-export interface AgentAttribution {
-  id: string;
-  name: string;
-  emoji: string;
-  revision: number;
-  provider_id: string;
-  model: string;
-  skills?: SkillReference[];
-}
-
 export interface ToolCall {
   id: string;
   type: string;
@@ -218,7 +132,6 @@ export interface Message {
   content?: string;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
-  agent?: AgentAttribution;
   created_at?: string;
 }
 

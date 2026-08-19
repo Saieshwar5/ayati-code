@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
@@ -44,25 +43,6 @@ func (s *Service) execute(
 func (s *Service) runLoop(
 	ctx context.Context, run workspace.AgentRun,
 ) (agent.Completion, int, error) {
-	session, err := s.store.GetSession(ctx, run.WorkspaceID, run.SessionID)
-	if err != nil {
-		return agent.Completion{}, 0, fmt.Errorf("load session: %w", err)
-	}
-	definition, err := s.store.GetAgent(ctx, session.SelectedAgentID)
-	if err != nil {
-		return agent.Completion{}, 0, fmt.Errorf("load selected agent: %w", err)
-	}
-	if definition.ArchivedAt != nil {
-		return agent.Completion{}, 0, errors.New("the selected agent is archived; choose another agent")
-	}
-	selectedProvider, defaultModel, err := s.providers.Resolve(definition.ProviderID)
-	if err != nil {
-		return agent.Completion{}, 0, err
-	}
-	skills, err := s.store.AgentSkills(ctx, definition.ID)
-	if err != nil {
-		return agent.Completion{}, 0, fmt.Errorf("load selected agent skills: %w", err)
-	}
 	shell, currentWorkspace, err := s.runtime.Shell(ctx, run.WorkspaceID)
 	if err != nil {
 		return agent.Completion{}, 0, err
@@ -72,23 +52,15 @@ func (s *Service) runLoop(
 		return agent.Completion{}, 0, err
 	}
 	workspaceContext := workspacePromptContext(currentWorkspace)
-	model := strings.TrimSpace(definition.Model)
-	if model == "" {
-		model = defaultModel
-	}
-	attribution := definition.Attribution(model, skills...)
-	if !definition.ShellEnabled {
-		shell = nil
-	}
 	observer := &observer{}
 	loop := agent.Loop{
-		Provider: selectedProvider, Shell: shell,
+		Provider: s.provider, Shell: shell,
 		Recorder: recorder{
-			ctx: ctx, store: s.store, sessionID: run.SessionID, attribution: &attribution,
+			ctx: ctx, store: s.store, sessionID: run.SessionID,
 			notifier: s.notifier, workspaceID: run.WorkspaceID, runID: run.ID,
 		},
-		Observer: observer, Model: model, StepLimit: definition.MaxSteps,
-		Prompt: agent.DefinitionPrompt(agent.WorkspacePrompt(workspaceContext), definition, skills...),
+		Observer: observer, Model: s.model,
+		Prompt: agent.WorkspacePrompt(workspaceContext),
 	}
 	completion, err := loop.Continue(ctx, &history)
 	return completion, observer.shellCalls, err

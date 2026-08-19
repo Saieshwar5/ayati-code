@@ -14,42 +14,18 @@ import (
 
 type ConversationMessage struct {
 	agent.Message
-	ID        int64              `json:"id"`
-	Agent     *agent.Attribution `json:"agent,omitempty"`
-	CreatedAt time.Time          `json:"created_at"`
+	ID        int64     `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 func (s *Store) AppendMessage(ctx context.Context, sessionID string, message agent.Message) error {
-	return s.AppendAttributedMessage(ctx, sessionID, message, nil)
-}
-
-func (s *Store) AppendAttributedMessage(
-	ctx context.Context, sessionID string, message agent.Message, attribution *agent.Attribution,
-) error {
 	payload, err := json.Marshal(message)
 	if err != nil {
 		return fmt.Errorf("encode session message: %w", err)
 	}
 	now := time.Now().UTC()
-	var agentID, name, emoji, providerID, model string
-	skills := "[]"
-	var revision int
-	if attribution != nil && message.Role == "assistant" {
-		agentID, name, emoji = attribution.ID, attribution.Name, attribution.Emoji
-		revision, providerID, model = attribution.Revision, attribution.ProviderID, attribution.Model
-		if len(attribution.Skills) > 0 {
-			encoded, encodeErr := json.Marshal(attribution.Skills)
-			if encodeErr != nil {
-				return fmt.Errorf("encode agent skill attribution: %w", encodeErr)
-			}
-			skills = string(encoded)
-		}
-	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO messages (
-		session_id, payload, agent_id, agent_name, agent_emoji, agent_revision,
-		agent_provider_id, agent_model, agent_skills, created_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, strings.TrimSpace(sessionID), string(payload),
-		agentID, name, emoji, revision, providerID, model, skills, formatTime(now))
+	_, err = s.db.ExecContext(ctx, `INSERT INTO messages (session_id, payload, created_at)
+		VALUES (?, ?, ?)`, strings.TrimSpace(sessionID), string(payload), formatTime(now))
 	if err != nil {
 		return fmt.Errorf("append session message: %w", err)
 	}
@@ -63,8 +39,7 @@ func (s *Store) AppendAttributedMessage(
 func (s *Store) ConversationMessages(
 	ctx context.Context, sessionID string,
 ) ([]ConversationMessage, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, payload, agent_id, agent_name, agent_emoji,
-		agent_revision, agent_provider_id, agent_model, agent_skills, created_at FROM messages
+	rows, err := s.db.QueryContext(ctx, `SELECT id, payload, created_at FROM messages
 		WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, fmt.Errorf("load conversation messages: %w", err)
@@ -72,11 +47,9 @@ func (s *Store) ConversationMessages(
 	defer rows.Close()
 	var messages []ConversationMessage
 	for rows.Next() {
-		var payload, agentID, name, emoji, providerID, model, skills, createdAt string
+		var payload, createdAt string
 		var id int64
-		var revision int
-		if err := rows.Scan(&id, &payload, &agentID, &name, &emoji, &revision,
-			&providerID, &model, &skills, &createdAt); err != nil {
+		if err := rows.Scan(&id, &payload, &createdAt); err != nil {
 			return nil, fmt.Errorf("scan conversation message: %w", err)
 		}
 		var message agent.Message
@@ -87,20 +60,7 @@ func (s *Store) ConversationMessages(
 		if err != nil {
 			return nil, err
 		}
-		value := ConversationMessage{ID: id, Message: message, CreatedAt: created}
-		if message.Role == "assistant" {
-			if agentID == "" {
-				agentID, name, emoji, revision, providerID = agent.BuiltinAgentID, "Perpetual", "✦", 1, agent.FireworksProviderID
-			}
-			value.Agent = &agent.Attribution{
-				ID: agentID, Name: name, Emoji: emoji, Revision: revision,
-				ProviderID: providerID, Model: model,
-			}
-			if err := json.Unmarshal([]byte(skills), &value.Agent.Skills); err != nil {
-				return nil, fmt.Errorf("decode agent skill attribution: %w", err)
-			}
-		}
-		messages = append(messages, value)
+		messages = append(messages, ConversationMessage{ID: id, Message: message, CreatedAt: created})
 	}
 	return messages, rows.Err()
 }

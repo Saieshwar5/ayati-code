@@ -6,11 +6,6 @@ export type AppRoute =
   | { page: "workspace-overview"; workspaceID: string }
   | { page: "workspace-conversation"; workspaceID: string }
   | { page: "archived" }
-  | { page: "agents" }
-  | { page: "agent-new" }
-  | { page: "agent-detail"; agentID: string }
-  | { page: "agent-providers" }
-  | { page: "agent-skills" }
   | { page: "environments" };
 
 export function useAppRoute() {
@@ -39,12 +34,6 @@ export function workspaceConversationPath(workspaceID: string): string {
   return `${workspacePath(workspaceID)}/conversation`;
 }
 
-export function isAgentRoute(route: AppRoute): boolean {
-  return route.page === "agents" || route.page === "agent-new" ||
-    route.page === "agent-detail" || route.page === "agent-providers" ||
-    route.page === "agent-skills";
-}
-
 function parseRoute(pathname: string): AppRoute {
   const parts = pathname.split("/").filter(Boolean).map(decodeURIComponent);
   if (!parts.length || (parts.length === 1 && parts[0] === "workspaces")) {
@@ -64,19 +53,6 @@ function parseRoute(pathname: string): AppRoute {
   }
   if (parts[0] === "workspaces" && parts[1] && parts.length === 2) {
     return { page: "workspace-overview", workspaceID: parts[1] };
-  }
-  if (parts.length === 1 && parts[0] === "agents") return { page: "agents" };
-  if (parts[0] === "agents" && parts[1] === "new" && parts.length === 2) {
-    return { page: "agent-new" };
-  }
-  if (parts[0] === "agents" && parts[1] === "providers" && parts.length === 2) {
-    return { page: "agent-providers" };
-  }
-  if (parts[0] === "agents" && parts[1] === "skills" && parts.length === 2) {
-    return { page: "agent-skills" };
-  }
-  if (parts[0] === "agents" && parts[1] && parts.length === 2) {
-    return { page: "agent-detail", agentID: parts[1] };
   }
   if (parts.length === 1 && parts[0] === "environments") return { page: "environments" };
   return { page: "workspaces" };

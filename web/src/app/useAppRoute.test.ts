@@ -14,4 +14,12 @@ describe("workspace routes", () => {
     act(() => result.current.navigate(workspaceConversationPath("workspace/1")));
     expect(result.current.route).toEqual({ page: "workspace-conversation", workspaceID: "workspace/1" });
   });
+
+  it("does not recognize the removed Agent Studio route", () => {
+    window.history.replaceState({}, "", "/agents");
+
+    const { result } = renderHook(() => useAppRoute());
+
+    expect(result.current.route).toEqual({ page: "workspaces" });
+  });
 });

@@ -74,7 +74,7 @@ func TestServiceRunsDifferentWorkspacesConcurrently(t *testing.T) {
 	}
 
 	provider := &concurrentProvider{started: make(chan struct{}, 2), release: make(chan struct{})}
-	service, err := New(store, mappedWorkspaceRuntime{values: values}, testProviders(t, provider, "test-model"))
+	service, err := New(store, mappedWorkspaceRuntime{values: values}, provider, "test-model")
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}

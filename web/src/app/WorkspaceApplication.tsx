@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "../api/contracts";
-import { AgentStudio } from "../agents/AgentStudio";
-import { useAgentController } from "../agents/useAgentController";
-import { useSkillController } from "../agents/useSkillController";
 import { ChatPane } from "../chat/ChatPane";
 import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
@@ -12,7 +9,7 @@ import { WorkspaceHome } from "../workspaces/WorkspaceHome";
 import { WorkspaceIndex } from "../workspaces/WorkspaceIndex";
 import { WorkspaceOverview } from "../workspaces/WorkspaceOverview";
 import { taskMarkdownFromRequest, type WorkspaceTask } from "../workspaces/WorkspaceTasksPanel";
-import { isAgentRoute, useAppRoute, workspaceConversationPath, workspacePath } from "./useAppRoute";
+import { useAppRoute, workspaceConversationPath, workspacePath } from "./useAppRoute";
 import { useWorkspaceController } from "./useWorkspaceController";
 
 interface WorkspaceApplicationProps {
@@ -23,9 +20,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const controller = useWorkspaceController(user);
   const { route, navigate } = useAppRoute();
   const workspaceChatView = route.page === "workspace-conversation";
-  const agentStudioView = isAgentRoute(route);
-  const agents = useAgentController(agentStudioView || workspaceChatView);
-  const skills = useSkillController(agentStudioView);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(initialSidebarState);
   const [tasksByWorkspace, setTasksByWorkspace] = useState<Record<string, WorkspaceTask[]>>({});
   const workspaceID = "workspaceID" in route ? route.workspaceID : "";
@@ -89,7 +83,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
 
   return (
     <main>
-      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}${agentStudioView ? " agent-studio-view" : ""}`}>
+      <section className={`app-shell${sidebarCollapsed ? " sidebar-collapsed" : ""}`}>
         <Sidebar controller={controller} route={route} collapsed={sidebarCollapsed} onCollapsedChange={setSidebarCollapsed} onNavigate={navigate} />
         <section className="conversation-pane">
           {controller.loading ? (
@@ -171,20 +165,14 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               error={detail.messageError}
               sending={detail.sending}
               stopping={detail.stopping}
-              agents={agents.agents}
               onSend={detail.sendMessage}
               onStop={detail.stopRun}
-              onSelectAgent={async (agentID) => {
-                await controller.selectSessionAgent(workspace.id, session.id, agentID);
-              }}
               onOpenWorkspace={() => navigate(workspacePath(workspace.id))}
               onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}
               onResumeWorkspace={() => void controller.workspaceAction(workspace.id, "resume")}
             />
           ) : route.page === "workspace-conversation" && workspace ? (
             <LoadingPage title="Opening conversation…" />
-          ) : agentStudioView ? (
-            <AgentStudio route={route} controller={agents} skills={skills} onNavigate={navigate} />
           ) : route.page === "environments" ? (
             <EnvironmentsPage
               workspaces={controller.workspaces}

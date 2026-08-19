@@ -24,9 +24,7 @@ func TestDefaultPathUsesXDGConfigHome(t *testing.T) {
 
 func TestSaveAndLoadRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "nested", "config.json")
-	want := Values{Version: CurrentVersion, Providers: map[string]ProviderValues{
-		"fireworks": {APIKey: "secret", DefaultModel: "test-model"},
-	}}
+	want := Values{FireworksAPIKey: "secret", Model: "test-model"}
 	if err := Save(path, want); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -48,8 +46,8 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ReadFile: %v", err)
 	}
-	if strings.Contains(string(data), "fireworks_api_key") ||
-		!strings.Contains(string(data), `"version":1`) || !strings.Contains(string(data), `"providers"`) {
+	if !strings.Contains(string(data), `"fireworks_api_key":"secret"`) ||
+		!strings.Contains(string(data), `"model":"test-model"`) {
 		t.Fatalf("persisted configuration = %s", data)
 	}
 	got, err := Load(path)
@@ -58,23 +56,6 @@ func TestSaveAndLoadRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("values = %#v", got)
-	}
-}
-
-func TestLoadMigratesLegacyFireworksConfiguration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.json")
-	legacy := `{"fireworks_api_key":"secret","model":"test-model"}`
-	if err := os.WriteFile(path, []byte(legacy), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	values, err := Load(path)
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	fireworks, exists := values.Provider("fireworks")
-	if values.Version != CurrentVersion || !exists || fireworks.APIKey != "secret" ||
-		fireworks.DefaultModel != "test-model" {
-		t.Fatalf("values = %#v", values)
 	}
 }
 
@@ -88,38 +69,13 @@ func TestLoadRejectsIncompleteConfiguration(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsUnknownConfigurationVersion(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.json")
-	value := `{"version":2,"providers":{"fireworks":{"api_key":"secret","default_model":"test"}}}`
-	if err := os.WriteFile(path, []byte(value), 0o600); err != nil {
-		t.Fatalf("WriteFile: %v", err)
-	}
-	if _, err := Load(path); err == nil || !strings.Contains(err.Error(), "unsupported configuration version") {
-		t.Fatalf("Load error = %v", err)
-	}
-}
-
-func TestSaveAllowsAnEmptyProviderConfiguration(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "config.json")
-	if err := Save(path, Values{Version: CurrentVersion, Providers: map[string]ProviderValues{}}); err != nil {
-		t.Fatalf("Save: %v", err)
-	}
-	values, err := Load(path)
-	if err != nil || len(values.Providers) != 0 {
-		t.Fatalf("values = %#v, error = %v", values, err)
-	}
-}
-
 func TestConfigureUpdatesModelWithoutExposingSavedKey(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	path, err := DefaultPath()
 	if err != nil {
 		t.Fatalf("DefaultPath: %v", err)
 	}
-	values := Values{}
-	values.SetProvider("fireworks", ProviderValues{
-		APIKey: "saved-secret", DefaultModel: "old-model",
-	})
+	values := Values{FireworksAPIKey: "saved-secret", Model: "old-model"}
 	if err := Save(path, values); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
@@ -132,8 +88,7 @@ func TestConfigureUpdatesModelWithoutExposingSavedKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	fireworks, exists := values.Provider("fireworks")
-	if !exists || fireworks.APIKey != "saved-secret" || fireworks.DefaultModel != "new-model" {
+	if values.FireworksAPIKey != "saved-secret" || values.Model != "new-model" {
 		t.Fatalf("values = %#v", values)
 	}
 	if strings.Contains(output.String(), "saved-secret") {

@@ -15,7 +15,6 @@ describe("format helpers", () => {
       workspace_id: "workspace-1",
       title: "Session",
       status: "idle",
-      selected_agent_id: "builtin-perpetual",
       created_at: "2026-08-16T11:55:00Z",
       updated_at: "2026-08-16T11:55:00Z",
     };

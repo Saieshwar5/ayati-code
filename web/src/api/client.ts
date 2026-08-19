@@ -1,6 +1,4 @@
 import type {
-  AgentDefinition,
-  AgentInput,
   AgentRun,
   Branch,
   Changes,
@@ -10,13 +8,8 @@ import type {
   EnvironmentVariable,
   Message,
   PublishInput,
-  ProviderDefinition,
-  ProviderConnectionInput,
-  ProviderModel,
   Repository,
   SessionResponse,
-  SkillDefinition,
-  SkillInput,
   Workspace,
   WorkspaceSession,
 } from "./contracts";
@@ -50,50 +43,6 @@ export const api = {
     request<Branch[]>(`/api/repositories/${repository}/branches`),
   workspaces: () => request<Workspace[]>("/api/workspaces"),
   archivedWorkspaces: () => request<Workspace[]>("/api/workspaces?archived=true"),
-  agents: () => request<AgentDefinition[]>("/api/agents"),
-  archivedAgents: () => request<AgentDefinition[]>("/api/agents?archived=true"),
-  agent: (id: string) => request<AgentDefinition>(`/api/agents/${id}`),
-  providers: () => request<ProviderDefinition[]>("/api/providers"),
-  providerModels: (id: string) =>
-    request<ProviderModel[]>(`/api/providers/${encodeURIComponent(id)}/models`),
-  configureProvider: (id: string, input: ProviderConnectionInput) =>
-    request<ProviderDefinition>(`/api/providers/${encodeURIComponent(id)}`, {
-      method: "PUT", body: JSON.stringify(input),
-    }),
-  testProvider: (id: string, input: ProviderConnectionInput) =>
-    request<{ verified: boolean }>(`/api/providers/${encodeURIComponent(id)}/test`, {
-      method: "POST", body: JSON.stringify(input),
-    }),
-  removeProvider: (id: string) =>
-    request<void>(`/api/providers/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  createAgent: (input: AgentInput) =>
-    request<AgentDefinition>("/api/agents", { method: "POST", body: JSON.stringify(input) }),
-  updateAgent: (id: string, input: AgentInput) =>
-    request<AgentDefinition>(`/api/agents/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    }),
-  setDefaultAgent: (id: string) =>
-    request<AgentDefinition>(`/api/agents/${id}/default`, { method: "POST" }),
-  duplicateAgent: (id: string) =>
-    request<AgentDefinition>(`/api/agents/${id}/duplicate`, { method: "POST" }),
-  archiveAgent: (id: string) =>
-    request<void>(`/api/agents/${id}/archive`, { method: "POST" }),
-  restoreAgent: (id: string) =>
-    request<AgentDefinition>(`/api/agents/${id}/restore`, { method: "POST" }),
-  skills: () => request<SkillDefinition[]>("/api/skills"),
-  archivedSkills: () => request<SkillDefinition[]>("/api/skills?archived=true"),
-  createSkill: (input: SkillInput) =>
-    request<SkillDefinition>("/api/skills", { method: "POST", body: JSON.stringify(input) }),
-  updateSkill: (id: string, input: SkillInput) =>
-    request<SkillDefinition>(`/api/skills/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(input),
-    }),
-  archiveSkill: (id: string) =>
-    request<void>(`/api/skills/${id}/archive`, { method: "POST" }),
-  restoreSkill: (id: string) =>
-    request<SkillDefinition>(`/api/skills/${id}/restore`, { method: "POST" }),
   createWorkspace: (input: CreateWorkspaceInput) =>
     request<Workspace>("/api/workspaces", { method: "POST", body: JSON.stringify(input) }),
   createNewProject: (input: CreateNewProjectInput) =>
@@ -131,11 +80,6 @@ export const api = {
     request<WorkspaceSession>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, {
       method: "PATCH",
       body: JSON.stringify({ title }),
-    }),
-  selectSessionAgent: (workspaceID: string, sessionID: string, agentID: string) =>
-    request<WorkspaceSession>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, {
-      method: "PATCH",
-      body: JSON.stringify({ agent_id: agentID }),
     }),
   deleteSession: (workspaceID: string, sessionID: string) =>
     request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, { method: "DELETE" }),

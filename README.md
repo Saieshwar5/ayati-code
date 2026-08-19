@@ -1,6 +1,6 @@
 # Perpetual
 
-Perpetual is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Perpetual initialize its dependencies inside an exclusively leased local Docker environment, selects a built-in or custom agent for each chat session, reviews the shared diff, and opens a draft pull request.
+Perpetual is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Perpetual initialize its dependencies inside an exclusively leased local Docker environment, works with the built-in coding agent, reviews the shared diff, and opens a draft pull request.
 
 The controller is one long-lived Go process on your machine or personal server. Workspace metadata, accepted agent runs, and complete conversations live in SQLite. Closing the browser does not cancel accepted work; the browser reconnects through one lightweight event stream and reloads authoritative state. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
 
@@ -12,7 +12,7 @@ The controller is one long-lived Go process on your machine or personal server. 
 - Git
 - Docker Engine
 - A GitHub App installed on the repositories Perpetual may access
-- An API key and model for at least one supported provider
+- A Fireworks API key and model
 
 Build the local sandbox image once:
 
@@ -20,13 +20,13 @@ Build the local sandbox image once:
 make sandbox
 ```
 
-Optionally configure Fireworks from the terminal. The key is read without terminal echo and saved with private permissions:
+Configure Fireworks from the terminal. The key is read without terminal echo and saved with private permissions:
 
 ```bash
 go run -buildvcs=false ./cmd/perpetual config
 ```
 
-Fireworks, OpenAI, OpenRouter, Groq, Together AI, and DeepSeek can be configured from **Agent Studio → Providers** after Perpetual starts. The browser never receives a saved API key; leaving the key field blank preserves the existing value. Configured OpenAI-compatible providers expose an on-demand model catalog in provider and custom-agent forms, while manual model IDs always remain available. Fireworks currently uses manual model entry because its catalog API requires additional account context.
+Perpetual uses this single Fireworks connection for every agent run. Provider credentials and model selection are not exposed in the browser.
 
 Install the locked React development dependencies once:
 
@@ -67,15 +67,12 @@ An occupied environment shows the workspace holding its exclusive lease and cann
 2. Choose an installed repository and create a new working branch, continue an existing branch, or explicitly work directly on a branch. New repositories are private by default, initialized with a README, and prepared on a new local working branch.
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
 4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and finalization. Perpetual encrypts its environment, deterministically records the project profile and Git baseline, creates requested working branches locally, and runs dependency setup in the writable workspace. If setup changes project files, those changes are recorded for review. If several applications are detected, preparation pauses for a project-root choice and continues after that choice.
-5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, leased environment, branch, cache, and uncommitted changes. New sessions start with the current global default agent.
-6. Open Agent Studio to configure a supported provider and create reusable agents with their own identity, provider, model, instructions, step budget, shell capability, and ordered Markdown skills. OpenAI-compatible connections can be verified and their available models browsed on demand. The built-in Perpetual agent is protected, exactly one global default always exists, and changing the default does not rewrite existing session selections.
-7. Create or import reusable skills from `.md` files, then attach them to editable custom agents. Skills are inert prompt guidance: they cannot add tools or override workspace, credential, and publishing rules. Attached skills must be detached before archival.
-8. Select an available agent above the chat composer. Agents do not keep their own conversation state: the selected agent receives the current workspace facts and that session's history for each run. Assistant messages retain the agent identity and attached skill revisions even when their definitions later change.
-9. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project. Agents with shell capability disabled receive no model-facing tool; enabled agents receive only `shell(command)` inside the prepared workspace.
-10. Only one session can run an agent in a workspace at a time, preventing concurrent edits to the shared working tree. Use the composer Stop control to cancel that session's active provider or shell work without discarding activity already recorded.
-11. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Pull-request publishing requires a working branch different from its base; direct branch work remains local until handled explicitly.
-12. Stop the workspace when finished. This destroys its disposable runtime and releases the environment for another workspace, while preserving the cloned repository, cache, sessions, conversations, and SQLite record. Resume acquires available environment capacity and creates a writable runtime without rerunning dependency setup or rejecting preserved changes.
-13. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
+5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation and agent activity, while every session shares the repository, leased environment, branch, cache, and uncommitted changes. Every session uses the built-in Perpetual agent.
+6. Discuss the task in chat. Discussion is durable but does not itself grant permission to edit. Send an explicit implementation request when the agent should inspect and modify the project. The model receives only `shell(command)` inside the prepared workspace.
+7. Only one session can run the agent in a workspace at a time, preventing concurrent edits to the shared working tree. Use the composer Stop control to cancel that session's active model or shell work without discarding activity already recorded.
+8. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Pull-request publishing requires a working branch different from its base; direct branch work remains local until handled explicitly.
+9. Stop the workspace when finished. This destroys its disposable runtime and releases the environment for another workspace, while preserving the cloned repository, cache, sessions, conversations, and SQLite record. Resume acquires available environment capacity and creates a writable runtime without rerunning dependency setup or rejecting preserved changes.
+10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
 
 Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python project files. It records the project root, runtimes, package managers, lockfiles, useful verification commands, manifest fingerprint, setup result, and baseline commit in SQLite. One nested project root is selected automatically; multiple roots stop with an explicit selection requirement instead of guessing. A workspace can supply an explicit setup command instead. Rust preparation is reported as unsupported until the sandbox includes a compatible Rust toolchain.
 
@@ -89,11 +86,11 @@ For remote personal use, keep Perpetual on its default loopback address and reac
 
 - SQLite: `$XDG_CONFIG_HOME/perpetual/perpetual.db` or `~/.config/perpetual/perpetual.db`
 - workspace environment key: `$XDG_CONFIG_HOME/perpetual/environment.key` or `~/.config/perpetual/environment.key`
-- private model-provider config: `$XDG_CONFIG_HOME/perpetual/config.json`
+- private Fireworks config: `$XDG_CONFIG_HOME/perpetual/config.json`
 - GitHub user credential: `$XDG_CONFIG_HOME/perpetual/github.json`
 - cloned workspaces: `~/.local/share/perpetual/workspaces`
 
-The controller owns GitHub and model-provider credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
+The controller owns GitHub and Fireworks credentials. Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or sandbox environments.
 
 Workspace environment values are encrypted in SQLite with a private local key. APIs return names and scope but never stored values. Values are sent through standard input to a short-lived sandbox launcher for each shell command, are not stored in the repository or permanent Docker configuration, and are best-effort redacted from captured output. A command that is allowed to use a value can still read or transmit it; use narrowly scoped development credentials, especially because workspace network access is enabled.
 

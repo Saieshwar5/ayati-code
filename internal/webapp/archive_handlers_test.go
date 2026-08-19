@@ -50,10 +50,22 @@ func TestHandlerServesApplicationRoutes(t *testing.T) {
 	handler, _, _, _ := testHandler(t)
 	for _, path := range []string{
 		"/workspaces", "/workspaces/new", "/workspaces/archived", "/workspaces/workspace-1",
-		"/workspaces/workspace-1/sessions/session-1", "/agents", "/environments",
+		"/workspaces/workspace-1/sessions/session-1", "/environments",
 	} {
 		response := serve(handler, http.MethodGet, path, "", false)
 		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="root"`) {
+			t.Fatalf("GET %s status = %d, body = %s", path, response.Code, response.Body.String())
+		}
+	}
+}
+
+func TestHandlerDoesNotServeRemovedCustomizationRoutes(t *testing.T) {
+	handler, _, _, _ := testHandler(t)
+	for _, path := range []string{
+		"/agents", "/api/agents", "/api/skills", "/api/providers",
+	} {
+		response := serve(handler, http.MethodGet, path, "", false)
+		if response.Code != http.StatusNotFound {
 			t.Fatalf("GET %s status = %d, body = %s", path, response.Code, response.Body.String())
 		}
 	}
