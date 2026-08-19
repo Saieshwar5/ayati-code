@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
 )
 
 type fakeGitHub struct {
@@ -87,7 +87,7 @@ func TestGitHubLoginUsesCallbackOriginForStateCookie(t *testing.T) {
 		t.Fatalf("GitHub authorization status = %d, location = %q",
 			response.Code, response.Header().Get("Location"))
 	}
-	if cookie := response.Header().Get("Set-Cookie"); !strings.Contains(cookie, "ayati_github_state=") {
+	if cookie := response.Header().Get("Set-Cookie"); !strings.Contains(cookie, "perpetual_github_state=") {
 		t.Fatalf("state cookie = %q", cookie)
 	}
 }

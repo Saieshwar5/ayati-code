@@ -6,7 +6,7 @@ import { useEnvironmentController } from "./useEnvironmentController";
 
 const initialInput: CreateComputeEnvironmentInput = {
   name: "",
-  image_ref: "ayati-sandbox:dev",
+  image_ref: "perpetual-sandbox:dev",
   cpu_millis: 2000,
   memory_mb: 4096,
   pid_limit: 256,
@@ -79,7 +79,7 @@ export function EnvironmentsPage({ workspaces = [], onOpenWorkspace }: Environme
 
       <aside className="environment-boundary-note">
         <strong>Controller-owned boundary</strong>
-        <p>Ayati resolves the image to an immutable identity and controls leases and containers. Agents receive only the bounded shell inside the leased runtime.</p>
+        <p>Perpetual resolves the image to an immutable identity and controls leases and containers. Agents receive only the bounded shell inside the leased runtime.</p>
       </aside>
     </div>
   </section>;
@@ -184,7 +184,7 @@ function EnvironmentForm(props: {
       <label>Process limit<input required type="number" min="16" max="65535" value={input.pid_limit} onChange={(event) => setInput({ ...input, pid_limit: Number(event.target.value) })} /></label>
       <label>Network<select value={input.network_policy} onChange={(event) => setInput({ ...input, network_policy: event.target.value as "disabled" | "outbound" })}><option value="outbound">Outbound access</option><option value="disabled">Disabled</option></select></label>
     </div>
-    <p className="compute-form-note">The image must already exist locally. Ayati records its resolved immutable image identity.</p>
+    <p className="compute-form-note">The image must already exist locally. Perpetual records its resolved immutable image identity.</p>
     {error && <div className="error" role="alert">{error}</div>}
     <div className="compute-form-actions"><button className="quiet" type="button" onClick={props.onCancel}>Cancel</button><button className="primary" type="submit" disabled={busy}>{busy ? "Preparing…" : "Create environment"}</button></div>
   </form>;

@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
@@ -34,12 +34,12 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	}
 	create := strings.Join(runner.calls[1], " ")
 	for _, expected := range []string{
-		"--label ayati.runtime=true", "--label ayati.environment=" + spec.Environment.ID,
-		"--label ayati.workspace=" + spec.Lease.WorkspaceID,
-		"--label ayati.lease=" + spec.Lease.ID, "--label ayati.generation=3",
+		"--label perpetual.runtime=true", "--label perpetual.environment=" + spec.Environment.ID,
+		"--label perpetual.workspace=" + spec.Lease.WorkspaceID,
+		"--label perpetual.lease=" + spec.Lease.ID, "--label perpetual.generation=3",
 		"--read-only", "--cap-drop ALL", "--security-opt no-new-privileges",
 		"--network none", "--pids-limit 384", "--memory 6144m", "--cpus 3.500",
-		"/run/ayati:rw,nosuid,nodev", "dst=/workspace,readonly", "dst=/cache",
+		"/run/perpetual:rw,nosuid,nodev", "dst=/workspace,readonly", "dst=/cache",
 		spec.Environment.ImageDigest,
 	} {
 		if !strings.Contains(create, expected) {
@@ -212,7 +212,7 @@ func testRuntimeSpec(t *testing.T, writable bool, network string) environment.Ru
 	return environment.RuntimeSpec{
 		Environment: environment.Environment{
 			ID: strings.Repeat("1", 24), Driver: environment.DriverDocker,
-			ImageRef: "ayati-sandbox:dev", ImageDigest: "sha256:" + strings.Repeat("a", 64),
+			ImageRef: "perpetual-sandbox:dev", ImageDigest: "sha256:" + strings.Repeat("a", 64),
 			CPUMillis: 3500, MemoryMB: 6144, PIDLimit: 384, NetworkPolicy: network,
 			ProvisioningState: environment.ProvisioningReady, Generation: 3,
 		},
@@ -248,8 +248,8 @@ func runtimeMetadata(
 			"NetworkMode": network, "CapDrop": []string{"ALL"},
 			"SecurityOpt": []string{"no-new-privileges:true"},
 			"Tmpfs": map[string]string{
-				"/tmp": "rw,nosuid,nodev,size=256m", "/home/ayati": "rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-				"/run/ayati": "rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
+				"/tmp": "rw,nosuid,nodev,size=256m", "/home/perpetual": "rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
+				"/run/perpetual": "rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
 			},
 			"RestartPolicy": map[string]any{"Name": "no"},
 		},

@@ -84,7 +84,7 @@ func TestClientCreatesDraftPullRequest(t *testing.T) {
 			if err := json.NewDecoder(request.Body).Decode(&input); err != nil {
 				t.Fatalf("decode pull request: %v", err)
 			}
-			if input["draft"] != true || input["base"] != "main" || input["head"] != "ayati/change" {
+			if input["draft"] != true || input["base"] != "main" || input["head"] != "perpetual/change" {
 				t.Fatalf("pull request = %#v", input)
 			}
 			body = `{"number":9,"html_url":"https://github.com/owner/project/pull/9"}`
@@ -102,7 +102,7 @@ func TestClientCreatesDraftPullRequest(t *testing.T) {
 	}
 	client.httpClient = &http.Client{Transport: transport}
 	pull, err := client.CreatePullRequest(
-		context.Background(), "token", "owner/project", "main", "ayati/change", "Change", "Body",
+		context.Background(), "token", "owner/project", "main", "perpetual/change", "Change", "Body",
 	)
 	if err != nil || pull.Number != 9 {
 		t.Fatalf("pull = %#v, error = %v", pull, err)

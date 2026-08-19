@@ -1,4 +1,4 @@
-module github.com/Saieshwar5/ayati-code
+module github.com/Saieshwar5/perpetual
 
 go 1.25.0
 

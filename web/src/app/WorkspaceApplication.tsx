@@ -52,7 +52,7 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
   const setInspectorCollapsed = useCallback((collapsed: boolean) => {
     setInspectorCollapsedState(collapsed);
     try {
-      window.localStorage.setItem("ayati.inspector.collapsed", String(collapsed));
+      window.localStorage.setItem("perpetual.inspector.collapsed", String(collapsed));
     } catch {
       // The preference is optional when browser storage is unavailable.
     }
@@ -147,13 +147,13 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
 }
 
 function LoadingPage({ title, error = false }: { title: string; error?: boolean }) {
-  return <section className="workspace-home"><div className="workspace-empty" role={error ? "alert" : undefined}><p className="eyebrow">{error ? "Unable to open" : "Ayati"}</p><h1>{title}</h1></div></section>;
+  return <section className="workspace-home"><div className="workspace-empty" role={error ? "alert" : undefined}><p className="eyebrow">{error ? "Unable to open" : "Perpetual"}</p><h1>{title}</h1></div></section>;
 }
 
 function initialInspectorState(): boolean {
   let collapsed = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 880px)").matches;
   try {
-    const saved = window.localStorage.getItem("ayati.inspector.collapsed");
+    const saved = window.localStorage.getItem("perpetual.inspector.collapsed");
     if (saved !== null) collapsed = saved === "true";
   } catch {
     // Responsive behavior remains the fallback when storage is unavailable.

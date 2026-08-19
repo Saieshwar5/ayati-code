@@ -29,7 +29,7 @@ export function WorkspaceHome(props: WorkspaceHomeProps) {
           {props.repositoryReconnectRequired
             ? props.repositoryError
             : props.repositoryError
-            ? `${props.repositoryError}. Check the GitHub App installation, then reload Ayati.`
+            ? `${props.repositoryError}. Check the GitHub App installation, then reload Perpetual.`
             : "Choose an existing project from the left, or create a workspace to prepare a repository and its sandbox."}
         </p>
         {props.repositoryReconnectRequired ? (
@@ -53,7 +53,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
           <div>
             <p className="eyebrow">New workspace</p>
             <h1>Prepare a project</h1>
-            <p className="muted">Choose where the project comes from, then let Ayati prepare it.</p>
+            <p className="muted">Choose where the project comes from, then let Perpetual prepare it.</p>
           </div>
           <button className="quiet" type="button" onClick={props.onCancel}>
             Cancel
@@ -69,7 +69,7 @@ function CreateWorkspaceForm(props: WorkspaceHomeProps) {
               checked={source === "existing"}
               onChange={() => setSource("existing")}
             />
-            <span><strong>Existing repository</strong><small>Prepare a repository already connected to Ayati.</small></span>
+            <span><strong>Existing repository</strong><small>Prepare a repository already connected to Perpetual.</small></span>
           </label>
           <label className={source === "new" ? "selected" : ""}>
             <input

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestExplorePreparationRejectsProjectChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -43,14 +43,14 @@ func TestExplorePreparationRejectsProjectChanges(t *testing.T) {
 }
 
 func TestDevelopPreparationRecordsAllowedProjectChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Authority: AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change", Authority: AuthorityDevelop,
 		Setup: "npm install", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
@@ -70,7 +70,7 @@ func TestDevelopPreparationRecordsAllowedProjectChanges(t *testing.T) {
 }
 
 func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

@@ -15,12 +15,12 @@ func TestChangeAuthorityEnablesDevelopOnLocalBranch(t *testing.T) {
 	service := &Service{store: store, environment: environment, git: git}
 
 	updated, err := service.ChangeAuthority(context.Background(), value.ID, AuthorityChange{
-		Authority: AuthorityDevelop, Branch: "ayati/change", CreateBranch: true,
+		Authority: AuthorityDevelop, Branch: "perpetual/change", CreateBranch: true,
 	})
 	if err != nil {
 		t.Fatalf("ChangeAuthority: %v", err)
 	}
-	if updated.Authority != AuthorityDevelop || updated.Branch != "ayati/change" ||
+	if updated.Authority != AuthorityDevelop || updated.Branch != "perpetual/change" ||
 		!updated.CreateBranch || updated.EffectiveMountMode != "rw" || updated.Status != StatusReady {
 		t.Fatalf("workspace = %#v", updated)
 	}
@@ -29,14 +29,14 @@ func TestChangeAuthorityEnablesDevelopOnLocalBranch(t *testing.T) {
 		t.Fatalf("sandbox lifecycle = removed %#v, ensured %#v", environment.removed, environment.ensured)
 	}
 	wantCalls := [][]string{
-		{"check-ref-format", "--branch", "ayati/change"},
-		{"-C", value.Path, "switch", "-c", "ayati/change"},
+		{"check-ref-format", "--branch", "perpetual/change"},
+		{"-C", value.Path, "switch", "-c", "perpetual/change"},
 	}
 	assertGitCalls(t, git.calls, wantCalls)
 }
 
 func TestChangeAuthorityFreezesDevelopChangesWithoutSwitchingBranch(t *testing.T) {
-	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "ayati/change", true)
+	store, value := readyAuthorityWorkspace(t, AuthorityDevelop, "perpetual/change", true)
 	environment := &fakeEnvironment{}
 	git := &recordingGit{}
 	service := &Service{store: store, environment: environment, git: git}
@@ -46,7 +46,7 @@ func TestChangeAuthorityFreezesDevelopChangesWithoutSwitchingBranch(t *testing.T
 	if err != nil {
 		t.Fatalf("ChangeAuthority: %v", err)
 	}
-	if updated.Authority != AuthorityExplore || updated.Branch != "ayati/change" ||
+	if updated.Authority != AuthorityExplore || updated.Branch != "perpetual/change" ||
 		updated.EffectiveMountMode != "ro" || len(git.calls) != 0 ||
 		environment.ensured[0].WorkspaceWritable {
 		t.Fatalf("workspace = %#v, git = %#v, sandbox = %#v", updated, git.calls, environment.ensured)
@@ -60,7 +60,7 @@ func TestChangeAuthorityRestoresExploreWhenDevelopMountFails(t *testing.T) {
 	service := &Service{store: store, environment: environment, git: git}
 
 	_, err := service.ChangeAuthority(context.Background(), value.ID, AuthorityChange{
-		Authority: AuthorityDevelop, Branch: "ayati/change", CreateBranch: true,
+		Authority: AuthorityDevelop, Branch: "perpetual/change", CreateBranch: true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "docker unavailable") {
 		t.Fatalf("ChangeAuthority error = %v", err)
@@ -75,10 +75,10 @@ func TestChangeAuthorityRestoresExploreWhenDevelopMountFails(t *testing.T) {
 		t.Fatalf("sandbox lifecycle = %#v", environment.ensured)
 	}
 	wantCalls := [][]string{
-		{"check-ref-format", "--branch", "ayati/change"},
-		{"-C", value.Path, "switch", "-c", "ayati/change"},
+		{"check-ref-format", "--branch", "perpetual/change"},
+		{"-C", value.Path, "switch", "-c", "perpetual/change"},
 		{"-C", value.Path, "switch", "main"},
-		{"-C", value.Path, "branch", "-D", "ayati/change"},
+		{"-C", value.Path, "branch", "-D", "perpetual/change"},
 	}
 	assertGitCalls(t, git.calls, wantCalls)
 }
@@ -92,7 +92,7 @@ func TestChangeAuthorityRejectsActiveAgentAndInvalidBranch(t *testing.T) {
 	}
 	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}}
 	_, err := service.ChangeAuthority(context.Background(), value.ID, AuthorityChange{
-		Authority: AuthorityDevelop, Branch: "ayati/change", CreateBranch: true,
+		Authority: AuthorityDevelop, Branch: "perpetual/change", CreateBranch: true,
 	})
 	if err == nil || !strings.Contains(err.Error(), "agent is working") {
 		t.Fatalf("active ChangeAuthority error = %v", err)
@@ -121,7 +121,7 @@ func readyAuthorityWorkspace(
 	t *testing.T, authority Authority, branch string, createBranch bool,
 ) (*Store, Workspace) {
 	t.Helper()
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

@@ -7,7 +7,7 @@ import (
 )
 
 func TestWorkspaceArchivePreservesAndRestoresRecord(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

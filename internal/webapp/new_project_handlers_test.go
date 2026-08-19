@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func (f *fakeGitHub) CreateRepository(
@@ -48,7 +48,7 @@ func TestHandlerCreatesPrivateExploreWorkspaceForNewProject(t *testing.T) {
 func TestHandlerCreatesDevelopWorkspaceOnLocalBranch(t *testing.T) {
 	handler, _, workspaces, github := testHandler(t)
 	response := serve(handler, http.MethodPost, "/api/workspaces/new-project",
-		`{"name":"public-project","private":false,"authority":"develop","branch":"ayati/initial","environment":[]}`, true)
+		`{"name":"public-project","private":false,"authority":"develop","branch":"perpetual/initial","environment":[]}`, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
 	}
@@ -57,7 +57,7 @@ func TestHandlerCreatesDevelopWorkspaceOnLocalBranch(t *testing.T) {
 		t.Fatalf("decode workspace: %v", err)
 	}
 	<-workspaces.initialized
-	if github.created[0].Private || created.Branch != "ayati/initial" || !created.CreateBranch ||
+	if github.created[0].Private || created.Branch != "perpetual/initial" || !created.CreateBranch ||
 		created.Authority != workspace.AuthorityDevelop {
 		t.Fatalf("created repository = %#v, workspace = %#v", github.created, created)
 	}

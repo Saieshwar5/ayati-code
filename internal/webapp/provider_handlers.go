@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
 )
 
 func (s *Server) listProviders(writer http.ResponseWriter, _ *http.Request) {

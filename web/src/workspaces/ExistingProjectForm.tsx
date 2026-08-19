@@ -171,7 +171,7 @@ interface BranchSelectionProps {
 function BranchSelection(props: BranchSelectionProps) {
   return (
     <section className="branch-selection">
-      <div><p className="branch-section-title">Branch workflow</p><p className="muted">Choose where work starts and whether Ayati creates a local branch.</p></div>
+      <div><p className="branch-section-title">Branch workflow</p><p className="muted">Choose where work starts and whether Perpetual creates a local branch.</p></div>
       <fieldset className="branch-mode-options">
         <BranchModeOption mode="new" selected={props.mode} title="Create a new branch" description="Start from a base branch and keep the new branch local until publishing." recommended onChange={props.onModeChange} />
         <BranchModeOption mode="existing" selected={props.mode} title="Continue an existing branch" description="Continue a remote feature branch and target another branch with the pull request." onChange={props.onModeChange} />
@@ -180,7 +180,7 @@ function BranchSelection(props: BranchSelectionProps) {
       {props.mode === "new" && (
         <div className="form-grid">
           <BranchSelect label="Start from / pull request base" value={props.baseBranch} branches={props.branches} loading={props.loading} repository={props.repository} onChange={props.onBaseChange} />
-          <label>New working branch<input value={props.newBranch} placeholder="ayati/my-change" required onChange={(event) => props.onNewChange(event.target.value)} /></label>
+          <label>New working branch<input value={props.newBranch} placeholder="perpetual/my-change" required onChange={(event) => props.onNewChange(event.target.value)} /></label>
         </div>
       )}
       {props.mode === "existing" && (
@@ -192,7 +192,7 @@ function BranchSelection(props: BranchSelectionProps) {
       {props.mode === "direct" && (
         <>
           <BranchSelect label="Working branch" value={props.directBranch} branches={props.branches} loading={props.loading} repository={props.repository} onChange={props.onDirectChange} />
-          <p className="direct-branch-warning">Changes stay local. Ayati will not push or open a pull request when the working branch is also the pull-request base.</p>
+          <p className="direct-branch-warning">Changes stay local. Perpetual will not push or open a pull request when the working branch is also the pull-request base.</p>
         </>
       )}
     </section>

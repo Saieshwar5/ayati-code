@@ -7,18 +7,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestServicePublishesWorkspaceChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Authority: AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change", Authority: AuthorityDevelop,
 		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
@@ -34,7 +34,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 		t.Fatalf("Publish: %v", err)
 	}
 	want := [][]string{
-		{"-C", value.Path, "push", "--no-verify", "--", value.CloneURL, "refs/heads/ayati/change:refs/heads/ayati/change"},
+		{"-C", value.Path, "push", "--no-verify", "--", value.CloneURL, "refs/heads/perpetual/change:refs/heads/perpetual/change"},
 	}
 	if !reflect.DeepEqual(git.calls, want) {
 		t.Fatalf("git calls = %#v", git.calls)
@@ -45,7 +45,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 }
 
 func TestServiceRefusesDirectBranchPublishing(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 type dockerRuntimeMetadata struct {
@@ -127,9 +127,9 @@ func verifyRuntimeMetadata(
 
 func verifyRuntimeTmpfs(values map[string]string) error {
 	required := map[string][]string{
-		"/tmp":        {"rw", "nosuid", "nodev"},
-		"/home/ayati": {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
-		"/run/ayati":  {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
+		"/tmp":            {"rw", "nosuid", "nodev"},
+		"/home/perpetual": {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
+		"/run/perpetual":  {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
 	}
 	for path, options := range required {
 		actual := strings.Split(values[path], ",")
@@ -151,8 +151,8 @@ func verifyRuntimeMounts(spec environment.RuntimeSpec, mounts []struct {
 	found := map[string]bool{}
 	for _, mount := range mounts {
 		if mount.Type == "tmpfs" {
-			if mount.Destination != "/tmp" && mount.Destination != "/home/ayati" &&
-				mount.Destination != "/run/ayati" {
+			if mount.Destination != "/tmp" && mount.Destination != "/home/perpetual" &&
+				mount.Destination != "/run/perpetual" {
 				return runtimeMismatch("unexpected tmpfs mount %s", mount.Destination)
 			}
 			continue

@@ -13,7 +13,7 @@ import (
 
 func TestStoreEncryptsAndManagesWorkspaceEnvironment(t *testing.T) {
 	root := t.TempDir()
-	store, err := Open(filepath.Join(root, "ayati.db"))
+	store, err := Open(filepath.Join(root, "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -24,7 +24,7 @@ func TestStoreEncryptsAndManagesWorkspaceEnvironment(t *testing.T) {
 	}
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/environment", Path: filepath.Join(root, "repo"),
+		BaseBranch: "main", Branch: "perpetual/environment", Path: filepath.Join(root, "repo"),
 		Environment: []EnvironmentInput{
 			{Name: "DATABASE_URL", Value: "postgres://private", ExposeDuringSetup: false},
 			{Name: "NPM_TOKEN", Value: "npm-private", ExposeDuringSetup: true},
@@ -76,7 +76,7 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 		{Name: "INVALID-NAME", Value: "value"},
 		{Name: "PATH", Value: "/tmp"},
 		{Name: "GOCACHE", Value: "/project/cache"},
-		{Name: "AYATI_GITHUB_TOKEN", Value: "value"},
+		{Name: "PERPETUAL_GITHUB_TOKEN", Value: "value"},
 		{Name: "NULL_VALUE", Value: "bad\x00value"},
 	} {
 		if err := validateEnvironmentInput(&input); err == nil {
@@ -90,14 +90,14 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 
 func TestStoreReopensEncryptedWorkspaceEnvironment(t *testing.T) {
 	root := t.TempDir()
-	database := filepath.Join(root, "ayati.db")
+	database := filepath.Join(root, "perpetual.db")
 	store, err := Open(database)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	created, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/reopen", Path: filepath.Join(root, "repo"),
+		BaseBranch: "main", Branch: "perpetual/reopen", Path: filepath.Join(root, "repo"),
 		Environment: []EnvironmentInput{{Name: "PROJECT_TOKEN", Value: "persistent-secret"}},
 	})
 	if err != nil {
@@ -119,7 +119,7 @@ func TestStoreReopensEncryptedWorkspaceEnvironment(t *testing.T) {
 
 func TestStoreRefusesToReplaceMissingEnvironmentKey(t *testing.T) {
 	root := t.TempDir()
-	database := filepath.Join(root, "ayati.db")
+	database := filepath.Join(root, "perpetual.db")
 	store, err := Open(database)
 	if err != nil {
 		t.Fatalf("Open: %v", err)

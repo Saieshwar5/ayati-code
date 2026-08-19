@@ -9,7 +9,7 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/change",
+  branch: "perpetual/change",
   create_branch: false,
 	authority: "develop",
 	effective_mount_mode: "rw",
@@ -27,14 +27,14 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Improve the UI",
   status: "idle",
-  selected_agent_id: "builtin-ayati",
+  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };
 
 const builtInAgent: AgentDefinition = {
-  id: "builtin-ayati",
-  name: "Ayati",
+  id: "builtin-perpetual",
+  name: "Perpetual",
   emoji: "✦",
   description: "General coding agent",
   provider_id: "fireworks",
@@ -109,7 +109,7 @@ describe("ChatPane", () => {
             role: "assistant",
             content: "The project is ready.",
             agent: {
-              id: "builtin-ayati", name: "Ayati", emoji: "✦", revision: 1,
+              id: "builtin-perpetual", name: "Perpetual", emoji: "✦", revision: 1,
               provider_id: "fireworks", model: "test-model",
             },
           },
@@ -126,7 +126,7 @@ describe("ChatPane", () => {
 
     expect(screen.getByText("Please inspect this.")).toBeTruthy();
     expect(screen.getByText("The project is ready.")).toBeTruthy();
-    expect(screen.getByText("Ayati")).toBeTruthy();
+    expect(screen.getByText("Perpetual")).toBeTruthy();
     expect(screen.queryByText("shell")).toBeNull();
     await user.type(screen.getByRole("textbox"), "Implement the change");
     await user.click(screen.getByRole("button", { name: "Send message" }));

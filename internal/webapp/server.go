@@ -13,10 +13,10 @@ import (
 	"net/http"
 	"strings"
 
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 const maxRequestBytes = 1 << 20
@@ -193,8 +193,8 @@ func (s *Server) health(writer http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) mutate(next http.HandlerFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("X-Ayati-Request") != "1" {
-			s.writeError(writer, http.StatusForbidden, "missing Ayati request header")
+		if request.Header.Get("X-Perpetual-Request") != "1" {
+			s.writeError(writer, http.StatusForbidden, "missing Perpetual request header")
 			return
 		}
 		next(writer, request)
@@ -248,14 +248,14 @@ func randomToken() (string, error) {
 
 func setStateCookie(writer http.ResponseWriter, value string) {
 	http.SetCookie(writer, &http.Cookie{
-		Name: "ayati_github_state", Value: value, Path: "/auth/github/callback",
+		Name: "perpetual_github_state", Value: value, Path: "/auth/github/callback",
 		MaxAge: 600, HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }
 
 func clearStateCookie(writer http.ResponseWriter) {
 	http.SetCookie(writer, &http.Cookie{
-		Name: "ayati_github_state", Path: "/auth/github/callback", MaxAge: -1,
+		Name: "perpetual_github_state", Path: "/auth/github/callback", MaxAge: -1,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
 	})
 }

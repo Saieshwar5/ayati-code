@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type fakeRuntime struct {
@@ -64,7 +64,7 @@ func testProviders(t *testing.T, client agent.Provider, model string) *modelprov
 }
 
 func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -120,14 +120,14 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 }
 
 func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -187,14 +187,14 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 }
 
 func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -242,14 +242,14 @@ func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
 }
 
 func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -294,14 +294,14 @@ func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 }
 
 func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/change", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/change", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)

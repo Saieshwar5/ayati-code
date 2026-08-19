@@ -97,7 +97,7 @@ func (l Loop) continueRun(ctx context.Context, history *[]Message, stepLimit int
 			return Completion{Steps: step}, fmt.Errorf("provider returned role %q", message.Role)
 		}
 		if len(message.ToolCalls) > 1 {
-			return Completion{Steps: step}, fmt.Errorf("provider returned %d tool calls; Ayati permits one", len(message.ToolCalls))
+			return Completion{Steps: step}, fmt.Errorf("provider returned %d tool calls; Perpetual permits one", len(message.ToolCalls))
 		}
 		if len(message.ToolCalls) == 0 {
 			if strings.TrimSpace(message.Content) == "" {

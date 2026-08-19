@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 type Changes struct {

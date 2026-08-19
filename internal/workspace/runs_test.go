@@ -8,14 +8,14 @@ import (
 )
 
 func TestStorePersistsAgentRunLifecycle(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/run", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/run", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -58,7 +58,7 @@ func TestStorePersistsAgentRunLifecycle(t *testing.T) {
 }
 
 func TestStoreRecoversInterruptedAgentRun(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "ayati.db")
+	path := filepath.Join(t.TempDir(), "perpetual.db")
 	store, err := Open(path)
 	if err != nil {
 		t.Fatalf("Open: %v", err)

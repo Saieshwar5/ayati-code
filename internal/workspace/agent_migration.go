@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 const agentSchema = `CREATE TABLE IF NOT EXISTS agents (
@@ -40,7 +40,7 @@ func (s *Store) migrateAgentCatalog(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO agents (
 		id, name, emoji, description, provider_id, model, max_steps, shell_enabled,
 		instructions, revision, built_in, archived_at, created_at, updated_at
-	) VALUES (?, 'Ayati', '✦', 'General coding agent', ?, '', ?, 1, '', 1, 1, '', ?, ?)`,
+	) VALUES (?, 'Perpetual', '✦', 'General coding agent', ?, '', ?, 1, '', 1, 1, '', ?, ?)`,
 		agent.BuiltinAgentID, agent.FireworksProviderID, agent.MaxSteps, now, now); err != nil {
 		return fmt.Errorf("seed built-in agent: %w", err)
 	}
@@ -77,7 +77,7 @@ func (s *Store) addAgentSessionColumns(ctx context.Context) error {
 	if columns["selected_agent_id"] {
 		return nil
 	}
-	_, err = s.db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN selected_agent_id TEXT NOT NULL DEFAULT 'builtin-ayati'`)
+	_, err = s.db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN selected_agent_id TEXT NOT NULL DEFAULT 'builtin-perpetual'`)
 	if err != nil {
 		return fmt.Errorf("add selected session agent: %w", err)
 	}

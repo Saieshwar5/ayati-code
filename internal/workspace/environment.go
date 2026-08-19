@@ -129,7 +129,7 @@ func validateEnvironmentInput(input *EnvironmentInput) error {
 	if input.Name == "" || len(input.Name) > maxEnvironmentName || !environmentName.MatchString(input.Name) {
 		return errors.New("environment variable name must use letters, digits, and underscores")
 	}
-	if reservedEnvironment[input.Name] || strings.HasPrefix(input.Name, "AYATI_") || strings.HasPrefix(input.Name, "DOCKER_") {
+	if reservedEnvironment[input.Name] || strings.HasPrefix(input.Name, "PERPETUAL_") || strings.HasPrefix(input.Name, "DOCKER_") {
 		return fmt.Errorf("environment variable %s is reserved", input.Name)
 	}
 	if len(input.Value) > maxEnvironmentValue {

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 const selectAgent = `SELECT agents.id, agents.name, agents.emoji, agents.description,
@@ -112,7 +112,7 @@ func (s *Store) UpdateAgent(
 		return agent.Definition{}, err
 	}
 	if current.BuiltIn {
-		return agent.Definition{}, errors.New("the built-in Ayati agent cannot be edited")
+		return agent.Definition{}, errors.New("the built-in Perpetual agent cannot be edited")
 	}
 	if current.ArchivedAt != nil {
 		return agent.Definition{}, errors.New("restore the agent before editing it")
@@ -203,7 +203,7 @@ func (s *Store) ArchiveAgent(ctx context.Context, id string) error {
 		return err
 	}
 	if value.BuiltIn {
-		return errors.New("the built-in Ayati agent cannot be archived")
+		return errors.New("the built-in Perpetual agent cannot be archived")
 	}
 	if value.Default {
 		return errors.New("choose another default agent before archiving this one")

@@ -17,7 +17,7 @@ func TestDefaultPathUsesXDGConfigHome(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DefaultPath: %v", err)
 	}
-	if path != filepath.Join(root, "ayati", "config.json") {
+	if path != filepath.Join(root, "perpetual", "config.json") {
 		t.Fatalf("path = %q", path)
 	}
 }

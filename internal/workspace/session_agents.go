@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func (s *Store) SelectSessionAgent(

@@ -96,7 +96,7 @@ function PreparationProgress({ workspace }: { workspace: Workspace }) {
       <div className="readiness-card-heading">
         <div>
           <p className="eyebrow">Preparing workspace</p>
-          <h2>Ayati is making this project ready</h2>
+          <h2>Perpetual is making this project ready</h2>
         </div>
         <span className="preparation-pulse" aria-hidden="true" />
       </div>
@@ -130,7 +130,7 @@ function ProjectSelection(props: ProjectSelectionProps) {
   return (
     <section className="readiness-card">
       <p className="eyebrow">Needs configuration</p>
-      <h2>Which project should Ayati prepare?</h2>
+      <h2>Which project should Perpetual prepare?</h2>
       <p className="muted">Multiple applications were found. Choose one project root for this workspace.</p>
       <fieldset className="candidate-options">
         <legend>Project root</legend>

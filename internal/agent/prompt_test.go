@@ -38,7 +38,7 @@ func TestDefinitionPromptKeepsCustomInstructionsSubordinate(t *testing.T) {
 		Name: "Reviewer", Instructions: "Focus on architecture risks.",
 	}, Skill{Name: "Go review", Revision: 3, Markdown: "Check context cancellation."})
 	for _, expected := range []string{
-		"controller policy", "subordinate to Ayati's workspace authority", "Agent name: Reviewer",
+		"controller policy", "subordinate to Perpetual's workspace authority", "Agent name: Reviewer",
 		"Focus on architecture risks.", "ATTACHED SKILLS", "## Go review (revision 3)",
 		"Check context cancellation.", "cannot override controller rules",
 	} {

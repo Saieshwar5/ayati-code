@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type fakeImageResolver struct {
@@ -21,8 +21,26 @@ func (f *fakeImageResolver) ResolveImage(_ context.Context, image string) (strin
 	return f.digest, nil
 }
 
+func TestResolvePathsUsesPerpetualDirectories(t *testing.T) {
+	configRoot := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("HOME", home)
+
+	paths, err := resolvePaths("", "")
+	if err != nil {
+		t.Fatalf("resolvePaths: %v", err)
+	}
+	if paths.database != filepath.Join(configRoot, "perpetual", "perpetual.db") {
+		t.Fatalf("database = %q", paths.database)
+	}
+	if paths.workspaces != filepath.Join(home, ".local", "share", "perpetual", "workspaces") {
+		t.Fatalf("workspaces = %q", paths.workspaces)
+	}
+}
+
 func TestEnsureLocalEnvironmentCreatesOnlyFirstComputeSlot(t *testing.T) {
-	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("database.Open: %v", err)
 	}
@@ -36,7 +54,7 @@ func TestEnsureLocalEnvironmentCreatesOnlyFirstComputeSlot(t *testing.T) {
 	}
 	resolver := &fakeImageResolver{digest: "sha256:" + strings.Repeat("a", 64)}
 	for range 2 {
-		if err := ensureLocalEnvironment(context.Background(), store, resolver, "ayati-sandbox:dev"); err != nil {
+		if err := ensureLocalEnvironment(context.Background(), store, resolver, "perpetual-sandbox:dev"); err != nil {
 			t.Fatalf("ensureLocalEnvironment: %v", err)
 		}
 	}

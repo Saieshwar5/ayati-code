@@ -35,7 +35,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve config directory: %w", err)
 	}
-	return filepath.Join(root, "ayati", "config.json"), nil
+	return filepath.Join(root, "perpetual", "config.json"), nil
 }
 
 func Load(path string) (Values, error) {

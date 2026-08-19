@@ -13,11 +13,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/config"
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/config"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type fakeWorkspaceService struct {
@@ -118,7 +118,7 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	handler, store, workspaces, _ := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"ayati/change","create_branch":true,"branch_mode":"new","authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
+	create := `{"repository":"owner/project","base_branch":"main","branch":"perpetual/change","create_branch":true,"branch_mode":"new","authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -166,7 +166,7 @@ func TestHandlerCreatesRenamesAndDeletesWorkspaceSessions(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/sessions", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/sessions", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create workspace: %v", err)
@@ -219,7 +219,7 @@ func TestHandlerDeletesWorkspace(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/delete", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/delete", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create workspace: %v", err)
@@ -237,7 +237,7 @@ func TestHandlerRejectsEnvironmentChangesDuringInitialization(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "ayati/initializing", Path: filepath.Join(t.TempDir(), "repo"),
+		BaseBranch: "main", Branch: "perpetual/initializing", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {
 		t.Fatalf("Create workspace: %v", err)
@@ -252,7 +252,7 @@ func TestHandlerRejectsEnvironmentChangesDuringInitialization(t *testing.T) {
 func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceService, *fakeGitHub) {
 	t.Helper()
 	root := t.TempDir()
-	store, err := workspace.Open(filepath.Join(root, "ayati.db"))
+	store, err := workspace.Open(filepath.Join(root, "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -343,7 +343,7 @@ func (f fakeChat) Start(ctx context.Context, workspaceID, sessionID, text string
 func serve(handler http.Handler, method, path, body string, mutation bool) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if mutation {
-		request.Header.Set("X-Ayati-Request", "1")
+		request.Header.Set("X-Perpetual-Request", "1")
 	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)

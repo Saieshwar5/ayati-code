@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
 )
 
 func (s *Server) session(writer http.ResponseWriter, request *http.Request) {
@@ -63,7 +63,7 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		s.writeError(writer, http.StatusServiceUnavailable, "GitHub App is not configured")
 		return
 	}
-	cookie, err := request.Cookie("ayati_github_state")
+	cookie, err := request.Cookie("perpetual_github_state")
 	if err != nil || cookie.Value == "" || cookie.Value != request.URL.Query().Get("state") {
 		s.writeError(writer, http.StatusBadRequest, "invalid GitHub authorization state")
 		return

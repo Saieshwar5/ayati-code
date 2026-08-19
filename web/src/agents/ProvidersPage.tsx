@@ -16,7 +16,7 @@ export function ProvidersPage({ controller }: { controller: AgentController }) {
           <div>
             <p className="eyebrow">Model access</p>
             <h1>Providers</h1>
-            <p className="muted">Configure global model connections. API keys stay in Ayati’s private controller configuration.</p>
+            <p className="muted">Configure global model connections. API keys stay in Perpetual’s private controller configuration.</p>
           </div>
           <span className="provider-summary">{configured} configured</span>
         </header>

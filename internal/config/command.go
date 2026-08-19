@@ -16,16 +16,16 @@ const maxInputBytes = 1 << 20
 func Configure(ctx context.Context, input io.Reader, output, errorOutput io.Writer) int {
 	path, err := DefaultPath()
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	values, loadErr := Load(path)
 	exists := loadErr == nil
 	if loadErr != nil && !errors.Is(loadErr, os.ErrNotExist) {
-		fmt.Fprintf(errorOutput, "ayati: load configuration: %v\n", loadErr)
+		fmt.Fprintf(errorOutput, "perpetual: load configuration: %v\n", loadErr)
 		return 1
 	}
-	fmt.Fprintf(output, "Ayati configuration\nConfiguration: %s\n\n", path)
+	fmt.Fprintf(output, "Perpetual configuration\nConfiguration: %s\n\n", path)
 	reader := bufio.NewReader(input)
 	fireworks, configured := values.Provider("fireworks")
 	keyLabel := "Fireworks API key: "
@@ -120,9 +120,9 @@ func readLine(ctx context.Context, reader *bufio.Reader) (string, error) {
 
 func configError(output io.Writer, err error) int {
 	if errors.Is(err, context.Canceled) {
-		fmt.Fprintln(output, "ayati: configuration canceled")
+		fmt.Fprintln(output, "perpetual: configuration canceled")
 		return 130
 	}
-	fmt.Fprintf(output, "ayati: %v\n", err)
+	fmt.Fprintf(output, "perpetual: %v\n", err)
 	return 1
 }

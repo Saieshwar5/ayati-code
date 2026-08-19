@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func normalizeRuntimeSpec(spec environment.RuntimeSpec) (environment.RuntimeSpec, error) {

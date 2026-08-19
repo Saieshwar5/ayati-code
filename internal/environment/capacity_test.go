@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func TestRuntimeServiceReusesReleasedCapacityAcrossWorkspaces(t *testing.T) {

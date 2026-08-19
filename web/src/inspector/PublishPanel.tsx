@@ -15,7 +15,7 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
   const [error, setError] = useState("");
 
   useEffect(() => {
-    setTitle(workspace.branch.replaceAll("-", " ").replace(/^ayati\//, ""));
+    setTitle(workspace.branch.replaceAll("-", " ").replace(/^perpetual\//, ""));
     setError("");
   }, [workspace.id, workspace.branch]);
 
@@ -57,7 +57,7 @@ export function PublishPanel({ workspace, publishing, onPublish }: PublishPanelP
         </div>
         <p className="scope-note">
           This workspace is working directly on <code>{workspace.branch}</code>. GitHub cannot
-          create a pull request when its source and target are the same branch, and Ayati will
+          create a pull request when its source and target are the same branch, and Perpetual will
           never silently push directly to that branch.
         </p>
       </section>

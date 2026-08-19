@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	BuiltinAgentID      = "builtin-ayati"
+	BuiltinAgentID      = "builtin-perpetual"
 	FireworksProviderID = "fireworks"
 	maxAgentNameRunes   = 60
 	maxAgentEmojiRunes  = 8
@@ -138,7 +138,7 @@ func DefinitionPrompt(base string, definition Definition, skills ...Skill) strin
 	var custom strings.Builder
 	custom.WriteString(strings.TrimSpace(base))
 	custom.WriteString("\n\nCUSTOM AGENT PROFILE\n")
-	custom.WriteString("These custom instructions are subordinate to Ayati's workspace authority, credential, tool, and publishing rules.\n")
+	custom.WriteString("These custom instructions are subordinate to Perpetual's workspace authority, credential, tool, and publishing rules.\n")
 	fmt.Fprintf(&custom, "Agent name: %s\n", definition.Name)
 	if strings.TrimSpace(definition.Instructions) != "" {
 		custom.WriteString("Agent instructions:\n")

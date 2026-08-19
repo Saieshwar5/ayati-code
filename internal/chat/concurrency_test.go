@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 type concurrentProvider struct {
@@ -43,7 +43,7 @@ func (r mappedWorkspaceRuntime) Shell(_ context.Context, workspaceID string) (
 }
 
 func TestServiceRunsDifferentWorkspacesConcurrently(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestServiceRunsDifferentWorkspacesConcurrently(t *testing.T) {
 			Repository: fmt.Sprintf("owner/project-%d", index),
 			CloneURL:   fmt.Sprintf("https://github.com/owner/project-%d.git", index),
 			BaseBranch: "main",
-			Branch:     fmt.Sprintf("ayati/change-%d", index),
+			Branch:     fmt.Sprintf("perpetual/change-%d", index),
 			Path:       filepath.Join(t.TempDir(), fmt.Sprintf("repo-%d", index)),
 		})
 		if createErr != nil {

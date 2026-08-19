@@ -14,29 +14,29 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/chat"
-	"github.com/Saieshwar5/ayati-code/internal/config"
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
-	compute "github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/ayati-code/internal/provider"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/chat"
+	"github.com/Saieshwar5/perpetual/internal/config"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
+	"github.com/Saieshwar5/perpetual/internal/sandbox"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 const version = "dev"
 
 func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int {
-	flags := flag.NewFlagSet("ayati", flag.ContinueOnError)
+	flags := flag.NewFlagSet("perpetual", flag.ContinueOnError)
 	flags.SetOutput(errorOutput)
-	address := flags.String("address", envOr("AYATI_ADDRESS", "127.0.0.1:8080"), "local web address")
+	address := flags.String("address", envOr("PERPETUAL_ADDRESS", "127.0.0.1:8080"), "local web address")
 	databasePath := flags.String("database", "", "SQLite database path")
 	dataRoot := flags.String("data-root", "", "workspace data directory")
-	image := flags.String("sandbox-image", envOr("AYATI_SANDBOX_IMAGE", sandbox.DefaultImage), "workspace sandbox image")
-	clientID := flags.String("github-client-id", os.Getenv("AYATI_GITHUB_CLIENT_ID"), "GitHub App client ID")
-	clientSecret := flags.String("github-client-secret", os.Getenv("AYATI_GITHUB_CLIENT_SECRET"), "GitHub App client secret")
-	callback := flags.String("github-callback-url", os.Getenv("AYATI_GITHUB_CALLBACK_URL"), "GitHub callback URL")
-	showVersion := flags.Bool("version", false, "print the Ayati version")
+	image := flags.String("sandbox-image", envOr("PERPETUAL_SANDBOX_IMAGE", sandbox.DefaultImage), "workspace sandbox image")
+	clientID := flags.String("github-client-id", os.Getenv("PERPETUAL_GITHUB_CLIENT_ID"), "GitHub App client ID")
+	clientSecret := flags.String("github-client-secret", os.Getenv("PERPETUAL_GITHUB_CLIENT_SECRET"), "GitHub App client secret")
+	callback := flags.String("github-callback-url", os.Getenv("PERPETUAL_GITHUB_CALLBACK_URL"), "GitHub callback URL")
+	showVersion := flags.Bool("version", false, "print the Perpetual version")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			return 0
@@ -44,56 +44,56 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		return 2
 	}
 	if flags.NArg() != 0 {
-		fmt.Fprintf(errorOutput, "ayati: unexpected arguments: %v\n", flags.Args())
+		fmt.Fprintf(errorOutput, "perpetual: unexpected arguments: %v\n", flags.Args())
 		return 2
 	}
 	if *showVersion {
-		fmt.Fprintf(output, "ayati %s\n", version)
+		fmt.Fprintf(output, "perpetual %s\n", version)
 		return 0
 	}
 	paths, err := resolvePaths(*databasePath, *dataRoot)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	database, err := appdatabase.Open(paths.database)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	defer database.Close()
 	store, err := workspace.NewStore(database)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	environments, err := compute.NewStore(database)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	driver, err := sandbox.NewDockerDriver()
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	if err := ensureLocalEnvironment(ctx, environments, driver, *image); err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	management, err := compute.NewManagementService(environments, driver)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	runtime, err := sandbox.NewRuntimeManager(environments, driver)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	credentialPath, err := githubapp.DefaultCredentialsPath()
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	token := func() (string, error) {
@@ -102,25 +102,25 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	}
 	workspaces, err := workspace.NewService(store, runtime, token, paths.workspaces)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	if err := workspaces.Recover(ctx); err != nil {
-		fmt.Fprintf(errorOutput, "ayati: recover workspaces: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: recover workspaces: %v\n", err)
 		return 1
 	}
 	github, err := optionalGitHub(*clientID, *clientSecret, *callback, *address)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	events := NewEventBroker()
 	providers, providerConnections, conversation, err := modelServices(store, workspaces, events)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	logger := log.New(errorOutput, "ayati: ", log.LstdFlags)
+	logger := log.New(errorOutput, "perpetual: ", log.LstdFlags)
 	application, err := New(Options{
 		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
 		Providers: providers, ProviderConnections: providerConnections, GitHub: github,
@@ -129,12 +129,12 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		Events: events,
 	})
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: %v\n", err)
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
 	listener, err := net.Listen("tcp", *address)
 	if err != nil {
-		fmt.Fprintf(errorOutput, "ayati: listen on %s: %v\n", *address, err)
+		fmt.Fprintf(errorOutput, "perpetual: listen on %s: %v\n", *address, err)
 		return 1
 	}
 	server := &http.Server{
@@ -143,19 +143,19 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	}
 	finished := make(chan error, 1)
 	go func() { finished <- server.Serve(listener) }()
-	fmt.Fprintf(output, "Ayati is running at http://%s\n", listener.Addr())
+	fmt.Fprintf(output, "Perpetual is running at http://%s\n", listener.Addr())
 	select {
 	case <-ctx.Done():
 		shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if err := server.Shutdown(shutdown); err != nil {
-			fmt.Fprintf(errorOutput, "ayati: shutdown: %v\n", err)
+			fmt.Fprintf(errorOutput, "perpetual: shutdown: %v\n", err)
 			return 1
 		}
 		return 0
 	case err := <-finished:
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fmt.Fprintf(errorOutput, "ayati: serve: %v\n", err)
+			fmt.Fprintf(errorOutput, "perpetual: serve: %v\n", err)
 			return 1
 		}
 		return 0
@@ -224,7 +224,7 @@ func resolvePaths(database, root string) (paths, error) {
 		if err != nil {
 			return paths{}, fmt.Errorf("resolve home directory: %w", err)
 		}
-		root = filepath.Join(home, ".local", "share", "ayati", "workspaces")
+		root = filepath.Join(home, ".local", "share", "perpetual", "workspaces")
 	}
 	return paths{database: database, workspaces: root}, nil
 }

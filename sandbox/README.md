@@ -1,12 +1,12 @@
-# Ayati workspace sandbox
+# Perpetual workspace sandbox
 
 Build the local development image once:
 
 ```bash
-docker build -t ayati-sandbox:dev sandbox
+docker build -t perpetual-sandbox:dev sandbox
 ```
 
-Ayati resolves this image to an immutable ID when it registers the default Local Docker environment. An active workspace exclusively leases one ready environment, and Ayati creates a disposable container identified by that environment and lease generation. Only the leased workspace is mounted at `/workspace`: read-only for Explore and read-write for Develop. `/tmp` and `/home/ayati` are writable tmpfs mounts. `/cache` is a writable managed directory outside the repository and survives runtime replacement and environment reassignment without weakening the repository mount. Stop destroys the exact verified runtime before releasing the environment for another workspace. The Docker socket, host home, Fireworks key, GitHub credentials, and Ayati database are not mounted.
+Perpetual resolves this image to an immutable ID when it registers the default Local Docker environment. An active workspace exclusively leases one ready environment, and Perpetual creates a disposable container identified by that environment and lease generation. Only the leased workspace is mounted at `/workspace`: read-only for Explore and read-write for Develop. `/tmp` and `/home/perpetual` are writable tmpfs mounts. `/cache` is a writable managed directory outside the repository and survives runtime replacement and environment reassignment without weakening the repository mount. Stop destroys the exact verified runtime before releasing the environment for another workspace. The Docker socket, host home, Fireworks key, GitHub credentials, and Perpetual database are not mounted.
 
 Workspace-specific environment values are injected for each shell command through a short-lived launcher. They are not baked into this image or saved in the container configuration. Values marked for setup are also available to dependency initialization.
 

@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request) {
@@ -56,7 +56,7 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 		s.writeJSON(writer, http.StatusOK, value)
 	case len(parts) == 4 && parts[1] == "sessions" && parts[3] == "messages":
 		if s.chat == nil {
-			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run ayati config")
+			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run perpetual config")
 			return
 		}
 		messages, err := s.chat.Messages(request.Context(), parts[0], parts[2])

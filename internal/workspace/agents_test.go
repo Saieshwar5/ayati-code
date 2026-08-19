@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestAgentCatalogProtectsBuiltInAndMaintainsOneDefault(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestAgentCatalogProtectsBuiltInAndMaintainsOneDefault(t *testing.T) {
 }
 
 func TestAgentCatalogDefaultsNewSessionsAndReassignsArchivedAgent(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestAgentCatalogDefaultsNewSessionsAndReassignsArchivedAgent(t *testing.T) 
 }
 
 func TestAgentDefinitionValidationRejectsUnsupportedConfiguration(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

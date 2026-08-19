@@ -17,7 +17,7 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
   const [description, setDescription] = useState("");
   const [isPrivate, setPrivate] = useState(true);
   const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
-  const [branch, setBranch] = useState("ayati/initial");
+  const [branch, setBranch] = useState("perpetual/initial");
   const [setup, setSetup] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -57,13 +57,13 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
       {authority === "develop" && (
         <>
           <div className="develop-warning">Develop allows the agent to change project files. Publishing remains an explicit user action.</div>
-          <label>New working branch<input value={branch} required placeholder="ayati/initial" onChange={(event) => setBranch(event.target.value)} /></label>
+          <label>New working branch<input value={branch} required placeholder="perpetual/initial" onChange={(event) => setBranch(event.target.value)} /></label>
         </>
       )}
       <label>Setup command <span className="optional">optional, detected automatically</span><input value={setup} placeholder="npm install" onChange={(event) => setSetup(event.target.value)} /></label>
       <CreationEnvironment values={environment} onChange={setEnvironment} />
       {error && <div className="error" role="alert">{error}</div>}
-      <p className="scope-note">Ayati creates the GitHub repository with a README, then uses the normal workspace preparation pipeline.</p>
+      <p className="scope-note">Perpetual creates the GitHub repository with a README, then uses the normal workspace preparation pipeline.</p>
       <div className="form-actions"><button className="primary" type="submit" disabled={submitting}>{submitting ? "Creating…" : "Create and prepare"}</button></div>
     </form>
   );

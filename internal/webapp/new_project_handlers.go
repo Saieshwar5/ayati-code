@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *http.Request) {

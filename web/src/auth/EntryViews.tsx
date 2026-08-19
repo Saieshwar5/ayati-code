@@ -7,7 +7,7 @@ export function LoadingView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">Local coding workspace</p>
-        <h1>Preparing Ayati…</h1>
+        <h1>Preparing Perpetual…</h1>
       </section>
     </main>
   );
@@ -29,10 +29,10 @@ export function ConfigureView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">GitHub App required</p>
-        <h1>Connect Ayati to GitHub</h1>
+        <h1>Connect Perpetual to GitHub</h1>
         <p className="muted">
-          Start Ayati with <code>AYATI_GITHUB_CLIENT_ID</code> and{" "}
-          <code>AYATI_GITHUB_CLIENT_SECRET</code>, using{" "}
+          Start Perpetual with <code>PERPETUAL_GITHUB_CLIENT_ID</code> and{" "}
+          <code>PERPETUAL_GITHUB_CLIENT_SECRET</code>, using{" "}
           <code>http://127.0.0.1:8080/auth/github/callback</code> as the callback URL.
         </p>
       </section>
@@ -45,7 +45,7 @@ export function LoginView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">Local coding workspace</p>
-        <h1>Work on a GitHub project with Ayati</h1>
+        <h1>Work on a GitHub project with Perpetual</h1>
         <p className="muted">
           Choose a repository and branch, initialize one persistent sandbox, then discuss and
           implement the work.

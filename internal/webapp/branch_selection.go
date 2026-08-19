@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/Saieshwar5/ayati-code/internal/githubapp"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 const (
@@ -70,6 +70,6 @@ func (s *Server) resolveBranchSelection(
 		}
 		return branchSelection{base: working, working: working}, nil
 	default:
-		return branchSelection{}, errors.New("select how Ayati should use branches")
+		return branchSelection{}, errors.New("select how Perpetual should use branches")
 	}
 }

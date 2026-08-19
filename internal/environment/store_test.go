@@ -9,15 +9,15 @@ import (
 	"sync"
 	"testing"
 
-	appdatabase "github.com/Saieshwar5/ayati-code/internal/database"
-	"github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/workspace"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	"github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func TestStoreCreatesAndProvisionsEnvironment(t *testing.T) {
 	_, _, store := openStores(t)
 	ctx := context.Background()
-	created, err := store.Create(ctx, environment.CreateInput{Name: "General coding", ImageRef: "ayati/development:latest"})
+	created, err := store.Create(ctx, environment.CreateInput{Name: "General coding", ImageRef: "perpetual/development:latest"})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -165,7 +165,7 @@ func TestStorePreventsDeletingOccupiedRelationships(t *testing.T) {
 
 func openStores(t *testing.T) (*appdatabase.Database, *workspace.Store, *environment.Store) {
 	t.Helper()
-	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("database.Open: %v", err)
 	}
@@ -183,7 +183,7 @@ func openStores(t *testing.T) (*appdatabase.Database, *workspace.Store, *environ
 
 func createReadyEnvironment(t *testing.T, store *environment.Store, name string) environment.Environment {
 	t.Helper()
-	value, err := store.Create(context.Background(), environment.CreateInput{Name: name, ImageRef: "ayati/development:latest"})
+	value, err := store.Create(context.Background(), environment.CreateInput{Name: name, ImageRef: "perpetual/development:latest"})
 	if err != nil {
 		t.Fatalf("Create environment: %v", err)
 	}

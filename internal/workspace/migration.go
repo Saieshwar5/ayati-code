@@ -39,7 +39,7 @@ const sessionSchema = `CREATE TABLE IF NOT EXISTS sessions (
 	title TEXT NOT NULL,
 	status TEXT NOT NULL,
 	error TEXT NOT NULL DEFAULT '',
-	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-ayati',
+	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-perpetual',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 )`
@@ -130,7 +130,7 @@ func (s *Store) migrateAgentRuns(ctx context.Context) error {
 	}
 	now := formatTime(time.Now().UTC())
 	if _, err := s.db.ExecContext(ctx, `UPDATE agent_runs SET status = ?,
-		error = 'Agent run interrupted when Ayati restarted', finished_at = ?, updated_at = ?
+		error = 'Agent run interrupted when Perpetual restarted', finished_at = ?, updated_at = ?
 		WHERE status IN ('accepted', 'running')`, AgentRunStatusInterrupted, now, now); err != nil {
 		return fmt.Errorf("recover interrupted agent runs: %w", err)
 	}
@@ -197,7 +197,7 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE sessions SET status = ?,
-		error = 'Agent run interrupted when Ayati restarted', updated_at = ? WHERE status = ?`,
+		error = 'Agent run interrupted when Perpetual restarted', updated_at = ? WHERE status = ?`,
 		SessionStatusFailed, formatTime(time.Now().UTC()), SessionStatusWorking); err != nil {
 		return fmt.Errorf("recover interrupted sessions: %w", err)
 	}
@@ -259,7 +259,7 @@ func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
 func migratedSessionStatus(status, message string) (string, string) {
 	switch status {
 	case "working":
-		return SessionStatusFailed, "Agent run interrupted when Ayati restarted"
+		return SessionStatusFailed, "Agent run interrupted when Perpetual restarted"
 	case "agent_failed":
 		return SessionStatusFailed, message
 	case "review", "pull_request_open", "done":

@@ -6,13 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/environment"
-	"github.com/Saieshwar5/ayati-code/internal/sandbox"
+	"github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/sandbox"
 )
 
 func TestEnvironmentManagementDockerIntegration(t *testing.T) {
-	if os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
-		t.Skip("set AYATI_DOCKER_INTEGRATION=1 to exercise Docker")
+	if os.Getenv("PERPETUAL_DOCKER_INTEGRATION") != "1" {
+		t.Skip("set PERPETUAL_DOCKER_INTEGRATION=1 to exercise Docker")
 	}
 	_, _, store := openStores(t)
 	driver, err := sandbox.NewDockerDriver()

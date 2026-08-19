@@ -9,7 +9,7 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/change",
+  branch: "perpetual/change",
   create_branch: false,
 	authority: "develop",
 	effective_mount_mode: "rw",
@@ -27,7 +27,7 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Session",
   status: "idle",
-  selected_agent_id: "builtin-ayati",
+  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };
@@ -61,7 +61,7 @@ describe("EnvironmentPanel", () => {
     await user.click(screen.getByRole("button", { name: "Replace value" }));
 
     await waitFor(() => expect(update).toBeTruthy());
-    expect(new Headers(update?.headers).get("X-Ayati-Request")).toBe("1");
+    expect(new Headers(update?.headers).get("X-Perpetual-Request")).toBe("1");
     expect(JSON.parse(String(update?.body))).toEqual({
       name: "NPM_TOKEN",
       value: "replacement-token",

@@ -5,11 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestServiceSealsExploreWorkspaceAfterSetup(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestServiceSealsExploreWorkspaceAfterSetup(t *testing.T) {
 }
 
 func TestServiceRejectsPublishingFromExplore(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -51,7 +51,7 @@ func TestServiceRejectsPublishingFromExplore(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}}
-	err = service.Publish(context.Background(), value.ID, "feat: change", "Ayati", "ayati@example.test")
+	err = service.Publish(context.Background(), value.ID, "feat: change", "Perpetual", "perpetual@example.test")
 	if err == nil || err.Error() != "publishing requires Develop authority" {
 		t.Fatalf("Publish error = %v", err)
 	}

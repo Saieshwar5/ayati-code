@@ -16,7 +16,7 @@ export function Sidebar({ controller, route, onNavigate }: SidebarProps) {
       <div className="sidebar-top">
         <button className="brand" type="button" onClick={() => onNavigate("/workspaces")}>
           <span className="brand-mark" aria-hidden="true">A</span>
-          <span>Ayati</span>
+          <span>Perpetual</span>
         </button>
         <button className="primary new-workspace" type="button" onClick={() => onNavigate("/workspaces/new")}>
           <span aria-hidden="true">＋</span>

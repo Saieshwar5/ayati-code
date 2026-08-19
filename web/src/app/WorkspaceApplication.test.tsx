@@ -9,12 +9,12 @@ const workspace: Workspace = {
   repository: "owner/project",
   clone_url: "https://github.com/owner/project.git",
   base_branch: "main",
-  branch: "ayati/react-ui",
+  branch: "perpetual/react-ui",
   create_branch: false,
   authority: "develop",
   effective_mount_mode: "rw",
   preparation_stage: "cloning",
-  preparation_detail: "owner/project · ayati/react-ui",
+  preparation_detail: "owner/project · perpetual/react-ui",
   configuration_candidates: [],
   setup_command: "go mod download",
   path: "/workspace",
@@ -28,7 +28,7 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Original session",
   status: "idle",
-  selected_agent_id: "builtin-ayati",
+  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };
@@ -95,7 +95,7 @@ describe("WorkspaceApplication", () => {
       expect((screen.getByLabelText("Branch to inspect") as HTMLSelectElement).value).toBe("main"),
     );
     await user.click(screen.getByRole("radio", { name: "Develop authority" }));
-    await user.type(screen.getByLabelText("New working branch"), "ayati/react-ui");
+    await user.type(screen.getByLabelText("New working branch"), "perpetual/react-ui");
     await user.click(screen.getByRole("button", { name: "Add variable" }));
     await user.type(screen.getByLabelText("Name"), "NPM_TOKEN");
     await user.type(screen.getByLabelText("Value"), "private-token");
@@ -103,11 +103,11 @@ describe("WorkspaceApplication", () => {
     await user.click(screen.getByRole("button", { name: "Create and initialize" }));
 
     expect(await screen.findByRole("heading", { name: "project", level: 1 })).toBeTruthy();
-    expect(new Headers(createRequest?.headers).get("X-Ayati-Request")).toBe("1");
+    expect(new Headers(createRequest?.headers).get("X-Perpetual-Request")).toBe("1");
     expect(JSON.parse(String(createRequest?.body))).toMatchObject({
       repository: "owner/project",
       base_branch: "main",
-      branch: "ayati/react-ui",
+      branch: "perpetual/react-ui",
       create_branch: true,
       branch_mode: "new",
       authority: "develop",

@@ -10,17 +10,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/ayati-code/internal/agent"
-	"github.com/Saieshwar5/ayati-code/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 const (
-	runtimeNamePrefix = "ayati-runtime-"
-	labelManaged      = "ayati.runtime"
-	labelEnvironment  = "ayati.environment"
-	labelWorkspace    = "ayati.workspace"
-	labelLease        = "ayati.lease"
-	labelGeneration   = "ayati.generation"
+	runtimeNamePrefix = "perpetual-runtime-"
+	labelManaged      = "perpetual.runtime"
+	labelEnvironment  = "perpetual.environment"
+	labelWorkspace    = "perpetual.workspace"
+	labelLease        = "perpetual.lease"
+	labelGeneration   = "perpetual.generation"
 )
 
 type DockerDriver struct {
@@ -247,8 +247,8 @@ func runtimeCreateArguments(spec environment.RuntimeSpec, name string) []string 
 		"--memory", strconv.Itoa(spec.Environment.MemoryMB) + "m",
 		"--cpus", strconv.FormatFloat(float64(spec.Environment.CPUMillis)/1000, 'f', 3, 64),
 		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m",
-		"--tmpfs", "/home/ayati:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--tmpfs", "/run/ayati:rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
+		"--tmpfs", "/home/perpetual:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
+		"--tmpfs", "/run/perpetual:rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
 		"--mount", workspaceMount,
 		"--mount", "type=bind,src=" + spec.CachePath + ",dst=/cache",
 		"--workdir", "/workspace", spec.Environment.ImageDigest,

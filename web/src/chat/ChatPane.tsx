@@ -167,9 +167,9 @@ function composerPlaceholder(
   working?: WorkspaceSession,
 ): string {
   if (workspace.status !== "ready") return `Workspace is ${statusLabel(workspace.status)}…`;
-  if (!working) return "Ask Ayati about this task…";
+  if (!working) return "Ask Perpetual about this task…";
   return working.id === session.id
-    ? "Ayati is working in this session…"
+    ? "Perpetual is working in this session…"
     : "Another session is working in this workspace…";
 }
 
