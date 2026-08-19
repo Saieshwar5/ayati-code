@@ -127,11 +127,9 @@ The container boundary includes:
 - 256 PID, 2 GiB memory, and 2 CPU limits;
 - private temporary and home tmpfs mounts;
 - one verified read-write repository bind mount;
-- writable private `/tmp` and `/home/ayati` tmpfs mounts;
+- writable private `/tmp`, `/home/perpetual`, and `/run/perpetual` tmpfs mounts;
 - a workspace-owned `/cache` bind outside the repository, preserved across container recreation;
 - no Docker socket, host home, GitHub token, or model-provider key.
-
-The internal `/home/ayati` and `/run/ayati` paths remain a compatibility ABI for existing sandbox images. New runtime names and labels use `perpetual`, while inspection and destruction temporarily recognize both identity generations.
 
 Commands run through `docker exec -i` and a fixed launcher with a two-minute timeout, 64 KiB command limit, 32 KiB bounds for each output stream, truncation reporting, and controller cancellation. The controller supplies fixed cache variables for Go, npm, pip, Cargo, and XDG-compatible tools. It decrypts the current workspace values for each command and sends shell-quoted exports over standard input; they are never Docker command arguments or permanent container environment. Setup receives only values explicitly marked for setup. Exact configured values are redacted from captured output before tool results are recorded, though transformed values cannot be reliably recognized. Network isolation is deferred because initial dependency installation requires network access.
 
@@ -165,4 +163,4 @@ New-project creation uses the authenticated user's GitHub App token and requires
 
 Authenticated clone and push use host Git with a short-lived private askpass script. The access token is passed only to that trusted Git child process and removed with the helper; it is never written into the remote URL or exposed to the model sandbox. Publishing stages all workspace changes, creates a focused user-supplied commit, pushes the working branch, and asks GitHub to open a draft pull request.
 
-Mutating HTTP endpoints require the non-simple `X-Perpetual-Request: 1` header. The legacy `X-Ayati-Request: 1` header is temporarily accepted during the rename transition. The event stream requires the existing GitHub-authenticated personal session. The server binds to `127.0.0.1:8080` by default. Remote use must add HTTPS and access control through a trusted reverse proxy, VPN, or SSH tunnel; Perpetual should not be exposed directly to the public internet. Multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling remain intentionally deferred.
+Mutating HTTP endpoints require the non-simple `X-Perpetual-Request: 1` header. The event stream requires the existing GitHub-authenticated personal session. The server binds to `127.0.0.1:8080` by default. Remote use must add HTTPS and access control through a trusted reverse proxy, VPN, or SSH tunnel; Perpetual should not be exposed directly to the public internet. Multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling remain intentionally deferred.

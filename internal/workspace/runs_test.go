@@ -8,7 +8,7 @@ import (
 )
 
 func TestStorePersistsAgentRunLifecycle(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestStorePersistsAgentRunLifecycle(t *testing.T) {
 }
 
 func TestStoreRecoversInterruptedAgentRun(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "ayati.db")
+	path := filepath.Join(t.TempDir(), "perpetual.db")
 	store, err := Open(path)
 	if err != nil {
 		t.Fatalf("Open: %v", err)

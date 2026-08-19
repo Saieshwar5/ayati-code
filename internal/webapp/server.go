@@ -192,8 +192,7 @@ func (s *Server) health(writer http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) mutate(next http.HandlerFunc) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("X-Perpetual-Request") != "1" &&
-			request.Header.Get("X-Ayati-Request") != "1" {
+		if request.Header.Get("X-Perpetual-Request") != "1" {
 			s.writeError(writer, http.StatusForbidden, "missing Perpetual request header")
 			return
 		}
@@ -254,12 +253,10 @@ func setStateCookie(writer http.ResponseWriter, value string) {
 }
 
 func clearStateCookie(writer http.ResponseWriter) {
-	for _, name := range []string{"perpetual_github_state", "ayati_github_state"} {
-		http.SetCookie(writer, &http.Cookie{
-			Name: name, Path: "/auth/github/callback", MaxAge: -1,
-			HttpOnly: true, SameSite: http.SameSiteLaxMode,
-		})
-	}
+	http.SetCookie(writer, &http.Cookie{
+		Name: "perpetual_github_state", Path: "/auth/github/callback", MaxAge: -1,
+		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
 }
 
 func formatError(prefix string, err error) string {

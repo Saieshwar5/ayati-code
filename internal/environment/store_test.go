@@ -165,7 +165,7 @@ func TestStorePreventsDeletingOccupiedRelationships(t *testing.T) {
 
 func openStores(t *testing.T) (*appdatabase.Database, *workspace.Store, *environment.Store) {
 	t.Helper()
-	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("database.Open: %v", err)
 	}

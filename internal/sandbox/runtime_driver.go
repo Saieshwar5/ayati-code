@@ -15,18 +15,12 @@ import (
 )
 
 const (
-	runtimeNamePrefix       = "perpetual-runtime-"
-	legacyRuntimeNamePrefix = "ayati-runtime-"
-	labelManaged            = "perpetual.runtime"
-	labelEnvironment        = "perpetual.environment"
-	labelWorkspace          = "perpetual.workspace"
-	labelLease              = "perpetual.lease"
-	labelGeneration         = "perpetual.generation"
-	legacyLabelManaged      = "ayati.runtime"
-	legacyLabelEnvironment  = "ayati.environment"
-	legacyLabelWorkspace    = "ayati.workspace"
-	legacyLabelLease        = "ayati.lease"
-	legacyLabelGeneration   = "ayati.generation"
+	runtimeNamePrefix = "perpetual-runtime-"
+	labelManaged      = "perpetual.runtime"
+	labelEnvironment  = "perpetual.environment"
+	labelWorkspace    = "perpetual.workspace"
+	labelLease        = "perpetual.lease"
+	labelGeneration   = "perpetual.generation"
 )
 
 type DockerDriver struct {
@@ -94,7 +88,7 @@ func (d *DockerDriver) Create(
 	runtime, exists, err := d.inspect(ctx, spec, name)
 	if errors.Is(err, errWorkspaceMountReadOnly) {
 		if destroyErr := d.Destroy(ctx, spec, ""); destroyErr != nil {
-			return environment.Runtime{}, fmt.Errorf("replace legacy read-only runtime: %w", destroyErr)
+			return environment.Runtime{}, fmt.Errorf("replace read-only runtime: %w", destroyErr)
 		}
 		runtime, exists, err = environment.Runtime{}, false, nil
 	}
@@ -107,26 +101,6 @@ func (d *DockerDriver) Create(
 		}
 		if _, err := d.run(ctx, "start", runtime.ID); err != nil {
 			return environment.Runtime{}, fmt.Errorf("start existing environment runtime: %w", err)
-		}
-		return d.requireRuntime(ctx, spec, runtime.ID)
-	}
-	legacyName := legacyRuntimeName(spec)
-	runtime, exists, err = d.inspect(ctx, spec, legacyName)
-	if errors.Is(err, errWorkspaceMountReadOnly) {
-		if destroyErr := d.Destroy(ctx, spec, ""); destroyErr != nil {
-			return environment.Runtime{}, fmt.Errorf("replace legacy read-only runtime: %w", destroyErr)
-		}
-		runtime, exists, err = environment.Runtime{}, false, nil
-	}
-	if err != nil {
-		return environment.Runtime{}, err
-	}
-	if exists {
-		if runtime.Running {
-			return runtime, nil
-		}
-		if _, err := d.run(ctx, "start", runtime.ID); err != nil {
-			return environment.Runtime{}, fmt.Errorf("start existing legacy environment runtime: %w", err)
 		}
 		return d.requireRuntime(ctx, spec, runtime.ID)
 	}
@@ -167,11 +141,7 @@ func (d *DockerDriver) Inspect(
 	if err != nil {
 		return environment.Runtime{}, false, err
 	}
-	runtime, exists, err := d.inspect(ctx, spec, target)
-	if err != nil || exists || strings.TrimSpace(runtimeID) != "" {
-		return runtime, exists, err
-	}
-	return d.inspect(ctx, spec, legacyRuntimeName(spec))
+	return d.inspect(ctx, spec, target)
 }
 
 func (d *DockerDriver) Destroy(
@@ -189,15 +159,10 @@ func (d *DockerDriver) Destroy(
 	if err != nil {
 		return err
 	}
-	if !exists {
-		for _, name := range []string{runtimeName(spec), legacyRuntimeName(spec)} {
-			runtime, exists, err = d.inspectForDestroy(ctx, spec, name)
-			if err != nil {
-				return err
-			}
-			if exists {
-				break
-			}
+	if !exists && strings.TrimSpace(runtimeID) != "" {
+		runtime, exists, err = d.inspectForDestroy(ctx, spec, runtimeName(spec))
+		if err != nil {
+			return err
 		}
 	}
 	if !exists {
@@ -221,7 +186,7 @@ func (d *DockerDriver) inspectForDestroy(
 	if !errors.Is(err, errWorkspaceMountReadOnly) {
 		return runtime, exists, err
 	}
-	return d.inspectAllowingLegacyReadOnly(ctx, spec, target)
+	return d.inspectAllowingReadOnly(ctx, spec, target)
 }
 
 func (d *DockerDriver) requireRuntime(
@@ -284,8 +249,8 @@ func runtimeCreateArguments(spec environment.RuntimeSpec, name string) []string 
 		"--memory", strconv.Itoa(spec.Environment.MemoryMB) + "m",
 		"--cpus", strconv.FormatFloat(float64(spec.Environment.CPUMillis)/1000, 'f', 3, 64),
 		"--tmpfs", "/tmp:rw,nosuid,nodev,size=256m",
-		"--tmpfs", "/home/ayati:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-		"--tmpfs", "/run/ayati:rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
+		"--tmpfs", "/home/perpetual:rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
+		"--tmpfs", "/run/perpetual:rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
 		"--mount", workspaceMount,
 		"--mount", "type=bind,src=" + spec.CachePath + ",dst=/cache",
 		"--workdir", "/workspace", spec.Environment.ImageDigest,

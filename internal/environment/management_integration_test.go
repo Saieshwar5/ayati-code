@@ -11,7 +11,7 @@ import (
 )
 
 func TestEnvironmentManagementDockerIntegration(t *testing.T) {
-	if os.Getenv("PERPETUAL_DOCKER_INTEGRATION") != "1" && os.Getenv("AYATI_DOCKER_INTEGRATION") != "1" {
+	if os.Getenv("PERPETUAL_DOCKER_INTEGRATION") != "1" {
 		t.Skip("set PERPETUAL_DOCKER_INTEGRATION=1 to exercise Docker")
 	}
 	_, _, store := openStores(t)

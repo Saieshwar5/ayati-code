@@ -10,7 +10,7 @@ import (
 )
 
 func TestSkillCatalogAttachesOrderedGuidanceToCustomAgent(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestSkillCatalogAttachesOrderedGuidanceToCustomAgent(t *testing.T) {
 }
 
 func TestSkillCatalogProtectsAttachedAndArchivedSkills(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestSkillValidationRejectsEmptyAndOversizedConfiguration(t *testing.T) {
 }
 
 func TestSkillCatalogEnforcesCombinedMarkdownLimitOnUpdates(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

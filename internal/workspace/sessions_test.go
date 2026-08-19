@@ -13,7 +13,7 @@ import (
 )
 
 func TestStoreKeepsSessionConversationsSeparate(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -109,7 +109,7 @@ func TestStoreMigratesWorkspaceMessagesToOriginalSession(t *testing.T) {
 }
 
 func TestStoreTitlesNewSessionFromFirstMessage(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

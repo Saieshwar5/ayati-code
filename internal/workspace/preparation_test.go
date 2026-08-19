@@ -11,7 +11,7 @@ import (
 )
 
 func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 }
 
 func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -68,7 +68,7 @@ func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 }
 
 func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

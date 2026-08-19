@@ -2,7 +2,6 @@ package webapp
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -17,44 +16,31 @@ type fakeImageResolver struct {
 	calls  []string
 }
 
-func TestPreferredWorkspaceRootUsesPerpetualForNewInstall(t *testing.T) {
-	home := t.TempDir()
-	want := filepath.Join(home, ".local", "share", "perpetual", "workspaces")
-	if got := preferredWorkspaceRoot(home); got != want {
-		t.Fatalf("root = %q", got)
-	}
-}
-
-func TestPreferredWorkspaceRootReusesLegacyWorkspaces(t *testing.T) {
-	home := t.TempDir()
-	legacy := filepath.Join(home, ".local", "share", "ayati", "workspaces")
-	if err := os.MkdirAll(legacy, 0o700); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	if got := preferredWorkspaceRoot(home); got != legacy {
-		t.Fatalf("root = %q", got)
-	}
-}
-
-func TestEnvironmentValuePrefersPerpetualAndFallsBackToLegacy(t *testing.T) {
-	t.Setenv("PERPETUAL_ADDRESS", "new-address")
-	t.Setenv("AYATI_ADDRESS", "legacy-address")
-	if value, legacy := envOrLegacy("PERPETUAL_ADDRESS", "AYATI_ADDRESS", "fallback"); value != "new-address" || legacy {
-		t.Fatalf("value = %q, legacy = %v", value, legacy)
-	}
-	t.Setenv("PERPETUAL_ADDRESS", "")
-	if value, legacy := envOrLegacy("PERPETUAL_ADDRESS", "AYATI_ADDRESS", "fallback"); value != "legacy-address" || !legacy {
-		t.Fatalf("value = %q, legacy = %v", value, legacy)
-	}
-}
-
 func (f *fakeImageResolver) ResolveImage(_ context.Context, image string) (string, error) {
 	f.calls = append(f.calls, image)
 	return f.digest, nil
 }
 
+func TestResolvePathsUsesPerpetualDirectories(t *testing.T) {
+	configRoot := t.TempDir()
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", configRoot)
+	t.Setenv("HOME", home)
+
+	paths, err := resolvePaths("", "")
+	if err != nil {
+		t.Fatalf("resolvePaths: %v", err)
+	}
+	if paths.database != filepath.Join(configRoot, "perpetual", "perpetual.db") {
+		t.Fatalf("database = %q", paths.database)
+	}
+	if paths.workspaces != filepath.Join(home, ".local", "share", "perpetual", "workspaces") {
+		t.Fatalf("workspaces = %q", paths.workspaces)
+	}
+}
+
 func TestEnsureLocalEnvironmentCreatesOnlyFirstComputeSlot(t *testing.T) {
-	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	database, err := appdatabase.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("database.Open: %v", err)
 	}

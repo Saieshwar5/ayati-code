@@ -77,15 +77,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve data directory: %w", err)
 	}
-	current := filepath.Join(root, "perpetual", "perpetual.db")
-	if _, err := os.Stat(current); err == nil || !errors.Is(err, os.ErrNotExist) {
-		return current, nil
-	}
-	legacy := filepath.Join(root, "ayati", "ayati.db")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy, nil
-	}
-	return current, nil
+	return filepath.Join(root, "perpetual", "perpetual.db"), nil
 }
 
 func Open(path string) (*Store, error) {

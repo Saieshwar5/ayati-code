@@ -77,7 +77,7 @@ func (s *Store) addAgentSessionColumns(ctx context.Context) error {
 	if columns["selected_agent_id"] {
 		return nil
 	}
-	_, err = s.db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN selected_agent_id TEXT NOT NULL DEFAULT 'builtin-ayati'`)
+	_, err = s.db.ExecContext(ctx, `ALTER TABLE sessions ADD COLUMN selected_agent_id TEXT NOT NULL DEFAULT 'builtin-perpetual'`)
 	if err != nil {
 		return fmt.Errorf("add selected session agent: %w", err)
 	}

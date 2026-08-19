@@ -64,7 +64,7 @@ func testProviders(t *testing.T, client agent.Provider, model string) *modelprov
 }
 
 func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestServiceKeepsConversationAndSandboxAcrossTurns(t *testing.T) {
 }
 
 func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestServiceCancelsActiveWorkspaceRun(t *testing.T) {
 }
 
 func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestServiceStartsDurableRunAndCancelsExactRun(t *testing.T) {
 }
 
 func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -294,7 +294,7 @@ func TestServiceRejectsConcurrentWorkspaceRun(t *testing.T) {
 }
 
 func TestServiceExecutesSelectedCustomAgentAndAttributesResponse(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

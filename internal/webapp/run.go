@@ -27,23 +27,15 @@ import (
 const version = "dev"
 
 func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int {
-	legacyVariables := make([]string, 0, 6)
-	environment := func(current, legacy, fallback string) string {
-		value, usedLegacy := envOrLegacy(current, legacy, fallback)
-		if usedLegacy {
-			legacyVariables = append(legacyVariables, legacy+" (use "+current+")")
-		}
-		return value
-	}
 	flags := flag.NewFlagSet("perpetual", flag.ContinueOnError)
 	flags.SetOutput(errorOutput)
-	address := flags.String("address", environment("PERPETUAL_ADDRESS", "AYATI_ADDRESS", "127.0.0.1:8080"), "local web address")
+	address := flags.String("address", envOr("PERPETUAL_ADDRESS", "127.0.0.1:8080"), "local web address")
 	databasePath := flags.String("database", "", "SQLite database path")
 	dataRoot := flags.String("data-root", "", "workspace data directory")
-	image := flags.String("sandbox-image", environment("PERPETUAL_SANDBOX_IMAGE", "AYATI_SANDBOX_IMAGE", sandbox.DefaultImage), "workspace sandbox image")
-	clientID := flags.String("github-client-id", environment("PERPETUAL_GITHUB_CLIENT_ID", "AYATI_GITHUB_CLIENT_ID", ""), "GitHub App client ID")
-	clientSecret := flags.String("github-client-secret", environment("PERPETUAL_GITHUB_CLIENT_SECRET", "AYATI_GITHUB_CLIENT_SECRET", ""), "GitHub App client secret")
-	callback := flags.String("github-callback-url", environment("PERPETUAL_GITHUB_CALLBACK_URL", "AYATI_GITHUB_CALLBACK_URL", ""), "GitHub callback URL")
+	image := flags.String("sandbox-image", envOr("PERPETUAL_SANDBOX_IMAGE", sandbox.DefaultImage), "workspace sandbox image")
+	clientID := flags.String("github-client-id", os.Getenv("PERPETUAL_GITHUB_CLIENT_ID"), "GitHub App client ID")
+	clientSecret := flags.String("github-client-secret", os.Getenv("PERPETUAL_GITHUB_CLIENT_SECRET"), "GitHub App client secret")
+	callback := flags.String("github-callback-url", os.Getenv("PERPETUAL_GITHUB_CALLBACK_URL"), "GitHub callback URL")
 	showVersion := flags.Bool("version", false, "print the Perpetual version")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -54,9 +46,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	if flags.NArg() != 0 {
 		fmt.Fprintf(errorOutput, "perpetual: unexpected arguments: %v\n", flags.Args())
 		return 2
-	}
-	for _, variable := range legacyVariables {
-		fmt.Fprintf(errorOutput, "perpetual: %s is deprecated\n", variable)
 	}
 	if *showVersion {
 		fmt.Fprintf(output, "perpetual %s\n", version)
@@ -235,7 +224,7 @@ func resolvePaths(database, root string) (paths, error) {
 		if err != nil {
 			return paths{}, fmt.Errorf("resolve home directory: %w", err)
 		}
-		root = preferredWorkspaceRoot(home)
+		root = filepath.Join(home, ".local", "share", "perpetual", "workspaces")
 	}
 	return paths{database: database, workspaces: root}, nil
 }
@@ -251,24 +240,9 @@ func optionalGitHub(clientID, secret, callback, address string) (*githubapp.Clie
 	return githubapp.New(clientID, secret, callback)
 }
 
-func preferredWorkspaceRoot(home string) string {
-	current := filepath.Join(home, ".local", "share", "perpetual", "workspaces")
-	if _, err := os.Stat(current); err == nil || !errors.Is(err, os.ErrNotExist) {
-		return current
+func envOr(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
 	}
-	legacy := filepath.Join(home, ".local", "share", "ayati", "workspaces")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
-	}
-	return current
-}
-
-func envOrLegacy(current, legacy, fallback string) (string, bool) {
-	if value := strings.TrimSpace(os.Getenv(current)); value != "" {
-		return value, false
-	}
-	if value := strings.TrimSpace(os.Getenv(legacy)); value != "" {
-		return value, true
-	}
-	return fallback, false
+	return fallback
 }

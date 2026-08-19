@@ -16,11 +16,10 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	runtimeID := strings.Repeat("f", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stderr: "No such container"}, {stderr: "No such container"},
-			{stdout: runtimeID + "\n"}, {},
+			{stderr: "No such container"}, {stdout: runtimeID + "\n"}, {},
 			{stdout: runtimeMetadata(t, spec, runtimeID, true, nil)},
 		},
-		errors: []error{errors.New("missing"), errors.New("missing")},
+		errors: []error{errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	runtime, err := driver.Create(context.Background(), spec)
@@ -30,17 +29,17 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	if runtime.ID != runtimeID || !runtime.Running {
 		t.Fatalf("runtime = %#v", runtime)
 	}
-	if len(runner.calls) != 5 {
+	if len(runner.calls) != 4 {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
-	create := strings.Join(runner.calls[2], " ")
+	create := strings.Join(runner.calls[1], " ")
 	for _, expected := range []string{
 		"--label perpetual.runtime=true", "--label perpetual.environment=" + spec.Environment.ID,
 		"--label perpetual.workspace=" + spec.Lease.WorkspaceID,
 		"--label perpetual.lease=" + spec.Lease.ID, "--label perpetual.generation=3",
 		"--read-only", "--cap-drop ALL", "--security-opt no-new-privileges",
 		"--network none", "--pids-limit 384", "--memory 6144m", "--cpus 3.500",
-		"/run/ayati:rw,nosuid,nodev", "dst=/workspace", "dst=/cache",
+		"/run/perpetual:rw,nosuid,nodev", "dst=/workspace", "dst=/cache",
 		spec.Environment.ImageDigest,
 	} {
 		if !strings.Contains(create, expected) {
@@ -69,40 +68,17 @@ func TestDockerDriverRestartsMatchingRuntime(t *testing.T) {
 	}
 }
 
-func TestDockerDriverRestoresLegacyRuntimeIdentity(t *testing.T) {
-	spec := testRuntimeSpec(t, environment.NetworkOutbound)
-	runtimeID := strings.Repeat("7", 64)
-	runner := &fakeRunner{
-		results: []commandResult{
-			{stderr: "No such container"},
-			{stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
-				value["Config"].(map[string]any)["Labels"] = legacyRuntimeLabels(spec)
-			})},
-		},
-		errors: []error{errors.New("missing")},
-	}
-	driver := &DockerDriver{runner: runner}
-	runtime, err := driver.Create(context.Background(), spec)
-	if err != nil || runtime.ID != runtimeID || !runtime.Running {
-		t.Fatalf("runtime = %#v, error = %v", runtime, err)
-	}
-	if len(runner.calls) != 2 || runner.calls[1][4] != legacyRuntimeName(spec) {
-		t.Fatalf("calls = %#v", runner.calls)
-	}
-}
-
 func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
 	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("d", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stderr: "No such object"}, {stderr: "No such object"},
-			{stdout: runtimeID}, {},
+			{stderr: "No such object"}, {stdout: runtimeID}, {},
 			{stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
 				value["HostConfig"].(map[string]any)["Memory"] = int64(1)
 			})}, {},
 		},
-		errors: []error{errors.New("missing"), errors.New("missing")},
+		errors: []error{errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	_, err := driver.Create(context.Background(), spec)
@@ -118,8 +94,8 @@ func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
 func TestDockerDriverCleansNamedRuntimeWhenDockerReturnsInvalidIdentity(t *testing.T) {
 	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runner := &fakeRunner{
-		results: []commandResult{{stderr: "No such container"}, {stderr: "No such container"}, {stdout: "not-an-id"}, {}},
-		errors:  []error{errors.New("missing"), errors.New("missing")},
+		results: []commandResult{{stderr: "No such container"}, {stdout: "not-an-id"}, {}},
+		errors:  []error{errors.New("missing")},
 	}
 	driver := &DockerDriver{runner: runner}
 	_, err := driver.Create(context.Background(), spec)
@@ -210,13 +186,13 @@ func TestDockerDriverFindsGenerationRuntimeWhenRecordedIdentityIsStale(t *testin
 	}
 }
 
-func TestDockerDriverDestroysLegacyReadOnlyRuntime(t *testing.T) {
+func TestDockerDriverDestroysReadOnlyRuntime(t *testing.T) {
 	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("d", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stdout: runtimeMetadata(t, spec, runtimeID, true, legacyReadOnlyMount)},
-			{stdout: runtimeMetadata(t, spec, runtimeID, true, legacyReadOnlyMount)}, {},
+			{stdout: runtimeMetadata(t, spec, runtimeID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, runtimeID, true, readOnlyWorkspaceMount)}, {},
 			{stderr: "No such container"},
 		},
 		errors: []error{nil, nil, nil, errors.New("missing")},
@@ -230,21 +206,21 @@ func TestDockerDriverDestroysLegacyReadOnlyRuntime(t *testing.T) {
 	}
 }
 
-func TestDockerDriverRecreatesLegacyReadOnlyRuntimeAsWritable(t *testing.T) {
+func TestDockerDriverRecreatesReadOnlyRuntimeAsWritable(t *testing.T) {
 	spec := testRuntimeSpec(t, environment.NetworkOutbound)
-	legacyID := strings.Repeat("d", 64)
+	readOnlyID := strings.Repeat("d", 64)
 	currentID := strings.Repeat("e", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stdout: runtimeMetadata(t, spec, legacyID, true, legacyReadOnlyMount)},
-			{stdout: runtimeMetadata(t, spec, legacyID, true, legacyReadOnlyMount)},
-			{stdout: runtimeMetadata(t, spec, legacyID, true, legacyReadOnlyMount)},
-			{}, {stderr: "No such container"}, {stderr: "No such container"},
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{}, {stderr: "No such container"},
 			{stdout: currentID}, {},
 			{stdout: runtimeMetadata(t, spec, currentID, true, nil)},
 		},
 		errors: []error{
-			nil, nil, nil, nil, errors.New("missing"), errors.New("missing"), nil, nil, nil,
+			nil, nil, nil, nil, errors.New("missing"), nil, nil, nil,
 		},
 	}
 	driver := &DockerDriver{runner: runner}
@@ -252,7 +228,7 @@ func TestDockerDriverRecreatesLegacyReadOnlyRuntimeAsWritable(t *testing.T) {
 	if err != nil || runtime.ID != currentID || !runtime.Running {
 		t.Fatalf("runtime = %#v, error = %v", runtime, err)
 	}
-	if len(runner.calls) != 9 || runner.calls[3][0] != "rm" || runner.calls[6][0] != "create" {
+	if len(runner.calls) != 8 || runner.calls[3][0] != "rm" || runner.calls[5][0] != "create" {
 		t.Fatalf("calls = %#v", runner.calls)
 	}
 }
@@ -299,8 +275,8 @@ func runtimeMetadata(
 			"NetworkMode": network, "CapDrop": []string{"ALL"},
 			"SecurityOpt": []string{"no-new-privileges:true"},
 			"Tmpfs": map[string]string{
-				"/tmp": "rw,nosuid,nodev,size=256m", "/home/ayati": "rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
-				"/run/ayati": "rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
+				"/tmp": "rw,nosuid,nodev,size=256m", "/home/perpetual": "rw,nosuid,nodev,size=512m,uid=1000,gid=1000",
+				"/run/perpetual": "rw,nosuid,nodev,size=64m,uid=1000,gid=1000",
 			},
 			"RestartPolicy": map[string]any{"Name": "no"},
 		},
@@ -319,6 +295,6 @@ func runtimeMetadata(
 	return string(data)
 }
 
-func legacyReadOnlyMount(value map[string]any) {
+func readOnlyWorkspaceMount(value map[string]any) {
 	value["Mounts"].([]map[string]any)[0]["RW"] = false
 }

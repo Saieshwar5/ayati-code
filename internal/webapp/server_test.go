@@ -96,13 +96,6 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("unguarded mutation status = %d", response.Code)
 	}
-	request := httptest.NewRequest(http.MethodPost, "/api/logout", nil)
-	request.Header.Set("X-Ayati-Request", "1")
-	response = httptest.NewRecorder()
-	handler.ServeHTTP(response, request)
-	if response.Code == http.StatusForbidden {
-		t.Fatalf("legacy guarded mutation status = %d", response.Code)
-	}
 }
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
@@ -241,7 +234,7 @@ func TestHandlerRejectsEnvironmentChangesDuringInitialization(t *testing.T) {
 func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceService, *fakeGitHub) {
 	t.Helper()
 	root := t.TempDir()
-	store, err := workspace.Open(filepath.Join(root, "ayati.db"))
+	store, err := workspace.Open(filepath.Join(root, "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

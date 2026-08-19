@@ -2,7 +2,6 @@ package config
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -36,19 +35,7 @@ func DefaultPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve config directory: %w", err)
 	}
-	return preferredConfigPath(root, "config.json"), nil
-}
-
-func preferredConfigPath(root, name string) string {
-	current := filepath.Join(root, "perpetual", name)
-	if _, err := os.Stat(current); err == nil || !errors.Is(err, os.ErrNotExist) {
-		return current
-	}
-	legacy := filepath.Join(root, "ayati", name)
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy
-	}
-	return current
+	return filepath.Join(root, "perpetual", "config.json"), nil
 }
 
 func Load(path string) (Values, error) {

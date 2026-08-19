@@ -10,7 +10,7 @@ import (
 )
 
 func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "ayati.db")
+	path := filepath.Join(t.TempDir(), "perpetual.db")
 	store, err := Open(path)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -159,7 +159,7 @@ func TestServiceRejectsInitializationOutsideCreationOrRetry(t *testing.T) {
 
 func readyWorkspace(t *testing.T, branch string, createBranch bool) (*Store, Workspace) {
 	t.Helper()
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

@@ -37,7 +37,7 @@ const sessionSchema = `CREATE TABLE IF NOT EXISTS sessions (
 	title TEXT NOT NULL,
 	status TEXT NOT NULL,
 	error TEXT NOT NULL DEFAULT '',
-	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-ayati',
+	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-perpetual',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 )`
@@ -104,9 +104,6 @@ func (s *Store) configure() error {
 		return err
 	}
 	if err := s.migrateSkillCatalog(context.Background()); err != nil {
-		return err
-	}
-	if err := s.migratePerpetualIdentity(context.Background()); err != nil {
 		return err
 	}
 	if err := s.migrateAgentRuns(context.Background()); err != nil {

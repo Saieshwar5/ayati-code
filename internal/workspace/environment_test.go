@@ -13,7 +13,7 @@ import (
 
 func TestStoreEncryptsAndManagesWorkspaceEnvironment(t *testing.T) {
 	root := t.TempDir()
-	store, err := Open(filepath.Join(root, "ayati.db"))
+	store, err := Open(filepath.Join(root, "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -77,7 +77,6 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 		{Name: "PATH", Value: "/tmp"},
 		{Name: "GOCACHE", Value: "/project/cache"},
 		{Name: "PERPETUAL_GITHUB_TOKEN", Value: "value"},
-		{Name: "AYATI_GITHUB_TOKEN", Value: "value"},
 		{Name: "NULL_VALUE", Value: "bad\x00value"},
 	} {
 		if err := validateEnvironmentInput(&input); err == nil {
@@ -91,7 +90,7 @@ func TestStoreRejectsUnsafeEnvironmentVariables(t *testing.T) {
 
 func TestStoreReopensEncryptedWorkspaceEnvironment(t *testing.T) {
 	root := t.TempDir()
-	database := filepath.Join(root, "ayati.db")
+	database := filepath.Join(root, "perpetual.db")
 	store, err := Open(database)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -120,7 +119,7 @@ func TestStoreReopensEncryptedWorkspaceEnvironment(t *testing.T) {
 
 func TestStoreRefusesToReplaceMissingEnvironmentKey(t *testing.T) {
 	root := t.TempDir()
-	database := filepath.Join(root, "ayati.db")
+	database := filepath.Join(root, "perpetual.db")
 	store, err := Open(database)
 	if err != nil {
 		t.Fatalf("Open: %v", err)

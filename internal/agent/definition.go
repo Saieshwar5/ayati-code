@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	BuiltinAgentID      = "builtin-ayati"
+	BuiltinAgentID      = "builtin-perpetual"
 	FireworksProviderID = "fireworks"
 	maxAgentNameRunes   = 60
 	maxAgentEmojiRunes  = 8

@@ -64,9 +64,6 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	cookie, err := request.Cookie("perpetual_github_state")
-	if err != nil {
-		cookie, err = request.Cookie("ayati_github_state")
-	}
 	if err != nil || cookie.Value == "" || cookie.Value != request.URL.Query().Get("state") {
 		s.writeError(writer, http.StatusBadRequest, "invalid GitHub authorization state")
 		return

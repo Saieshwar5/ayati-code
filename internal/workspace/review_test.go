@@ -11,7 +11,7 @@ import (
 )
 
 func TestServicePublishesWorkspaceChanges(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 }
 
 func TestServiceRefusesDirectBranchPublishing(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

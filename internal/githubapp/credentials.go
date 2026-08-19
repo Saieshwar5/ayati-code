@@ -19,15 +19,7 @@ func DefaultCredentialsPath() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolve config directory: %w", err)
 	}
-	current := filepath.Join(root, "perpetual", "github.json")
-	if _, err := os.Stat(current); err == nil || !errors.Is(err, os.ErrNotExist) {
-		return current, nil
-	}
-	legacy := filepath.Join(root, "ayati", "github.json")
-	if _, err := os.Stat(legacy); err == nil {
-		return legacy, nil
-	}
-	return current, nil
+	return filepath.Join(root, "perpetual", "github.json"), nil
 }
 
 func LoadCredentials(path string) (Credentials, error) {

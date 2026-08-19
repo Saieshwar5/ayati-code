@@ -26,7 +26,7 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Original session",
   status: "idle",
-  selected_agent_id: "builtin-ayati",
+  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };

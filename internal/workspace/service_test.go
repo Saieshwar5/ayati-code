@@ -122,7 +122,7 @@ func (g *recordingGit) Output(_ context.Context, arguments ...string) (string, e
 }
 
 func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 }
 
 func TestServiceRecordsInitializationFailure(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestServiceRecordsInitializationFailure(t *testing.T) {
 
 func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 	root := t.TempDir()
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -248,7 +248,7 @@ func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 }
 
 func TestServiceRefusesToDeleteWorkspaceOutsideManagedRoot(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -280,7 +280,7 @@ func TestServiceRefusesToDeleteWorkspaceOutsideManagedRoot(t *testing.T) {
 
 func TestServiceRefusesDeletionDuringInitialization(t *testing.T) {
 	root := t.TempDir()
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

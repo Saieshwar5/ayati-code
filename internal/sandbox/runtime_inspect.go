@@ -52,7 +52,7 @@ func (d *DockerDriver) inspect(
 	return d.inspectRuntime(ctx, spec, target, true)
 }
 
-func (d *DockerDriver) inspectAllowingLegacyReadOnly(
+func (d *DockerDriver) inspectAllowingReadOnly(
 	ctx context.Context, spec environment.RuntimeSpec, target string,
 ) (environment.Runtime, bool, error) {
 	return d.inspectRuntime(ctx, spec, target, false)
@@ -136,9 +136,6 @@ func verifyRuntimeMetadata(
 
 func verifyRuntimeLabels(spec environment.RuntimeSpec, actual map[string]string) error {
 	expected := runtimeLabels(spec)
-	if actual[legacyLabelManaged] == "true" {
-		expected = legacyRuntimeLabels(spec)
-	}
 	for name, value := range expected {
 		if actual[name] != value {
 			return runtimeMismatch("label %s is %q, expected %q", name, actual[name], value)
@@ -149,9 +146,9 @@ func verifyRuntimeLabels(spec environment.RuntimeSpec, actual map[string]string)
 
 func verifyRuntimeTmpfs(values map[string]string) error {
 	required := map[string][]string{
-		"/tmp":        {"rw", "nosuid", "nodev"},
-		"/home/ayati": {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
-		"/run/ayati":  {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
+		"/tmp":            {"rw", "nosuid", "nodev"},
+		"/home/perpetual": {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
+		"/run/perpetual":  {"rw", "nosuid", "nodev", "uid=1000", "gid=1000"},
 	}
 	for path, options := range required {
 		actual := strings.Split(values[path], ",")
@@ -173,8 +170,8 @@ func verifyRuntimeMounts(spec environment.RuntimeSpec, mounts []struct {
 	found := map[string]bool{}
 	for _, mount := range mounts {
 		if mount.Type == "tmpfs" {
-			if mount.Destination != "/tmp" && mount.Destination != "/home/ayati" &&
-				mount.Destination != "/run/ayati" {
+			if mount.Destination != "/tmp" && mount.Destination != "/home/perpetual" &&
+				mount.Destination != "/run/perpetual" {
 				return runtimeMismatch("unexpected tmpfs mount %s", mount.Destination)
 			}
 			continue

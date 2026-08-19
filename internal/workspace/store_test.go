@@ -12,7 +12,7 @@ import (
 )
 
 func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
-	database := filepath.Join(t.TempDir(), "state", "ayati.db")
+	database := filepath.Join(t.TempDir(), "state", "perpetual.db")
 	store, err := Open(database)
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -53,7 +53,7 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 }
 
 func TestStorePersistsCompleteAgentMessages(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestStorePersistsCompleteAgentMessages(t *testing.T) {
 }
 
 func TestStoreRejectsInvalidWorkspaceAndStatus(t *testing.T) {
-	store, err := Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

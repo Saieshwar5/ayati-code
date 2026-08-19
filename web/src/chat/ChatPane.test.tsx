@@ -25,13 +25,13 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Improve the UI",
   status: "idle",
-  selected_agent_id: "builtin-ayati",
+  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };
 
 const builtInAgent: AgentDefinition = {
-  id: "builtin-ayati",
+  id: "builtin-perpetual",
   name: "Perpetual",
   emoji: "✦",
   description: "General coding agent",
@@ -108,7 +108,7 @@ describe("ChatPane", () => {
             role: "assistant",
             content: "The project is ready.",
             agent: {
-              id: "builtin-ayati", name: "Perpetual", emoji: "✦", revision: 1,
+              id: "builtin-perpetual", name: "Perpetual", emoji: "✦", revision: 1,
               provider_id: "fireworks", model: "test-model",
             },
           },

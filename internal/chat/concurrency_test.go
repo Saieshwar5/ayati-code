@@ -43,7 +43,7 @@ func (r mappedWorkspaceRuntime) Shell(_ context.Context, workspaceID string) (
 }
 
 func TestServiceRunsDifferentWorkspacesConcurrently(t *testing.T) {
-	store, err := workspace.Open(filepath.Join(t.TempDir(), "ayati.db"))
+	store, err := workspace.Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}

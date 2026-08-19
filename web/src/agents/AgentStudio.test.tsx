@@ -5,7 +5,7 @@ import type { AgentDefinition, ProviderDefinition, SkillDefinition } from "../ap
 import { WorkspaceApplication } from "../app/WorkspaceApplication";
 
 const builtIn: AgentDefinition = {
-  id: "builtin-ayati",
+  id: "builtin-perpetual",
   name: "Perpetual",
   emoji: "✦",
   description: "General coding agent",
