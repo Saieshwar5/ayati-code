@@ -3,10 +3,9 @@ import { useState } from "react";
 import type {
   CreateNewProjectInput,
   EnvironmentInput,
-  WorkspaceAuthority,
 } from "../api/contracts";
-import { AuthorityOptions } from "./AuthorityOptions";
-import { CreationEnvironment } from "./CreationEnvironment";
+import { WorkspaceCreateAction } from "./WorkspaceSetupSummary";
+import { WorkspaceSetupOptions } from "./WorkspaceSetupOptions";
 
 interface NewProjectFormProps {
   onCreate: (input: CreateNewProjectInput) => Promise<void>;
@@ -16,7 +15,6 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [isPrivate, setPrivate] = useState(true);
-  const [authority, setAuthority] = useState<WorkspaceAuthority>("explore");
   const [branch, setBranch] = useState("perpetual/initial");
   const [setup, setSetup] = useState("");
   const [environment, setEnvironment] = useState<EnvironmentInput[]>([]);
@@ -32,8 +30,7 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
         name,
         description,
         private: isPrivate,
-        authority,
-        branch: authority === "develop" ? branch : "",
+        branch,
         setup_command: setup,
         environment,
       });
@@ -44,27 +41,57 @@ export function NewProjectForm({ onCreate }: NewProjectFormProps) {
     }
   }
 
+  const environmentComplete = environment.every((value) => value.name.trim() && value.value);
+  const canSubmit = Boolean(name.trim() && branch.trim() && environmentComplete);
+
   return (
-    <form className="create-fields" onSubmit={(event) => void submit(event)}>
-      <label>Repository name<input value={name} required maxLength={100} placeholder="my-project" onChange={(event) => setName(event.target.value)} /></label>
-      <label>Description <span className="optional">optional</span><input value={description} maxLength={350} placeholder="What are you building?" onChange={(event) => setDescription(event.target.value)} /></label>
-      <fieldset className="visibility-options">
-        <legend>Visibility</legend>
-        <label><input type="radio" name="visibility" checked={isPrivate} onChange={() => setPrivate(true)} />Private</label>
-        <label><input type="radio" name="visibility" checked={!isPrivate} onChange={() => setPrivate(false)} />Public</label>
-      </fieldset>
-      <AuthorityOptions value={authority} onChange={setAuthority} />
-      {authority === "develop" && (
-        <>
-          <div className="develop-warning">Develop allows the agent to change project files. Publishing remains an explicit user action.</div>
-          <label>New working branch<input value={branch} required placeholder="perpetual/initial" onChange={(event) => setBranch(event.target.value)} /></label>
-        </>
-      )}
-      <label>Setup command <span className="optional">optional, detected automatically</span><input value={setup} placeholder="npm install" onChange={(event) => setSetup(event.target.value)} /></label>
-      <CreationEnvironment values={environment} onChange={setEnvironment} />
-      {error && <div className="error" role="alert">{error}</div>}
-      <p className="scope-note">Perpetual creates the GitHub repository with a README, then uses the normal workspace preparation pipeline.</p>
-      <div className="form-actions"><button className="primary" type="submit" disabled={submitting}>{submitting ? "Creating…" : "Create and prepare"}</button></div>
+    <form className="workspace-composer new-project-composer" onSubmit={(event) => void submit(event)}>
+      <aside className="project-identity-pane" aria-labelledby="project-details-title">
+        <div>
+          <p className="eyebrow">GitHub repository</p>
+          <h2 id="project-details-title">New project</h2>
+          <p>Perpetual creates this repository in your GitHub account.</p>
+        </div>
+        <label>Repository name<input value={name} required maxLength={100} placeholder="my-project" onChange={(event) => setName(event.target.value)} /></label>
+        <label>Description <span className="optional">optional</span><input value={description} maxLength={350} placeholder="What are you building?" onChange={(event) => setDescription(event.target.value)} /></label>
+        <fieldset className="visibility-options">
+          <legend>Visibility</legend>
+          <div>
+            <label className={isPrivate ? "selected" : ""}><input type="radio" name="visibility" checked={isPrivate} onChange={() => setPrivate(true)} />Private</label>
+            <label className={!isPrivate ? "selected" : ""}><input type="radio" name="visibility" checked={!isPrivate} onChange={() => setPrivate(false)} />Public</label>
+          </div>
+        </fieldset>
+      </aside>
+      <section className="composer-settings" aria-label="Workspace settings">
+        <header className="composer-project-heading">
+          <div>
+            <p className="eyebrow">Workspace settings</p>
+            <h2>{name || "Untitled project"}</h2>
+          </div>
+          <span className="repository-visibility">{isPrivate ? "Private" : "Public"}</span>
+        </header>
+        <section className="composer-setting" aria-labelledby="initial-branch-title">
+          <div className="composer-setting-label">
+            <h3 id="initial-branch-title">Branch</h3>
+            <p>Start development away from the repository default branch.</p>
+          </div>
+          <div className="composer-setting-control">
+            <label>New working branch<input value={branch} required placeholder="perpetual/initial" onChange={(event) => setBranch(event.target.value)} /></label>
+          </div>
+        </section>
+
+        <WorkspaceSetupOptions setup={setup} environment={environment} setupPlaceholder="npm install" onSetupChange={setSetup} onEnvironmentChange={setEnvironment} />
+
+        {error && <div className="error" role="alert">{error}</div>}
+        <WorkspaceCreateAction
+          project={name}
+          branch={branch}
+          environmentCount={environment.length}
+          hasSetupCommand={Boolean(setup.trim())}
+          canSubmit={canSubmit}
+          submitting={submitting}
+        />
+      </section>
     </form>
   );
 }

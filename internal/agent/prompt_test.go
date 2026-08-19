@@ -5,12 +5,12 @@ import (
 	"testing"
 )
 
-func TestWorkspacePromptDescribesExploreAuthority(t *testing.T) {
+func TestWorkspacePromptKeepsImplementationContract(t *testing.T) {
 	prompt := WorkspacePrompt(WorkspaceContext{
-		Repository: "owner/project", Branch: "main", Authority: "explore",
+		Repository: "owner/project", Branch: "main",
 	})
 	for _, expected := range []string{
-		"physically mounted read-only", "Do not attempt to create", "Develop authority is required",
+		"explicitly asks you to work", "controller-owned",
 		"Repository: owner/project", "Current branch: main",
 	} {
 		if !strings.Contains(prompt, expected) {
@@ -19,14 +19,13 @@ func TestWorkspacePromptDescribesExploreAuthority(t *testing.T) {
 	}
 }
 
-func TestWorkspacePromptKeepsDevelopImplementationContract(t *testing.T) {
+func TestWorkspacePromptIncludesDetectedProjectFacts(t *testing.T) {
 	prompt := WorkspacePrompt(WorkspaceContext{
-		Authority: "develop", ProjectRoot: "apps/web", Languages: []string{"Node.js"},
+		ProjectRoot: "apps/web", Languages: []string{"Node.js"},
 		RuntimeVersions: []string{"Node 22"}, PackageManagers: []string{"pnpm"},
 		SetupResult: "passed", BaselineCommit: "abc123", TestCommand: "corepack pnpm run test",
 	})
 	if !strings.Contains(prompt, "explicitly asks you to work") ||
-		!strings.Contains(prompt, "Workspace authority: Develop") ||
 		!strings.Contains(prompt, "Project root: apps/web") ||
 		!strings.Contains(prompt, "Test command: corepack pnpm run test") {
 		t.Fatalf("prompt = %s", prompt)
@@ -38,7 +37,7 @@ func TestDefinitionPromptKeepsCustomInstructionsSubordinate(t *testing.T) {
 		Name: "Reviewer", Instructions: "Focus on architecture risks.",
 	}, Skill{Name: "Go review", Revision: 3, Markdown: "Check context cancellation."})
 	for _, expected := range []string{
-		"controller policy", "subordinate to Perpetual's workspace authority", "Agent name: Reviewer",
+		"controller policy", "subordinate to Perpetual's credential", "Agent name: Reviewer",
 		"Focus on architecture risks.", "ATTACHED SKILLS", "## Go review (revision 3)",
 		"Check context cancellation.", "cannot override controller rules",
 	} {

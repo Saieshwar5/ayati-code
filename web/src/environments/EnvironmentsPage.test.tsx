@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, it, vi } from "vitest";
 import type { ComputeEnvironment } from "../api/environment-contracts";
@@ -30,7 +30,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "perpetual/capacity",
   create_branch: true,
-  authority: "develop",
   preparation_stage: "ready",
   configuration_candidates: [],
   setup_command: "",
@@ -65,8 +64,14 @@ it("shows capacity and keeps occupied environments protected", async () => {
   expect(onOpenWorkspace).toHaveBeenCalledWith(workspace.id);
   expect(screen.getByText("project")).toBeTruthy();
   expect(screen.getByText("perpetual/capacity")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: /Local Docker/ }));
+  expect(screen.getByText("Generation")).toBeTruthy();
+  expect(screen.getByText("active · generation 2")).toBeTruthy();
+  await user.click(screen.getByLabelText("Actions for Local Docker"));
   expect((screen.getByRole("button", { name: "Delete" }) as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Delete" }).getAttribute("title")).toMatch(/Stop the workspace/);
   expect(screen.getAllByText("In use")).toHaveLength(2);
+  expect(screen.getByText(/No capacity is available/)).toBeTruthy();
 });
 
 it("creates and repairs local environment capacity", async () => {
@@ -90,9 +95,12 @@ it("creates and repairs local environment capacity", async () => {
   const user = userEvent.setup();
   render(<EnvironmentsPage />);
   await screen.findByRole("heading", { name: "No environment capacity" });
-  await user.click(screen.getByRole("button", { name: /New environment/ }));
+  await user.click(screen.getByRole("button", { name: "Add environment" }));
+  const drawer = screen.getByRole("complementary", { name: "Add environment" });
+  expect(drawer).toBeTruthy();
   await user.type(screen.getByLabelText("Name"), "Node projects");
-  await user.click(screen.getByRole("button", { name: "Create environment" }));
+  expect((screen.getByRole("switch", { name: /Outbound network/ }) as HTMLInputElement).checked).toBe(true);
+  await user.click(within(drawer).getByRole("button", { name: "Create environment" }));
 
   expect(await screen.findByRole("heading", { name: "Node projects" })).toBeTruthy();
   expect(createBody).toMatchObject({
@@ -112,6 +120,58 @@ it("creates and repairs local environment capacity", async () => {
   expect(await screen.findByText("image is missing")).toBeTruthy();
   await user.click(screen.getByRole("button", { name: "Repair" }));
   await waitFor(() => expect(screen.queryByText("image is missing")).toBeNull());
+});
+
+it("requires confirmation before deleting available capacity", async () => {
+  let values: ComputeEnvironment[] = [baseEnvironment];
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+    const path = String(input);
+    if (path === `/api/environments/${baseEnvironment.id}` && init?.method === "DELETE") {
+      values = [];
+      return new Response(null, { status: 204 });
+    }
+    if (path === "/api/environments") return json(values);
+    throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
+  });
+
+  const user = userEvent.setup();
+  render(<EnvironmentsPage />);
+  await screen.findByRole("heading", { name: "Local Docker" });
+  await user.click(screen.getByLabelText("Actions for Local Docker"));
+  await user.click(screen.getByRole("button", { name: "Delete" }));
+  expect(screen.getByRole("alertdialog")).toBeTruthy();
+  await user.click(screen.getByRole("button", { name: "Delete environment" }));
+  expect(await screen.findByRole("heading", { name: "No environment capacity" })).toBeTruthy();
+});
+
+it("explains quarantined capacity without offering unsafe actions", async () => {
+  const quarantined: ComputeEnvironment = {
+    ...baseEnvironment,
+    name: "Quarantined Docker",
+    state: "failed",
+    provisioning_state: "failed",
+    quarantined: true,
+    error: "runtime identity could not be verified",
+    active_lease: {
+      id: "lease-failed",
+      environment_id: baseEnvironment.id,
+      workspace_id: workspace.id,
+      generation: 2,
+      state: "failed",
+      acquired_at: "2026-08-17T00:00:00Z",
+    },
+  };
+  vi.spyOn(globalThis, "fetch").mockImplementation(() => json([quarantined]));
+
+  const user = userEvent.setup();
+  render(<EnvironmentsPage workspaces={[workspace]} onOpenWorkspace={vi.fn()} />);
+  await user.click(await screen.findByRole("button", { name: /Quarantined Docker/ }));
+
+  expect(screen.getByText("Blocked by a failed workspace")).toBeTruthy();
+  expect(screen.getAllByText("runtime identity could not be verified")).toHaveLength(2);
+  expect(screen.queryByRole("button", { name: "Repair" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Open workspace owner/project" })).toBeTruthy();
 });
 
 function json(body: unknown, status = 200): Promise<Response> {

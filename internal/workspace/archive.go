@@ -56,6 +56,9 @@ func (s *Service) Archive(ctx context.Context, id string) error {
 	if value.Status == StatusCreating || value.Status == StatusInitializing {
 		return errors.New("workspace preparation is still running; wait before archiving it")
 	}
+	if value.Status == StatusDeleting || value.Status == StatusDeletionFailed {
+		return errors.New("workspace deletion must finish before it can be archived")
+	}
 	working, err := s.store.HasWorkingSession(ctx, id)
 	if err != nil {
 		return fmt.Errorf("inspect running sessions: %w", err)
@@ -64,8 +67,7 @@ func (s *Service) Archive(ctx context.Context, id string) error {
 		return errors.New("a session is still running; stop it before archiving the workspace")
 	}
 	if value.Status == StatusReady {
-		if err := s.environment.Stop(ctx,
-			runtimeInput(value, value.Authority == AuthorityDevelop)); err != nil {
+		if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
 			return fmt.Errorf("release environment before archive: %w", err)
 		}
 		if err := s.store.UpdateStatus(ctx, id, StatusStopped, ""); err != nil {
@@ -82,6 +84,9 @@ func (s *Service) RestoreArchived(ctx context.Context, id string) error {
 	}
 	if value.ArchivedAt == nil {
 		return sql.ErrNoRows
+	}
+	if value.Status == StatusDeleting || value.Status == StatusDeletionFailed {
+		return errors.New("workspace deletion must finish before it can be restored")
 	}
 	return s.store.Restore(ctx, id)
 }

@@ -18,17 +18,17 @@ Existing or newly created GitHub repository + base/working branch
   -> user stops workspace and releases environment capacity
 ```
 
-The repository, cache, sessions, and SQLite record survive a normal Stop. Stop destroys the exact leased runtime and releases the environment. Resume acquires available capacity and creates a new runtime at the stored authority without rerunning preparation, so Develop changes remain intact. A ready workspace restores and verifies its active leased runtime after a controller restart. Delete is a separate confirmed action that first proves no live or uncertain runtime remains, then removes the local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
+The repository, cache, sessions, and SQLite record survive a normal Stop. Stop destroys the exact leased runtime and releases the environment. Resume acquires available capacity and creates a new writable runtime without rerunning preparation, so workspace changes remain intact. A ready workspace restores and verifies its active leased runtime after a controller restart. Delete is a separate confirmed action that first proves no live or uncertain runtime remains, then removes the local clone, workspace record, sessions, and messages; it never deletes the remote GitHub branch or pull request.
 
 ## Component ownership
 
 - `cmd/perpetual` owns signal handling and selects the web server or the small `config` command.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
-- `internal/environment` owns reusable compute definitions, exclusive generation-checked workspace leases, and runtime transition coordination.
+- `internal/environment` owns reusable compute definitions, exclusive generation-checked workspace leases, and runtime lifecycle coordination.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
-- `internal/sandbox` owns disposable Docker-runtime creation, restoration, replacement and removal, the Docker environment driver, and bounded shell execution.
+- `internal/sandbox` owns disposable Docker-runtime creation, restoration and removal, the Docker environment driver, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
 - `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
@@ -48,7 +48,7 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: repository, branch, authority, effective mount mode, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
+- `workspaces`: repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `agent_runs`: durable accepted work with exact workspace/session ownership, lifecycle, failure, and timestamps.
@@ -65,8 +65,8 @@ On first startup the controller registers one ready Local Docker environment usi
 ID resolved from the configured sandbox image. The Environments page and guarded JSON endpoints
 list capacity, create additional local Docker configurations, retry failed image resolution, and
 delete only unoccupied environments. Configuration is fixed at creation so resource policy cannot
-change underneath an active lease. Workspace creation, preparation, shell access, authority
-changes, Stop, Resume, recovery, and deletion all use `internal/environment.RuntimeService`; no
+change underneath an active lease. Workspace creation, preparation, shell access, Stop, Resume,
+recovery, and deletion all use `internal/environment.RuntimeService`; no
 workspace-derived container name is a lifecycle authority.
 
 Environment selection is deliberately automatic. The controller allocates any ready capacity in
@@ -113,11 +113,9 @@ Initialization first clones or opens the repository with trusted host Git. A req
 
 Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, environment metadata, and sessions.
 
-On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller releases its acquiring or active runtime before accepting requests, preventing a detached setup command from retaining a writable Explore mount. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Perpetual does not pretend a process restart can resume an in-memory provider or shell call. Ready workspaces restore and verify the runtime recorded by their active lease. If capacity or runtime restoration is unavailable, the workspace becomes stopped with an actionable message. Stopped, failed, and configuration-waiting workspaces do not acquire capacity.
+On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. The controller releases its acquiring or active runtime before accepting requests, preventing a detached setup command from retaining the workspace. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Perpetual does not pretend a process restart can resume an in-memory provider or shell call. Ready workspaces restore and verify the runtime recorded by their active lease. If capacity or runtime restoration is unavailable, the workspace becomes stopped with an actionable message. Stopped, failed, and configuration-waiting workspaces do not acquire capacity.
 
-Preparation acquires a ready environment, creates a writable generation-identified runtime, and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup. Explore fails preparation if tracked or non-ignored files changed; Develop records those changes and continues. Before Explore becomes ready, the controller replaces the runtime under the same lease with `/workspace` read-only, verifies Docker's effective metadata, and records it. Develop keeps the writable runtime. The active lease and runtime span chat turns; `Stop` destroys that exact runtime before releasing capacity.
-
-Authority changes are synchronous controller operations guarded by the chat service's per-workspace run lock. Explore to Develop validates and creates a local working branch when needed, replaces the runtime under the same lease as read-write, verifies it, and only then commits the authority, branch, and mount state to SQLite. Develop to Explore keeps the current branch and all working-tree changes while replacing the runtime as read-only. If a transition fails, Perpetual recreates the previous access mode under the same lease when possible; if recovery also fails, the lease fails, its environment is quarantined, and the workspace enters a failed state instead of reporting an authority it could not verify.
+Preparation acquires a ready environment, creates a writable generation-identified runtime, and runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup and records any tracked or untracked changes in the project profile so they remain visible for review. The active lease and runtime span chat turns; `Stop` destroys that exact runtime before releasing capacity.
 
 Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, and asks the runtime service to release an active lease or clean up the exact runtime recorded by a failed lease. An uncertain runtime blocks deletion and keeps its environment quarantined. Only after compute cleanup succeeds does Perpetual remove the workspace directory and SQLite record. Foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
 
@@ -128,8 +126,8 @@ The container boundary includes:
 - all Linux capabilities dropped and `no-new-privileges`;
 - 256 PID, 2 GiB memory, and 2 CPU limits;
 - private temporary and home tmpfs mounts;
-- one repository bind mount, read-only for Explore and read-write for Develop;
-- writable private `/tmp` and `/home/perpetual` tmpfs mounts;
+- one verified read-write repository bind mount;
+- writable private `/tmp`, `/home/perpetual`, and `/run/perpetual` tmpfs mounts;
 - a workspace-owned `/cache` bind outside the repository, preserved across container recreation;
 - no Docker socket, host home, GitHub token, or model-provider key.
 
@@ -137,7 +135,7 @@ Commands run through `docker exec -i` and a fixed launcher with a two-minute tim
 
 Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization or an active agent run. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, log, and Docker-metadata exposure, not against commands that are intentionally given the values.
 
-## Agent Studio, execution, and authority
+## Agent Studio and execution
 
 Agent Studio has a global catalog containing one immutable built-in Perpetual agent, reusable custom agents, and reusable Markdown skills. Exactly one active agent is the global default. A custom agent can change identity, provider, model, instructions, step limit from 1 through 20, whether the shell tool is exposed, and an ordered list of at most twelve active skills. Archiving a non-default custom agent reassigns sessions using it to the current default. A skill cannot be archived while any agent still references it.
 
@@ -155,7 +153,7 @@ The model receives exactly one function:
 
 There are no file, GitHub, service, lifecycle, or database tools exposed to the model. A shell-disabled agent receives no tools, and an unexpected shell call is rejected. A shell-enabled agent receives the one tool shown above. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
 
-The composer has one Send action, a session-persisted agent selector, and a Stop action while that session owns the active run. Stop cancels the shared provider and shell context, preserves messages and activity already recorded, and moves the session to `canceled` instead of presenting a user decision as a failure. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Explore additionally tells the model to research and propose changes without attempting mutations, while its read-only bind mount provides enforcement. Develop permits project mutations after an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions and skills remain subordinate to these controller rules. Publishing and authority changes remain unavailable through the model-facing shell.
+The composer has one Send action, a session-persisted agent selector, and a Stop action while that session owns the active run. Stop cancels the shared provider and shell context, preserves messages and activity already recorded, and moves the session to `canceled` instead of presenting a user decision as a failure. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions and skills remain subordinate to these controller rules. Publishing and workspace lifecycle remain unavailable through the model-facing shell.
 
 ## GitHub and publish boundary
 
@@ -165,4 +163,4 @@ New-project creation uses the authenticated user's GitHub App token and requires
 
 Authenticated clone and push use host Git with a short-lived private askpass script. The access token is passed only to that trusted Git child process and removed with the helper; it is never written into the remote URL or exposed to the model sandbox. Publishing stages all workspace changes, creates a focused user-supplied commit, pushes the working branch, and asks GitHub to open a draft pull request.
 
-Mutating HTTP endpoints require the non-simple `X-Perpetual-Request: 1` header, and the event stream requires the existing GitHub-authenticated personal session. The server binds to `127.0.0.1:8080` by default. Remote use must add HTTPS and access control through a trusted reverse proxy, VPN, or SSH tunnel; Perpetual should not be exposed directly to the public internet. Multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling remain intentionally deferred.
+Mutating HTTP endpoints require the non-simple `X-Perpetual-Request: 1` header. The event stream requires the existing GitHub-authenticated personal session. The server binds to `127.0.0.1:8080` by default. Remote use must add HTTPS and access control through a trusted reverse proxy, VPN, or SSH tunnel; Perpetual should not be exposed directly to the public internet. Multi-user sessions, webhook validation, installation-token brokerage, queues, and fleet scheduling remain intentionally deferred.

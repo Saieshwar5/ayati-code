@@ -15,7 +15,7 @@ interface InspectorProps {
 
 export function Inspector(props: InspectorProps) {
   return (
-    <aside className="inspector" aria-label="Session activity">
+    <aside className="inspector" aria-label="Agent activity">
       <div className="inspector-heading">
         <div className="inspector-title">
           <p className="eyebrow">Internal work</p>
@@ -34,7 +34,7 @@ export function Inspector(props: InspectorProps) {
 
       {!props.workspace || !props.session ? (
         <div className="inspector-empty">
-          <p>Open a session to inspect shell commands and verification.</p>
+          <p>Open a conversation to inspect shell commands and verification.</p>
         </div>
       ) : (
         <div className="inspector-content">
@@ -64,7 +64,7 @@ function ActivityPanel({ workspace, session, messages }: ActivityPanelProps) {
           entries
         ) : (
           <p className="activity-empty">
-            Shell commands, results, and verification from this session will appear here.
+            Shell commands, results, and verification from this conversation will appear here.
           </p>
         )}
       </div>
@@ -144,10 +144,10 @@ function activityState(workspace: Workspace, session: WorkspaceSession): string 
   if (workspace.status === "initialization_failed") return workspace.error || "Workspace initialization failed.";
   if (workspace.status === "stopped") return "The persistent sandbox has been stopped.";
   if (session.status === "working") return "Perpetual is working. New commands and results appear below.";
-  if (session.status === "review") return "This session finished with workspace changes ready for review.";
-  if (session.status === "failed") return session.error || "The last run in this session failed.";
+  if (session.status === "review") return "This conversation finished with workspace changes ready for review.";
+  if (session.status === "failed") return session.error || "The last run in this conversation failed.";
   if (session.status === "canceled") return "The last run was stopped by the user.";
-  return "Fresh session context. Workspace files and changes are shared.";
+  return "Fresh conversation context. Workspace files and changes are shared.";
 }
 
 function formatDuration(nanoseconds: number): string {

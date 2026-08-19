@@ -37,24 +37,6 @@ func (f *fakeWorkspaceService) ConfigureProjectRoot(ctx context.Context, id, roo
 	return f.store.SelectProjectRoot(ctx, id, root)
 }
 
-func (f *fakeWorkspaceService) ChangeAuthority(
-	ctx context.Context, id string, input workspace.AuthorityChange,
-) (workspace.Workspace, error) {
-	value, err := f.store.Get(ctx, id)
-	if err != nil {
-		return workspace.Workspace{}, err
-	}
-	branch := input.Branch
-	if branch == "" {
-		branch = value.Branch
-	}
-	if err := f.store.CompleteAuthorityChange(ctx, id, input.Authority, branch,
-		input.CreateBranch, string(input.Authority.MountMode())); err != nil {
-		return workspace.Workspace{}, err
-	}
-	return f.store.Get(ctx, id)
-}
-
 func (f *fakeWorkspaceService) Stop(ctx context.Context, id string) error {
 	return f.store.UpdateStatus(ctx, id, workspace.StatusStopped, "")
 }
@@ -118,7 +100,7 @@ func TestHandlerServesInterfaceAndGuardsMutations(t *testing.T) {
 
 func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	handler, store, workspaces, _ := testHandler(t)
-	create := `{"repository":"owner/project","base_branch":"main","branch":"perpetual/change","create_branch":true,"branch_mode":"new","authority":"develop","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
+	create := `{"repository":"owner/project","base_branch":"main","branch":"perpetual/change","create_branch":true,"branch_mode":"new","setup_command":"go mod download","environment":[{"name":"NPM_TOKEN","value":"private-token","expose_during_setup":true}]}`
 	response := serve(handler, http.MethodPost, "/api/workspaces", create, true)
 	if response.Code != http.StatusAccepted {
 		t.Fatalf("create status = %d, body = %s", response.Code, response.Body.String())
@@ -145,7 +127,7 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("delete environment status = %d, body = %s", response.Code, response.Body.String())
 	}
-	if created.Authority != workspace.AuthorityDevelop || !created.CreateBranch {
+	if !created.CreateBranch {
 		t.Fatalf("workspace branch policy = %#v", created)
 	}
 	publish := `{"commit_message":"feat: change","title":"Change project","body":"Verified."}`

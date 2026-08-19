@@ -86,6 +86,12 @@ func (d *DockerDriver) Create(
 	}
 	name := runtimeName(spec)
 	runtime, exists, err := d.inspect(ctx, spec, name)
+	if errors.Is(err, errWorkspaceMountReadOnly) {
+		if destroyErr := d.Destroy(ctx, spec, ""); destroyErr != nil {
+			return environment.Runtime{}, fmt.Errorf("replace read-only runtime: %w", destroyErr)
+		}
+		runtime, exists, err = environment.Runtime{}, false, nil
+	}
 	if err != nil {
 		return environment.Runtime{}, err
 	}
@@ -165,7 +171,7 @@ func (d *DockerDriver) Destroy(
 	if _, err := d.run(ctx, "rm", "--force", "--volumes", runtime.ID); err != nil {
 		return fmt.Errorf("remove environment runtime: %w", err)
 	}
-	if _, exists, err := d.inspect(ctx, spec, runtimeName(spec)); err != nil {
+	if _, exists, err := d.inspect(ctx, spec, runtime.ID); err != nil {
 		return fmt.Errorf("verify environment runtime removal: %w", err)
 	} else if exists {
 		return errors.New("verify environment runtime removal: container still exists")
@@ -177,11 +183,10 @@ func (d *DockerDriver) inspectForDestroy(
 	ctx context.Context, spec environment.RuntimeSpec, target string,
 ) (environment.Runtime, bool, error) {
 	runtime, exists, err := d.inspect(ctx, spec, target)
-	if !errors.Is(err, errWorkspaceAccessMismatch) {
+	if !errors.Is(err, errWorkspaceMountReadOnly) {
 		return runtime, exists, err
 	}
-	spec.WorkspaceWritable = !spec.WorkspaceWritable
-	return d.inspect(ctx, spec, target)
+	return d.inspectAllowingReadOnly(ctx, spec, target)
 }
 
 func (d *DockerDriver) requireRuntime(
@@ -226,9 +231,6 @@ func (d *DockerDriver) run(ctx context.Context, arguments ...string) (commandRes
 
 func runtimeCreateArguments(spec environment.RuntimeSpec, name string) []string {
 	workspaceMount := "type=bind,src=" + spec.WorkspacePath + ",dst=/workspace"
-	if !spec.WorkspaceWritable {
-		workspaceMount += ",readonly"
-	}
 	network := "bridge"
 	if spec.Environment.NetworkPolicy == environment.NetworkDisabled {
 		network = "none"

@@ -11,7 +11,6 @@ const workspace: Workspace = {
   base_branch: "main",
   branch: "main",
   create_branch: false,
-  authority: "explore",
   preparation_stage: "analyzing",
   preparation_detail: "Inspecting project metadata",
   configuration_candidates: [],
@@ -25,10 +24,23 @@ const workspace: Workspace = {
 describe("WorkspaceReadiness", () => {
   it("shows completed, current, and pending preparation steps", () => {
     render(<WorkspaceReadiness workspace={workspace} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getByText("Repository cloned").closest("li")?.className).toBe("done");
-    expect(screen.getByText("Project understood").closest("li")?.className).toBe("current");
-    expect(screen.getByText("Dependencies installed").closest("li")?.className).toBe("pending");
+    expect(screen.getByText("Repository").closest("li")?.className).toBe("done");
+    expect(screen.getAllByText("Project").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
+    expect(screen.getByText("Environment").closest("li")?.className).toBe("pending");
+    expect(screen.getByText("Dependencies").closest("li")?.className).toBe("pending");
     expect(screen.getByText("Inspecting project metadata")).toBeTruthy();
+  });
+
+  it("shows environment startup separately from dependency installation", () => {
+    const { rerender } = render(
+      <WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "starting_environment" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />,
+    );
+    expect(screen.getAllByText("Environment").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
+    expect(screen.getByText("Dependencies").closest("li")?.className).toBe("pending");
+
+    rerender(<WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "installing" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getAllByText("Environment").find((element) => element.closest("li"))?.closest("li")?.className).toBe("done");
+    expect(screen.getAllByText("Dependencies").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
   });
 
   it("submits the selected project root", async () => {
@@ -74,7 +86,8 @@ describe("WorkspaceReadiness", () => {
         onDelete={vi.fn()}
       />,
     );
-    expect(screen.getByRole("heading", { name: "Baseline verified could not finish" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Verify needs attention" })).toBeTruthy();
+    expect(screen.getByText("Verify could not finish")).toBeTruthy();
     expect(screen.getByText("setup modified package-lock.json")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Retry preparation" }));
     expect(retry).toHaveBeenCalledOnce();
@@ -96,5 +109,23 @@ describe("WorkspaceReadiness", () => {
     await user.click(screen.getByRole("button", { name: "Resume environment" }));
     expect(resume).toHaveBeenCalledOnce();
     expect(retry).not.toHaveBeenCalled();
+  });
+
+  it("explains that a failed deletion is local and can be retried", async () => {
+    const remove = vi.fn().mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(
+      <WorkspaceReadiness
+        workspace={{ ...workspace, status: "deletion_failed", error: "read-only cache" }}
+        onConfigure={vi.fn()}
+        onRetry={vi.fn()}
+        onResume={vi.fn()}
+        onDelete={remove}
+      />,
+    );
+    expect(screen.getByText("read-only cache")).toBeTruthy();
+    expect(screen.getByText(/GitHub repository, remote branches, and pull requests are unchanged/)).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "Retry deletion" }));
+    expect(remove).toHaveBeenCalledOnce();
   });
 });

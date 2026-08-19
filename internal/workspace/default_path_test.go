@@ -5,15 +5,11 @@ import (
 	"testing"
 )
 
-func TestDefaultPathUsesPerpetualConfigDirectory(t *testing.T) {
+func TestDefaultPathUsesPerpetualDatabase(t *testing.T) {
 	root := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", root)
-
 	path, err := DefaultPath()
-	if err != nil {
-		t.Fatalf("DefaultPath: %v", err)
-	}
-	if path != filepath.Join(root, "perpetual", "perpetual.db") {
-		t.Fatalf("path = %q", path)
+	if err != nil || path != filepath.Join(root, "perpetual", "perpetual.db") {
+		t.Fatalf("path = %q, error = %v", path, err)
 	}
 }

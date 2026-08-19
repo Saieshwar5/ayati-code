@@ -32,7 +32,7 @@ func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	if created.Status != StatusCreating || created.PreparationStage != PreparationPending ||
-		len(created.ConfigurationCandidates) != 0 || !created.CreateBranch || created.Authority != AuthorityExplore ||
+		len(created.ConfigurationCandidates) != 0 || !created.CreateBranch ||
 		created.Path != filepath.Clean(repositoryPath) {
 		t.Fatalf("workspace = %#v", created)
 	}
@@ -79,6 +79,10 @@ func TestStorePersistsCompleteAgentMessages(t *testing.T) {
 	if err != nil || len(messages) != 1 || messages[0].ToolCalls[0].ID != "call-1" {
 		t.Fatalf("messages = %#v, error = %v", messages, err)
 	}
+	conversation, err := store.ConversationMessages(context.Background(), sessions[0].ID)
+	if err != nil || len(conversation) != 1 || conversation[0].ID < 1 || conversation[0].CreatedAt.IsZero() {
+		t.Fatalf("conversation messages = %#v, error = %v", conversation, err)
+	}
 }
 
 func TestStoreRejectsInvalidWorkspaceAndStatus(t *testing.T) {
@@ -89,12 +93,6 @@ func TestStoreRejectsInvalidWorkspaceAndStatus(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	if _, err := store.Create(context.Background(), Create{}); err == nil {
 		t.Fatal("Create accepted empty workspace")
-	}
-	if _, err := store.Create(context.Background(), Create{
-		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "main", Authority: "owner", Path: t.TempDir(),
-	}); err == nil {
-		t.Fatal("Create accepted invalid authority")
 	}
 	if err := store.UpdateStatus(context.Background(), "missing", "unknown", ""); err == nil {
 		t.Fatal("UpdateStatus accepted unknown status")

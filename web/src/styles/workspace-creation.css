@@ -1,0 +1,153 @@
+.create-workspace-page { padding: 24px clamp(20px, 3vw, 40px) 40px; }
+.create-panel { width: min(1120px, 100%); gap: 14px; }
+
+.create-heading { display: flex; align-items: end; gap: 24px; }
+.create-heading > div { display: grid; gap: 3px; }
+.create-heading h1 { margin: 0; font-size: 24px; font-weight: 600; }
+.create-heading .muted { margin: 0; font-size: 11px; }
+.create-back { width: max-content; min-height: 28px; padding: 0; gap: 6px; border: 0; background: transparent; color: var(--color-text-secondary); font-size: 11px; }
+.create-back:hover { color: var(--color-text); }
+.create-back span { font-size: 15px; }
+
+.source-options { width: max-content; padding: 3px; grid-template-columns: repeat(2, auto); gap: 3px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-subtle); }
+.source-options > label { min-height: 30px; padding: 0 11px; display: flex; align-items: center; border: 0; border-radius: 4px; background: transparent; box-shadow: none; cursor: pointer; }
+.source-options > label.selected { background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border), 0 1px 2px rgba(0, 0, 0, .05); }
+.source-options input, .visibility-options input { position: absolute; width: 1px; min-height: 1px; opacity: 0; }
+.source-options label:focus-within, .visibility-options label:focus-within { outline: 2px solid var(--color-text); outline-offset: 2px; }
+.source-options strong { font-size: 10px; font-weight: 600; }
+
+.workspace-composer { min-height: 500px; display: grid; grid-template-columns: minmax(250px, .72fr) minmax(480px, 1.28fr); overflow: hidden; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
+.repository-picker, .project-identity-pane { min-width: 0; border-right: 1px solid var(--color-border); background: var(--color-surface-subtle); }
+.repository-picker { display: grid; grid-template-rows:auto minmax(0, 1fr) auto; }
+.repository-picker-heading { padding: 14px 14px 10px; display: grid; gap: 10px; border-bottom: 1px solid var(--color-border); }
+.repository-picker-heading > div { display: flex; align-items: center; justify-content: space-between; }
+.repository-picker-heading h2 { margin: 0; font-size: 12px; font-weight: 600; }
+.repository-picker-heading span { color: var(--color-text-tertiary); font-size: 9px; }
+.repository-search input { min-height: 32px; padding: 0 9px; border-color: var(--color-border); border-radius: 6px; background: var(--color-surface); font-size: 10px; }
+.repository-options { min-height: 0; padding: 6px; display: grid; align-content: start; gap: 2px; overflow-y: auto; border: 0; }
+.repository-options > p { margin: 18px 8px; color: var(--color-text-secondary); font-size: 10px; line-height: 1.5; }
+.repository-options > label { min-width: 0; min-height: 48px; padding: 7px 8px; display: grid; grid-template-columns: auto minmax(0, 1fr) 8px; gap: 8px; align-items: center; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+.repository-options > label:hover { background: var(--color-surface); }
+.repository-options > label.selected { border-color: var(--color-border-strong); background: var(--color-surface); }
+.repository-options input { width: 13px; min-height: 13px; margin: 0; accent-color: var(--color-text); }
+.repository-options span { min-width: 0; display: grid; gap: 3px; }
+.repository-options strong { overflow: hidden; font-size: 10px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.repository-options small { color: var(--color-text-tertiary); font-size: 8px; }
+.repository-options i { width: 5px; height: 5px; border-radius: 50%; background: transparent; }
+.repository-options .selected i { background: var(--color-text); }
+.repository-picker-footer { min-height: 42px; padding: 6px 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; border-top: 1px solid var(--color-border); }
+.repository-picker-footer span { color: var(--color-text-tertiary); font-size: 8px; }
+.repository-picker-footer button { min-height: 28px; font-size: 9px; }
+.workspace-composer.repository-chosen { grid-template-columns: 1fr; }
+.repository-chosen .repository-picker { border-right: 0; border-bottom: 1px solid var(--color-border); }
+.selected-repository { min-height: 52px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--color-surface-subtle); }
+.selected-repository > div { min-width: 0; display: flex; align-items: center; gap: 9px; }
+.selected-repository > div > span:not(.repository-selected-marker) { min-width: 0; display: grid; gap: 2px; }
+.selected-repository strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.selected-repository small { color: var(--color-text-secondary); font-size: 8px; }
+.repository-selected-marker { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--color-text); }
+.selected-repository button { min-height: 28px; font-size: 9px; }
+.repository-browser-backdrop { position: fixed; z-index: 20; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .22); }
+.repository-browser { width: min(520px, 100%); max-height: min(620px, calc(100vh - 36px)); display: grid; grid-template-rows: auto auto minmax(0, 1fr); overflow: hidden; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-surface); box-shadow: 0 18px 50px rgba(0, 0, 0, .16); }
+.repository-browser > header { padding: 13px 14px; display: flex; align-items: start; justify-content: space-between; gap: 14px; border-bottom: 1px solid var(--color-border); }
+.repository-browser h2 { margin: 0; font-size: 13px; }
+.repository-browser header p { margin: 3px 0 0; color: var(--color-text-tertiary); font-size: 8px; }
+.repository-browser > .repository-search { padding: 10px 12px; border-bottom: 1px solid var(--color-border); }
+.repository-browser .repository-options { padding: 6px; overflow-y: auto; }
+
+.composer-settings { min-width: 0; display: grid; align-content: start; }
+.composer-project-heading { min-height: 64px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--color-border); }
+.composer-project-heading .eyebrow { margin-bottom: 4px; font-size: 7px; }
+.composer-project-heading h2 { max-width: 360px; overflow: hidden; margin: 0; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.repository-badges { display: flex; align-items: center; gap: 6px; }
+.repository-badges code, .repository-badges span, .repository-visibility { padding: 3px 6px; border: 1px solid var(--color-border); border-radius: 999px; background: transparent; color: var(--color-text-secondary); font-size: 8px; font-style: normal; }
+.repository-badges code { color: var(--color-text); }
+
+.composer-setting { min-width: 0; padding: 12px 16px; display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; align-items: start; border-bottom: 1px solid var(--color-border); }
+.composer-setting-label { padding-top: 3px; }
+.composer-setting-label h3 { margin: 0; font-size: 10px; font-weight: 650; }
+.composer-setting-label p { margin: 3px 0 0; color: var(--color-text-tertiary); font-size: 8px; line-height: 1.45; }
+.composer-setting-control { min-width: 0; }
+.composer-setting label, .project-identity-pane label { gap: 5px; font-size: 9px; font-weight: 600; }
+.composer-setting input, .composer-setting select, .project-identity-pane input { min-height: 34px; border-color: var(--color-border-strong); border-radius: 6px; font-size: 10px; }
+.composer-setting select:disabled { background: var(--color-surface-subtle); color: var(--color-text-tertiary); }
+
+.branch-mode-options { padding: 3px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface-subtle); }
+.branch-mode-options > label { min-width: 0; min-height: 36px; padding: 5px 7px; display: flex; align-items: center; gap: 7px; border: 0; border-radius: 4px; cursor: pointer; }
+.branch-mode-options > label.selected { background: var(--color-surface); box-shadow: 0 0 0 1px var(--color-border); }
+.branch-mode-options input { width: 12px; min-height: 12px; margin: 0; accent-color: var(--color-text); }
+.branch-mode-options span { min-width: 0; display: grid; gap: 1px; }
+.branch-mode-options strong { font-size: 9px; }
+.branch-mode-options small { color: var(--color-text-secondary); font-size: 7px; font-weight: 450; }
+
+.branch-control, .branch-fields { display: grid; gap: 8px; }
+.branch-fields .form-grid { grid-template-columns: .85fr 1.15fr; gap: 8px; }
+.inline-notice { margin: 0; padding: 7px 9px; border-left: 2px solid var(--color-text); background: var(--color-surface-subtle); color: var(--color-text-secondary); font-size: 8px; line-height: 1.45; }
+.branch-target-note { margin: 0; color: var(--color-text-secondary); font-size: 8px; }
+.branch-target-note code { padding: 0; background: transparent; color: var(--color-text); }
+.selection-metadata { min-height: 34px; padding: 0 9px; display: flex; align-items: center; gap: 8px; border-radius: 6px; background: var(--color-surface-subtle); color: var(--color-text-secondary); font-size: 8px; }
+.selection-metadata code { margin-left: auto; padding: 0; background: transparent; color: var(--color-text); }
+
+.setup-setting { padding-block: 10px; }
+.setup-options { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.creation-disclosure { border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }
+.creation-disclosure > summary { min-height: 40px; padding: 0 9px; display: flex; align-items: center; gap: 7px; cursor: pointer; list-style: none; }
+.creation-disclosure > summary::-webkit-details-marker { display: none; }
+.creation-disclosure > summary::before { content: "›"; color: var(--color-text-tertiary); font-size: 15px; transition: transform 120ms ease; }
+.creation-disclosure[open] > summary::before { transform: rotate(90deg); }
+.creation-disclosure > summary > span { min-width: 0; display: grid; gap: 1px; }
+.creation-disclosure > summary strong { font-size: 8px; font-weight: 600; }
+.creation-disclosure > summary small { overflow: hidden; color: var(--color-text-secondary); font-size: 7px; text-overflow: ellipsis; white-space: nowrap; }
+.creation-disclosure > summary em { margin-left: auto; color: var(--color-text-tertiary); font-size: 7px; font-style: normal; text-transform: uppercase; }
+.disclosure-content { padding: 10px; border-top: 1px solid var(--color-border); }
+.environment-toolbar { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.environment-toolbar p, .environment-draft-empty { margin: 0; color: var(--color-text-secondary); font-size: 8px; line-height: 1.4; }
+.environment-drafts { gap: 7px; }
+.environment-draft { grid-template-columns: 1fr; gap: 6px; }
+.environment-draft label { font-size: 8px; }
+.environment-draft input { min-height: 32px; }
+.environment-draft .check-row { min-height: 28px; font-size: 8px; }
+.environment-draft .check-row input { width: 13px; min-height: 13px; }
+.environment-draft > button { justify-self: start; }
+
+.workspace-create-final { padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; background: var(--color-surface-subtle); }
+.workspace-create-final h2 { margin: 0; font-size: 11px; }
+.workspace-create-final > div > p { margin: 2px 0 5px; color: var(--color-text-secondary); font-size: 8px; }
+.final-workspace-facts { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--color-text-tertiary); font-size: 7px; }
+.final-workspace-facts span + span::before { margin-right: 12px; content: "·"; }
+.create-workspace-action { width: auto; min-width: 140px; min-height: 34px; flex: 0 0 auto; font-size: 10px; }
+.composer-settings > .error { margin: 10px 16px 0; border: 1px solid var(--color-text); border-radius: 6px; background: var(--color-surface); color: var(--color-text); font-size: 9px; }
+.composer-settings .github-reconnect .button { border-color: var(--color-text); background: var(--color-surface); color: var(--color-text); }
+
+.project-identity-pane { padding: 18px 16px; display: grid; align-content: start; gap: 16px; }
+.project-identity-pane h2 { margin: 4px 0; font-size: 16px; }
+.project-identity-pane p { margin: 0; color: var(--color-text-secondary); font-size: 9px; line-height: 1.5; }
+.visibility-options { display: grid; gap: 5px; }
+.visibility-options legend { margin: 0 0 5px; font-size: 9px; font-weight: 600; }
+.visibility-options > div { padding: 3px; display: grid; grid-template-columns: 1fr 1fr; gap: 3px; border: 1px solid var(--color-border); border-radius: 7px; background: var(--color-surface); }
+.visibility-options label { min-height: 30px; display: flex; align-items: center; justify-content: center; border-radius: 4px; color: var(--color-text-secondary); cursor: pointer; }
+.visibility-options label.selected { background: var(--color-text); color: var(--color-surface); }
+
+@media (max-width: 820px) {
+  .workspace-composer { grid-template-columns: minmax(210px, .7fr) minmax(410px, 1.3fr); }
+  .composer-setting { grid-template-columns: 96px minmax(0, 1fr); gap: 10px; }
+}
+
+@media (max-width: 680px) {
+  .create-workspace-page { padding: 18px 12px 28px; }
+  .create-heading { display: grid; gap: 8px; }
+  .create-heading h1 { font-size: 21px; }
+  .source-options { width: 100%; grid-template-columns: 1fr 1fr; }
+  .source-options > label { justify-content: center; }
+  .workspace-composer { display: grid; grid-template-columns: 1fr; overflow: visible; }
+  .repository-picker, .project-identity-pane { border-right: 0; border-bottom: 1px solid var(--color-border); }
+  .repository-options { max-height: 210px; }
+  .composer-project-heading { min-height: 58px; padding-inline: 12px; }
+  .repository-badges code { display: none; }
+  .composer-setting { padding: 11px 12px; grid-template-columns: 1fr; gap: 7px; }
+  .composer-setting-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .composer-setting-label p { margin: 0; text-align: right; }
+  .setup-options, .branch-fields .form-grid { grid-template-columns: 1fr; }
+  .workspace-create-final { padding: 12px; display: grid; }
+  .create-workspace-action { width: 100%; }
+}

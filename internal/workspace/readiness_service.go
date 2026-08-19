@@ -27,13 +27,8 @@ func (s *Service) ConfigureProjectRoot(ctx context.Context, id, root string) err
 }
 
 func profilePreparationDetail(profile ProjectProfile) string {
-	parts := append([]string{}, profile.Languages...)
-	parts = append(parts, profile.PackageManagers...)
-	if profile.ProjectRoot != "." {
-		parts = append(parts, profile.ProjectRoot)
+	if profile.SetupCommand == "" {
+		return "No dependency installation is required"
 	}
-	if len(parts) == 0 {
-		return "Generic repository"
-	}
-	return strings.Join(parts, " · ")
+	return "Running " + profile.SetupCommand
 }

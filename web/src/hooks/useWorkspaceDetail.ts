@@ -35,22 +35,21 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
   const stopRequested = useRef("");
 
   const loadMessages = useCallback(async () => {
-    if (!workspace || !session) return;
-    const key = `${workspace.id}:${session.id}`;
+    if (!workspaceID || !sessionID) return;
+    const key = `${workspaceID}:${sessionID}`;
     try {
-      const values = await api.messages(workspace.id, session.id);
-      if (selection.current === key) setMessages(values);
+      const values = await api.messages(workspaceID, sessionID);
+      if (selection.current === key) setMessages((current) => reconcileMessages(current, values));
     } catch (error) {
       if (selection.current === key) setMessageError((error as Error).message);
     }
-  }, [session, workspace]);
+  }, [sessionID, workspaceID]);
 
   const loadChanges = useCallback(async () => {
-    if (!workspace) return;
-    const workspaceID = workspace.id;
-    if (workspace.status !== "ready") {
+    if (!workspaceID) return;
+    if (workspace?.status !== "ready") {
       setChanges(
-        `Changes are available after the workspace is ready.\n\nCurrent status: ${statusLabel(workspace.status)}`,
+        `Changes are available after the workspace is ready.\n\nCurrent status: ${statusLabel(workspace?.status || "unavailable")}`,
       );
       return;
     }
@@ -63,19 +62,22 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
     } catch (error) {
       if (selection.current.startsWith(`${workspaceID}:`)) setChanges((error as Error).message);
     }
-  }, [workspace]);
+  }, [workspace?.status, workspaceID]);
 
   useEffect(() => {
-    const key = workspace && session ? `${workspace.id}:${session.id}` : "";
+    const key = workspaceID && sessionID ? `${workspaceID}:${sessionID}` : "";
+    const changed = selection.current !== key;
     selection.current = key;
-    setMessages([]);
-    setMessageError("");
+    if (changed) {
+      setMessages([]);
+      setMessageError("");
+    }
     if (!key) {
       setChanges("No changes loaded.");
       return;
     }
     void Promise.all([loadMessages(), loadChanges()]);
-  }, [loadChanges, loadMessages, session, workspace]);
+  }, [loadChanges, loadMessages, sessionID, workspaceID]);
 
   const refreshRun = useCallback(async () => {
     if (!workspaceID || !sessionID) return;
@@ -93,7 +95,9 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
           api.sessionByID(workspaceID, sessionID),
         ]);
         onSessionUpdate(nextSession);
-        if (selection.current === key) setMessages(nextMessages);
+        if (selection.current === key) {
+          setMessages((current) => reconcileMessages(current, nextMessages));
+        }
         if (nextSession.status !== "working") await loadChanges();
       } while (refreshPending.current && selection.current === key);
     } catch (error) {
@@ -187,4 +191,18 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
     stopRun,
     publish,
   };
+}
+
+export function reconcileMessages(current: Message[], incoming: Message[]): Message[] {
+  const sharedLength = Math.min(current.length, incoming.length);
+  for (let index = 0; index < sharedLength; index += 1) {
+    const currentID = current[index].id;
+    const incomingID = incoming[index].id;
+    if (currentID === undefined || incomingID === undefined || currentID !== incomingID) return incoming;
+  }
+  // Server events can start overlapping message requests. A slower, older response
+  // must not remove tool activity that a newer response already made visible.
+  if (current.length > incoming.length) return current;
+  if (current.length === incoming.length) return current;
+  return [...current, ...incoming.slice(current.length)];
 }

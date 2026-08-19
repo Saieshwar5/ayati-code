@@ -20,11 +20,14 @@ const (
 	StatusNeedsConfiguration   = "needs_configuration"
 	StatusReady                = "ready"
 	StatusStopped              = "stopped"
+	StatusDeleting             = "deleting"
+	StatusDeletionFailed       = "deletion_failed"
 )
 
 var statuses = map[string]bool{
 	StatusCreating: true, StatusInitializing: true, StatusInitializationFailed: true,
 	StatusNeedsConfiguration: true, StatusReady: true, StatusStopped: true,
+	StatusDeleting: true, StatusDeletionFailed: true,
 }
 
 type Workspace struct {
@@ -34,8 +37,6 @@ type Workspace struct {
 	BaseBranch              string             `json:"base_branch"`
 	Branch                  string             `json:"branch"`
 	CreateBranch            bool               `json:"create_branch"`
-	Authority               Authority          `json:"authority"`
-	EffectiveMountMode      string             `json:"effective_mount_mode,omitempty"`
 	PreparationStage        string             `json:"preparation_stage"`
 	PreparationDetail       string             `json:"preparation_detail,omitempty"`
 	PreparationFailedStage  string             `json:"preparation_failed_stage,omitempty"`
@@ -59,7 +60,6 @@ type Create struct {
 	BaseBranch   string
 	Branch       string
 	CreateBranch bool
-	Authority    Authority
 	Setup        string
 	Path         string
 	Root         string
@@ -127,11 +127,6 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
 	input.Branch = strings.TrimSpace(input.Branch)
 	input.Setup = strings.TrimSpace(input.Setup)
-	authority, err := ParseAuthority(string(input.Authority))
-	if err != nil {
-		return Workspace{}, err
-	}
-	input.Authority = authority
 	if input.Repository == "" || input.CloneURL == "" || input.BaseBranch == "" || input.Branch == "" {
 		return Workspace{}, errors.New("repository, clone URL, base branch, and branch are required")
 	}
@@ -159,7 +154,6 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		ID: id, Repository: input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
 		CreateBranch:     input.CreateBranch,
-		Authority:        input.Authority,
 		PreparationStage: PreparationPending, ConfigurationCandidates: []ProjectCandidate{},
 		Path: path, Status: StatusCreating,
 		CreatedAt: now, UpdatedAt: now,
@@ -170,12 +164,11 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
-		id, repository, clone_url, base_branch, branch, create_branch, authority,
-		effective_mount_mode, setup_command, path,
+		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, '', ?, ?, ?, ?, '', 0, '', ?, ?)`,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
 		value.ID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
-		value.CreateBranch, value.Authority, value.Setup, value.Path, value.ID, value.Status,
+		value.CreateBranch, value.Setup, value.Path, value.ID, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
 	if err != nil {
@@ -256,7 +249,7 @@ func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 }
 
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
-	create_branch, authority, effective_mount_mode, preparation_stage, preparation_detail, preparation_failed_stage,
+	create_branch, preparation_stage, preparation_detail, preparation_failed_stage,
 	selected_project_root, configuration_candidates, setup_command, path, sandbox_name, status, error,
 	pull_request_number, pull_request_url, archived_at, created_at, updated_at FROM workspaces`
 
@@ -267,7 +260,7 @@ func scanWorkspace(row scanner) (Workspace, error) {
 	var archivedAt, createdAt, updatedAt, candidates, legacySandboxName string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
-		&value.CreateBranch, &value.Authority, &value.EffectiveMountMode,
+		&value.CreateBranch,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
 		&value.Path, &legacySandboxName, &value.Status, &value.Error,

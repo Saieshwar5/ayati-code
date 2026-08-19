@@ -36,7 +36,7 @@ func (s *RuntimeService) Start(ctx context.Context, input StartInput) (Assignmen
 	}
 	spec := RuntimeSpec{
 		Environment: value, Lease: lease, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+		CachePath: input.CachePath,
 	}
 	runtime, err := s.driver.Create(ctx, spec)
 	if err != nil {
@@ -59,6 +59,10 @@ func (s *RuntimeService) Stop(ctx context.Context, input StopInput) error {
 	if err != nil {
 		return err
 	}
+	return s.release(ctx, lease, spec)
+}
+
+func (s *RuntimeService) release(ctx context.Context, lease Lease, spec RuntimeSpec) error {
 	if lease.State != LeaseReleasing {
 		if err := s.store.BeginRelease(ctx, lease.ID, lease.Generation); err != nil {
 			return err
@@ -100,61 +104,6 @@ func (s *RuntimeService) Restore(ctx context.Context, input StopInput) (Assignme
 	return Assignment{Environment: value, Lease: lease, Runtime: runtime}, nil
 }
 
-func (s *RuntimeService) Replace(ctx context.Context, input ReplaceInput) (Assignment, error) {
-	current := StopInput{
-		WorkspaceID: input.WorkspaceID, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath, WorkspaceWritable: input.PreviousWorkspaceWritable,
-	}
-	value, lease, spec, err := s.currentSpec(ctx, current)
-	if err != nil {
-		return Assignment{}, err
-	}
-	if lease.State != LeaseActive {
-		return Assignment{}, ErrLeaseState
-	}
-	if err := s.driver.Destroy(ctx, spec, lease.RuntimeID); err != nil {
-		cause := s.failLease(ctx, lease, fmt.Errorf("remove previous environment runtime: %w", err))
-		return Assignment{}, &ReplacementError{Cause: cause}
-	}
-	previous := spec
-	spec.WorkspaceWritable = input.WorkspaceWritable
-	runtime, err := s.driver.Create(ctx, spec)
-	if err != nil {
-		return Assignment{}, s.restoreReplacement(ctx, lease, previous,
-			fmt.Errorf("replace environment runtime: %w", err))
-	}
-	if err := s.store.ReplaceRuntime(ctx, lease.ID, lease.Generation, runtime.ID); err != nil {
-		cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		destroyErr := s.driver.Destroy(cleanup, spec, runtime.ID)
-		cancel()
-		cause := errors.Join(fmt.Errorf("record replacement runtime: %w", err),
-			contextualError("destroy unowned runtime", destroyErr))
-		if destroyErr != nil {
-			return Assignment{}, &ReplacementError{Cause: s.failLease(ctx, lease, cause)}
-		}
-		return Assignment{}, s.restoreReplacement(ctx, lease, previous, cause)
-	}
-	lease.RuntimeID = runtime.ID
-	return Assignment{Environment: value, Lease: lease, Runtime: runtime}, nil
-}
-
-func (s *RuntimeService) restoreReplacement(
-	ctx context.Context, lease Lease, previous RuntimeSpec, cause error,
-) error {
-	cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	runtime, restoreErr := s.driver.Create(cleanup, previous)
-	if restoreErr == nil {
-		restoreErr = s.store.ReplaceRuntime(cleanup, lease.ID, lease.Generation, runtime.ID)
-	}
-	if restoreErr == nil {
-		return &ReplacementError{Cause: cause, Recovered: true}
-	}
-	failed := s.failLease(ctx, lease, errors.Join(cause,
-		fmt.Errorf("restore previous environment runtime: %w", restoreErr)))
-	return &ReplacementError{Cause: failed}
-}
-
 func (s *RuntimeService) Current(ctx context.Context, input StopInput) (Assignment, error) {
 	value, lease, _, err := s.currentSpec(ctx, input)
 	if err != nil {
@@ -162,14 +111,22 @@ func (s *RuntimeService) Current(ctx context.Context, input StopInput) (Assignme
 	}
 	return Assignment{Environment: value, Lease: lease, Runtime: Runtime{
 		ID: lease.RuntimeID, EnvironmentID: value.ID, WorkspaceID: lease.WorkspaceID,
-		LeaseID: lease.ID, Generation: lease.Generation, WorkspaceWritable: input.WorkspaceWritable,
+		LeaseID: lease.ID, Generation: lease.Generation,
 	}}, nil
 }
 
 func (s *RuntimeService) Cleanup(ctx context.Context, input StopInput) error {
 	lease, err := s.store.ActiveForWorkspace(ctx, strings.TrimSpace(input.WorkspaceID))
 	if err == nil {
-		return s.Stop(ctx, input)
+		value, loadErr := s.store.Get(ctx, lease.EnvironmentID)
+		if loadErr != nil {
+			return fmt.Errorf("load leased environment: %w", loadErr)
+		}
+		spec := RuntimeSpec{
+			Environment: value, Lease: lease, WorkspacePath: input.WorkspacePath,
+			CachePath: input.CachePath,
+		}
+		return s.release(ctx, lease, spec)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return fmt.Errorf("load active workspace environment lease: %w", err)
@@ -190,7 +147,7 @@ func (s *RuntimeService) Cleanup(ctx context.Context, input StopInput) error {
 	}
 	spec := RuntimeSpec{
 		Environment: value, Lease: lease, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+		CachePath: input.CachePath,
 	}
 	if err := s.driver.Destroy(ctx, spec, lease.RuntimeID); err != nil {
 		return fmt.Errorf("clean failed environment runtime: %w", err)
@@ -215,7 +172,7 @@ func (s *RuntimeService) currentSpec(
 	}
 	spec := RuntimeSpec{
 		Environment: value, Lease: lease, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+		CachePath: input.CachePath,
 	}
 	return value, lease, spec, nil
 }

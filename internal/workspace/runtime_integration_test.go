@@ -63,8 +63,7 @@ func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
 	}
 	service := &Service{store: store, environment: runtime, git: &recordingGit{}, root: root}
 	t.Cleanup(func() {
-		_ = runtime.Stop(context.Background(), runtimeInput(value, true))
-		_ = runtime.Stop(context.Background(), runtimeInput(value, false))
+		_ = runtime.Stop(context.Background(), runtimeInput(value))
 	})
 	if err := service.Initialize(ctx, value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -74,30 +73,14 @@ func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
 		t.Fatalf("first lease = %#v, error = %v", firstLease, err)
 	}
 	shell, loaded, err := service.Shell(ctx, value.ID)
-	if err != nil || loaded.EffectiveMountMode != "ro" {
-		t.Fatalf("Explore Shell: workspace = %#v, error = %v", loaded, err)
+	if err != nil {
+		t.Fatalf("Shell: workspace = %#v, error = %v", loaded, err)
 	}
 	result := shell.Execute(ctx, agent.ShellRequest{
-		Command: "! touch blocked && touch /cache/prepared && printf explored",
+		Command: "touch allowed.txt && touch /cache/prepared && printf ready",
 	})
-	if result.ExitCode != 0 || !strings.Contains(result.Stdout, "explored") {
-		t.Fatalf("Explore result = %#v", result)
-	}
-	updated, err := service.ChangeAuthority(ctx, value.ID, AuthorityChange{
-		Authority: AuthorityDevelop, Branch: "perpetual/integration", CreateBranch: true,
-	})
-	if err != nil || updated.EffectiveMountMode != "rw" {
-		t.Fatalf("ChangeAuthority: workspace = %#v, error = %v", updated, err)
-	}
-	shell, _, err = service.Shell(ctx, value.ID)
-	if err != nil {
-		t.Fatalf("Develop Shell: %v", err)
-	}
-	result = shell.Execute(ctx, agent.ShellRequest{
-		Command: "printf allowed > allowed.txt && test -f /cache/prepared",
-	})
-	if result.ExitCode != 0 || result.Error != "" {
-		t.Fatalf("Develop result = %#v", result)
+	if result.ExitCode != 0 || !strings.Contains(result.Stdout, "ready") {
+		t.Fatalf("Shell result = %#v", result)
 	}
 	if err := service.Stop(ctx, value.ID); err != nil {
 		t.Fatalf("Stop: %v", err)
@@ -114,8 +97,8 @@ func TestWorkspaceLeaseRuntimeIntegration(t *testing.T) {
 		secondLease.ID == firstLease.ID || secondLease.RuntimeID == firstLease.RuntimeID {
 		t.Fatalf("second lease = %#v, error = %v", secondLease, err)
 	}
-	if data, err := os.ReadFile(filepath.Join(value.Path, "allowed.txt")); err != nil || string(data) != "allowed" {
-		t.Fatalf("preserved workspace data = %q, error = %v", data, err)
+	if _, err := os.Stat(filepath.Join(value.Path, "allowed.txt")); err != nil {
+		t.Fatalf("preserved workspace file: %v", err)
 	}
 	if err := service.Stop(ctx, value.ID); err != nil {
 		t.Fatalf("final Stop: %v", err)

@@ -105,7 +105,7 @@ export function EnvironmentPanel({ workspace, sessions }: EnvironmentPanelProps)
         </div>
       </div>
       <p className="scope-note">
-        Values are write-only, encrypted locally, and available to shell commands in every session.
+        Values are write-only, encrypted locally, and available to shell commands in every conversation.
       </p>
       {locked && (
         <p className="environment-lock-note">

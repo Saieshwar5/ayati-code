@@ -76,10 +76,14 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *http.Request) {
 	parts := workspaceParts(request)
 	if request.Method == http.MethodDelete && len(parts) == 1 {
+		remove := func() error { return s.workspaces.Delete(request.Context(), parts[0]) }
+		var err error
 		if s.chat != nil {
-			s.chat.CancelAndWait(parts[0])
+			err = s.chat.WithWorkspaceIdle(parts[0], remove)
+		} else {
+			err = remove()
 		}
-		if err := s.workspaces.Delete(request.Context(), parts[0]); err != nil {
+		if err != nil {
 			s.writeError(writer, http.StatusConflict, err.Error())
 			return
 		}

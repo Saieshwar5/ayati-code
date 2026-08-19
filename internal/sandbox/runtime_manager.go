@@ -23,7 +23,7 @@ func (m *RuntimeManager) Ensure(
 		}
 		return m.service.Start(ctx, environment.StartInput{
 			WorkspaceID: input.WorkspaceID, WorkspacePath: input.WorkspacePath,
-			CachePath: input.CachePath, WorkspaceWritable: input.WorkspaceWritable,
+			CachePath: input.CachePath,
 		})
 	}
 	return m.service.Restore(ctx, input)
@@ -44,12 +44,6 @@ func (m *RuntimeManager) Start(
 	ctx context.Context, input environment.StartInput,
 ) (environment.Assignment, error) {
 	return m.service.Start(ctx, input)
-}
-
-func (m *RuntimeManager) Replace(
-	ctx context.Context, input environment.ReplaceInput,
-) (environment.Assignment, error) {
-	return m.service.Replace(ctx, input)
 }
 
 func (m *RuntimeManager) Stop(ctx context.Context, input environment.StopInput) error {

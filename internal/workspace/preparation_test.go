@@ -5,13 +5,12 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
-func TestExplorePreparationRejectsProjectChanges(t *testing.T) {
+func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -27,22 +26,21 @@ func TestExplorePreparationRejectsProjectChanges(t *testing.T) {
 	environment := &fakeEnvironment{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
 	git := &recordingGit{statusResults: []string{"", "?? package-lock.json\n"}}
 	service := &Service{store: store, environment: environment, git: git}
-	err = service.Initialize(context.Background(), value.ID)
-	if err == nil || !strings.Contains(err.Error(), "setup modified project files") {
-		t.Fatalf("Initialize error = %v", err)
+	if err := service.Initialize(context.Background(), value.ID); err != nil {
+		t.Fatalf("Initialize: %v", err)
 	}
 	loaded, loadErr := store.Get(context.Background(), value.ID)
-	if loadErr != nil || loaded.Status != StatusInitializationFailed || loaded.Profile == nil ||
+	if loadErr != nil || loaded.Status != StatusReady || loaded.Profile == nil ||
 		loaded.Profile.SetupResult != "passed" || loaded.Profile.BaselineResult != "changed" ||
-		loaded.PreparationStage != PreparationFailed || loaded.PreparationFailedStage != PreparationVerifying {
+		loaded.PreparationStage != PreparationReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, loadErr)
 	}
-	if len(environment.ensured) != 1 || len(environment.removed) != 1 {
+	if len(environment.ensured) != 1 || len(environment.removed) != 0 {
 		t.Fatalf("sandbox lifecycle = ensured %#v, removed %#v", environment.ensured, environment.removed)
 	}
 }
 
-func TestDevelopPreparationRecordsAllowedProjectChanges(t *testing.T) {
+func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -50,7 +48,7 @@ func TestDevelopPreparationRecordsAllowedProjectChanges(t *testing.T) {
 	t.Cleanup(func() { _ = store.Close() })
 	value, err := store.Create(context.Background(), Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "perpetual/change", Authority: AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change",
 		Setup: "npm install", Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {

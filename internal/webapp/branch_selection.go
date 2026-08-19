@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
-	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 const (
@@ -25,7 +24,6 @@ func (s *Server) resolveBranchSelection(
 	request *http.Request,
 	token string,
 	repository githubapp.Repository,
-	authority workspace.Authority,
 	mode, base, working string,
 ) (branchSelection, error) {
 	base, working = strings.TrimSpace(base), strings.TrimSpace(working)
@@ -37,13 +35,6 @@ func (s *Server) resolveBranchSelection(
 	for _, branch := range branches {
 		exists[branch.Name] = true
 	}
-	if authority == workspace.AuthorityExplore {
-		if !exists[base] {
-			return branchSelection{}, fmt.Errorf("branch %q is not available", base)
-		}
-		return branchSelection{base: base, working: base}, nil
-	}
-
 	switch strings.TrimSpace(mode) {
 	case branchModeNew:
 		if !exists[base] {

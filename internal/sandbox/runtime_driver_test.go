@@ -12,7 +12,7 @@ import (
 )
 
 func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkDisabled)
+	spec := testRuntimeSpec(t, environment.NetworkDisabled)
 	runtimeID := strings.Repeat("f", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
@@ -26,7 +26,7 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if runtime.ID != runtimeID || runtime.Running != true || runtime.WorkspaceWritable {
+	if runtime.ID != runtimeID || !runtime.Running {
 		t.Fatalf("runtime = %#v", runtime)
 	}
 	if len(runner.calls) != 4 {
@@ -39,17 +39,20 @@ func TestDockerDriverCreatesVerifiedLeaseRuntime(t *testing.T) {
 		"--label perpetual.lease=" + spec.Lease.ID, "--label perpetual.generation=3",
 		"--read-only", "--cap-drop ALL", "--security-opt no-new-privileges",
 		"--network none", "--pids-limit 384", "--memory 6144m", "--cpus 3.500",
-		"/run/perpetual:rw,nosuid,nodev", "dst=/workspace,readonly", "dst=/cache",
+		"/run/perpetual:rw,nosuid,nodev", "dst=/workspace", "dst=/cache",
 		spec.Environment.ImageDigest,
 	} {
 		if !strings.Contains(create, expected) {
 			t.Fatalf("create arguments %q do not contain %q", create, expected)
 		}
 	}
+	if strings.Contains(create, "dst=/workspace,readonly") {
+		t.Fatalf("workspace mount is read-only: %q", create)
+	}
 }
 
 func TestDockerDriverRestartsMatchingRuntime(t *testing.T) {
-	spec := testRuntimeSpec(t, true, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("e", 64)
 	runner := &fakeRunner{results: []commandResult{
 		{stdout: runtimeMetadata(t, spec, runtimeID, false, nil)}, {},
@@ -57,7 +60,7 @@ func TestDockerDriverRestartsMatchingRuntime(t *testing.T) {
 	}}
 	driver := &DockerDriver{runner: runner}
 	runtime, err := driver.Create(context.Background(), spec)
-	if err != nil || !runtime.Running || !runtime.WorkspaceWritable {
+	if err != nil || !runtime.Running {
 		t.Fatalf("runtime = %#v, error = %v", runtime, err)
 	}
 	if len(runner.calls) != 3 || runner.calls[1][0] != "start" || runner.calls[1][1] != runtimeID {
@@ -66,7 +69,7 @@ func TestDockerDriverRestartsMatchingRuntime(t *testing.T) {
 }
 
 func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("d", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
@@ -89,7 +92,7 @@ func TestDockerDriverCleansNewRuntimeWhenVerificationFails(t *testing.T) {
 }
 
 func TestDockerDriverCleansNamedRuntimeWhenDockerReturnsInvalidIdentity(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runner := &fakeRunner{
 		results: []commandResult{{stderr: "No such container"}, {stdout: "not-an-id"}, {}},
 		errors:  []error{errors.New("missing")},
@@ -106,7 +109,7 @@ func TestDockerDriverCleansNamedRuntimeWhenDockerReturnsInvalidIdentity(t *testi
 }
 
 func TestDockerDriverRefusesRuntimeOwnedByAnotherLease(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("c", 64)
 	runner := &fakeRunner{results: []commandResult{{
 		stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
@@ -124,7 +127,7 @@ func TestDockerDriverRefusesRuntimeOwnedByAnotherLease(t *testing.T) {
 }
 
 func TestDockerDriverRejectsUnexpectedHostMount(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("8", 64)
 	runner := &fakeRunner{results: []commandResult{{
 		stdout: runtimeMetadata(t, spec, runtimeID, true, func(value map[string]any) {
@@ -143,7 +146,7 @@ func TestDockerDriverRejectsUnexpectedHostMount(t *testing.T) {
 }
 
 func TestDockerDriverDestroysOnlyVerifiedRuntime(t *testing.T) {
-	spec := testRuntimeSpec(t, true, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("b", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
@@ -162,7 +165,7 @@ func TestDockerDriverDestroysOnlyVerifiedRuntime(t *testing.T) {
 }
 
 func TestDockerDriverFindsGenerationRuntimeWhenRecordedIdentityIsStale(t *testing.T) {
-	spec := testRuntimeSpec(t, true, environment.NetworkOutbound)
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	recordedID := strings.Repeat("b", 64)
 	currentID := strings.Repeat("c", 64)
 	runner := &fakeRunner{
@@ -183,15 +186,13 @@ func TestDockerDriverFindsGenerationRuntimeWhenRecordedIdentityIsStale(t *testin
 	}
 }
 
-func TestDockerDriverDestroysRuntimeWhenRecordedAccessModeIsStale(t *testing.T) {
-	spec := testRuntimeSpec(t, false, environment.NetworkOutbound)
-	actual := spec
-	actual.WorkspaceWritable = true
+func TestDockerDriverDestroysReadOnlyRuntime(t *testing.T) {
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
 	runtimeID := strings.Repeat("d", 64)
 	runner := &fakeRunner{
 		results: []commandResult{
-			{stdout: runtimeMetadata(t, actual, runtimeID, true, nil)},
-			{stdout: runtimeMetadata(t, actual, runtimeID, true, nil)}, {},
+			{stdout: runtimeMetadata(t, spec, runtimeID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, runtimeID, true, readOnlyWorkspaceMount)}, {},
 			{stderr: "No such container"},
 		},
 		errors: []error{nil, nil, nil, errors.New("missing")},
@@ -205,7 +206,34 @@ func TestDockerDriverDestroysRuntimeWhenRecordedAccessModeIsStale(t *testing.T) 
 	}
 }
 
-func testRuntimeSpec(t *testing.T, writable bool, network string) environment.RuntimeSpec {
+func TestDockerDriverRecreatesReadOnlyRuntimeAsWritable(t *testing.T) {
+	spec := testRuntimeSpec(t, environment.NetworkOutbound)
+	readOnlyID := strings.Repeat("d", 64)
+	currentID := strings.Repeat("e", 64)
+	runner := &fakeRunner{
+		results: []commandResult{
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{stdout: runtimeMetadata(t, spec, readOnlyID, true, readOnlyWorkspaceMount)},
+			{}, {stderr: "No such container"},
+			{stdout: currentID}, {},
+			{stdout: runtimeMetadata(t, spec, currentID, true, nil)},
+		},
+		errors: []error{
+			nil, nil, nil, nil, errors.New("missing"), nil, nil, nil,
+		},
+	}
+	driver := &DockerDriver{runner: runner}
+	runtime, err := driver.Create(context.Background(), spec)
+	if err != nil || runtime.ID != currentID || !runtime.Running {
+		t.Fatalf("runtime = %#v, error = %v", runtime, err)
+	}
+	if len(runner.calls) != 8 || runner.calls[3][0] != "rm" || runner.calls[5][0] != "create" {
+		t.Fatalf("calls = %#v", runner.calls)
+	}
+}
+
+func testRuntimeSpec(t *testing.T, network string) environment.RuntimeSpec {
 	t.Helper()
 	root := t.TempDir()
 	workspacePath := filepath.Join(root, "repo")
@@ -221,7 +249,6 @@ func testRuntimeSpec(t *testing.T, writable bool, network string) environment.Ru
 			WorkspaceID: strings.Repeat("3", 24), Generation: 3, State: environment.LeaseAcquiring,
 		},
 		WorkspacePath: workspacePath, CachePath: filepath.Join(root, "cache"),
-		WorkspaceWritable: writable,
 	}
 }
 
@@ -254,7 +281,7 @@ func runtimeMetadata(
 			"RestartPolicy": map[string]any{"Name": "no"},
 		},
 		"Mounts": []map[string]any{
-			{"Type": "bind", "Source": spec.WorkspacePath, "Destination": "/workspace", "RW": spec.WorkspaceWritable},
+			{"Type": "bind", "Source": spec.WorkspacePath, "Destination": "/workspace", "RW": true},
 			{"Type": "bind", "Source": spec.CachePath, "Destination": "/cache", "RW": true},
 		},
 	}
@@ -266,4 +293,8 @@ func runtimeMetadata(
 		t.Fatalf("marshal runtime metadata: %v", err)
 	}
 	return string(data)
+}
+
+func readOnlyWorkspaceMount(value map[string]any) {
+	value["Mounts"].([]map[string]any)[0]["RW"] = false
 }

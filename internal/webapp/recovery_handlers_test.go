@@ -18,7 +18,7 @@ func TestHandlerResumesStoppedWorkspaceWithoutInitialization(t *testing.T) {
 	handler, store, workspaces, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
-		BaseBranch: "main", Branch: "perpetual/change", Authority: workspace.AuthorityDevelop,
+		BaseBranch: "main", Branch: "perpetual/change",
 		Path: filepath.Join(t.TempDir(), "repo"),
 	})
 	if err != nil {

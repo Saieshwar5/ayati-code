@@ -1,17 +1,10 @@
-import type { AuthorityChangeInput, ProjectProfile, Workspace } from "../api/contracts";
-import { AuthorityControl } from "./AuthorityControl";
+import type { ProjectProfile, Workspace } from "../api/contracts";
 
 interface WorkspaceProfilePanelProps {
   workspace: Workspace;
-  agentWorking?: boolean;
-  onAuthorityChange?: (input: AuthorityChangeInput) => Promise<void>;
 }
 
-export function WorkspaceProfilePanel({
-  workspace,
-  agentWorking = false,
-  onAuthorityChange = async () => {},
-}: WorkspaceProfilePanelProps) {
+export function WorkspaceProfilePanel({ workspace }: WorkspaceProfilePanelProps) {
   const profile = workspace.project_profile;
   return (
     <section className="inspector-panel active" role="tabpanel">
@@ -22,11 +15,6 @@ export function WorkspaceProfilePanel({
         </div>
         <span className={`status ${workspace.status}`}>{workspace.status.replaceAll("_", " ")}</span>
       </div>
-      <AuthorityControl
-        workspace={workspace}
-        agentWorking={agentWorking}
-        onChange={onAuthorityChange}
-      />
       <div className="profile-summary">
         <ProfileFact label="Preparation" value={preparationLabel(workspace)} />
       </div>

@@ -77,73 +77,57 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
-		profilePreparationDetail(profile)); err != nil {
+	if err := s.store.UpdatePreparation(ctx, id, PreparationStartingEnvironment,
+		"Assigning capacity and starting the workspace container"); err != nil {
 		return s.fail(ctx, id, err)
 	}
 	if _, err := s.environment.Start(ctx, compute.StartInput{
 		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path), WorkspaceWritable: true,
+		CachePath: workspaceCachePath(value.Path),
 	}); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("acquire environment: %w", err))
 	}
+	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
+		profilePreparationDetail(profile)); err != nil {
+		return s.failActivePreparation(ctx, value, err)
+	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, true, err)
+		return s.failActivePreparation(ctx, value, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
 		"Checking the Git baseline"); err != nil {
-		return s.failActivePreparation(ctx, value, true, err)
+		return s.failActivePreparation(ctx, value, err)
 	}
 	after, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, true, fmt.Errorf("verify setup baseline: %w", err))
+		return s.failActivePreparation(ctx, value, fmt.Errorf("verify setup baseline: %w", err))
 	}
 	profile.BaselineResult = "clean"
 	if after != before {
 		profile.BaselineResult = "changed"
-		if value.Authority == AuthorityExplore {
-			_ = s.store.SaveProfile(ctx, id, profile)
-			return s.failActivePreparation(ctx, value, true, errors.New(
-				"setup modified project files; switch to Develop or adjust setup: "+boundedMessage(after),
-			))
-		}
 	}
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.failActivePreparation(ctx, value, true, err)
+		return s.failActivePreparation(ctx, value, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationSealing,
-		"Applying "+string(value.Authority)+" protection"); err != nil {
-		return s.failActivePreparation(ctx, value, true, err)
-	}
-	if value.Authority == AuthorityExplore {
-		if _, err := s.environment.Replace(ctx, compute.ReplaceInput{
-			WorkspaceID: value.ID, WorkspacePath: value.Path, CachePath: workspaceCachePath(value.Path),
-			PreviousWorkspaceWritable: true, WorkspaceWritable: false,
-		}); err != nil {
-			writable := compute.ReplacementRecovered(err)
-			return s.failActivePreparation(ctx, value, writable, fmt.Errorf("protect environment: %w", err))
-		}
-	}
-	if err := s.store.UpdateEffectiveMountMode(ctx, id, effectiveMountMode(value.Authority)); err != nil {
-		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
+		"Finalizing workspace"); err != nil {
+		return s.failActivePreparation(ctx, value, err)
 	}
 	now := time.Now().UTC()
 	profile.PreparedAt = &now
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
+		return s.failActivePreparation(ctx, value, err)
 	}
 	if err := s.store.CompletePreparation(ctx, id); err != nil {
-		return s.failActivePreparation(ctx, value, value.Authority == AuthorityDevelop, err)
+		return s.failActivePreparation(ctx, value, err)
 	}
 	return nil
 }
 
-func (s *Service) failActivePreparation(
-	ctx context.Context, value Workspace, writable bool, cause error,
-) error {
-	if err := s.environment.Stop(ctx, runtimeInput(value, writable)); err != nil && !errors.Is(err, sql.ErrNoRows) {
+func (s *Service) failActivePreparation(ctx context.Context, value Workspace, cause error) error {
+	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil && !errors.Is(err, sql.ErrNoRows) {
 		cause = fmt.Errorf("%w; release preparation environment: %v", cause, err)
 	}
 	return s.fail(ctx, value.ID, cause)
@@ -158,7 +142,7 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 	if err != nil {
 		return err
 	}
-	shell, err := s.environment.Open(ctx, runtimeInput(value, true), runtimeEnvironment(variables))
+	shell, err := s.environment.Open(ctx, runtimeInput(value), runtimeEnvironment(variables))
 	if err != nil {
 		return err
 	}

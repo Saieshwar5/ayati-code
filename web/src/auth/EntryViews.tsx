@@ -7,7 +7,7 @@ export function LoadingView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">Local coding workspace</p>
-        <h1>Preparing Perpetual…</h1>
+        <h1>Preparing perpetual…</h1>
       </section>
     </main>
   );
@@ -29,9 +29,9 @@ export function ConfigureView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">GitHub App required</p>
-        <h1>Connect Perpetual to GitHub</h1>
+        <h1>Connect perpetual to GitHub</h1>
         <p className="muted">
-          Start Perpetual with <code>PERPETUAL_GITHUB_CLIENT_ID</code> and{" "}
+          Start perpetual with <code>PERPETUAL_GITHUB_CLIENT_ID</code> and{" "}
           <code>PERPETUAL_GITHUB_CLIENT_SECRET</code>, using{" "}
           <code>http://127.0.0.1:8080/auth/github/callback</code> as the callback URL.
         </p>
@@ -45,10 +45,9 @@ export function LoginView() {
     <main>
       <section className="center-card">
         <p className="eyebrow">Local coding workspace</p>
-        <h1>Work on a GitHub project with Perpetual</h1>
+        <h1>Build with perpetual</h1>
         <p className="muted">
-          Choose a repository and branch, initialize one persistent sandbox, then discuss and
-          implement the work.
+          Connect a repository, prepare its environment, and work with an agent in one place.
         </p>
         <a className="primary button" href="/auth/github">
           Continue with GitHub

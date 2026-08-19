@@ -72,7 +72,7 @@ describe("AgentStudio", () => {
     const user = userEvent.setup();
     render(<WorkspaceApplication user={{ id: 1, login: "octocat", avatar_url: "avatar.png" }} />);
 
-    const studio = await screen.findByRole("complementary", { name: "Agent Studio navigation" });
+    const studio = await screen.findByRole("navigation", { name: "Agent settings" });
     expect(within(studio).getByRole("button", { name: /Agents/ })).toBeTruthy();
     expect(within(studio).getByRole("button", { name: /Providers/ })).toBeTruthy();
     expect(within(studio).getByRole("button", { name: /Skills/ })).toBeTruthy();
@@ -84,7 +84,15 @@ describe("AgentStudio", () => {
 
     await user.click(within(studio).getByRole("button", { name: /Agents/ }));
 
-    await user.click(screen.getByRole("button", { name: "＋ New agent" }));
+    const search = screen.getByRole("searchbox", { name: "Search agents" });
+    expect(screen.getByText("Default model · 20 steps")).toBeTruthy();
+    await user.type(search, "missing agent");
+    expect(screen.getByRole("heading", { name: "No matching agents" })).toBeTruthy();
+    await user.clear(search);
+    await user.click(screen.getByLabelText("Actions for Perpetual"));
+    expect(screen.getByRole("button", { name: "Duplicate" })).toBeTruthy();
+
+    await user.click(screen.getByRole("button", { name: "New agent" }));
     await user.clear(screen.getByLabelText("Emoji"));
     await user.type(screen.getByLabelText("Emoji"), "🧪");
     await user.type(screen.getByLabelText("Name"), "Test specialist");

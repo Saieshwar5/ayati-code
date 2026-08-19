@@ -40,7 +40,6 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		Branch       string                       `json:"branch"`
 		CreateBranch bool                         `json:"create_branch"`
 		BranchMode   string                       `json:"branch_mode"`
-		Authority    string                       `json:"authority"`
 		Setup        string                       `json:"setup_command"`
 		Environment  []workspace.EnvironmentInput `json:"environment"`
 	}
@@ -52,13 +51,8 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
-	authority, err := workspace.ParseAuthority(input.Authority)
-	if err != nil {
-		s.writeError(writer, http.StatusBadRequest, err.Error())
-		return
-	}
 	selection, err := s.resolveBranchSelection(request, credentials.AccessToken, repository,
-		authority, input.BranchMode, input.BaseBranch, input.Branch)
+		input.BranchMode, input.BaseBranch, input.Branch)
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
@@ -72,7 +66,7 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 	value, err := s.createManagedWorkspace(request.Context(), workspace.Create{
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: input.CreateBranch,
-		Authority: authority, Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
+		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
 	})
 	if err != nil {
 		s.writeError(writer, http.StatusBadRequest, "create workspace")
@@ -189,26 +183,6 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 				}
 			}()
 		}
-	case "authority":
-		var input workspace.AuthorityChange
-		if !s.decode(writer, request, &input) {
-			return
-		}
-		var updated workspace.Workspace
-		change := func() error {
-			var changeErr error
-			updated, changeErr = s.workspaces.ChangeAuthority(request.Context(), parts[0], input)
-			return changeErr
-		}
-		if s.chat != nil {
-			err = s.chat.WithWorkspaceIdle(parts[0], change)
-		} else {
-			err = change()
-		}
-		if err == nil {
-			s.writeJSON(writer, http.StatusOK, updated)
-			return
-		}
 	case "stop":
 		if s.chat != nil {
 			s.chat.CancelAndWait(parts[0])
@@ -245,10 +219,6 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		}
 		if strings.TrimSpace(input.CommitMessage) == "" {
 			s.writeError(writer, http.StatusBadRequest, "commit message is required")
-			return
-		}
-		if value.Authority != workspace.AuthorityDevelop {
-			s.writeError(writer, http.StatusConflict, "publishing requires Develop authority")
 			return
 		}
 		if value.Branch == value.BaseBranch {

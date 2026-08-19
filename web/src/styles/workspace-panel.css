@@ -1,0 +1,12 @@
+
+.tasks-create-row { width: 100%; min-height: 45px; padding: 6px 9px; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; justify-content: stretch; border: 0; border-bottom: 1px solid var(--color-border); border-radius: 0; background: var(--color-surface); text-align: left; }
+.tasks-create-row:hover { background: var(--color-surface-subtle); }
+.tasks-create-row > span:first-child { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--color-border-strong); border-radius: 6px; font-size: 15px; }
+.tasks-create-row > span:last-child { display: grid; gap: 2px; }
+.tasks-create-row strong { font-size: 9px; }
+.tasks-create-row small { color: var(--color-text-tertiary); font-size: 7px; }
+
+.workspace-dialog-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 18px; background: rgba(0, 0, 0, .28); }
+.workspace-dialog { width: min(520px, 100%); max-height: calc(100vh - 36px); position: relative; overflow-y: auto; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-surface); box-shadow: 0 20px 60px rgba(0, 0, 0, .2); }
+.workspace-dialog > .inspector-panel { display: block; padding: 20px; overflow: visible; }
+.dialog-close { width: 28px; min-height: 28px; position: absolute; z-index: 1; top: 9px; right: 9px; padding: 0; border: 0; background: transparent; font-size: 17px; }
