@@ -1,6 +1,6 @@
 import type { FormEvent, KeyboardEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { AgentDefinition, Message, Workspace, WorkspaceSession } from "../api/contracts";
+import type { Message, Workspace, WorkspaceSession } from "../api/contracts";
 import { repositoryName, statusLabel } from "../app/format";
 import { activeRequestID, AgentActivity, buildConversationFeed, type ActivityRunState } from "./AgentActivity";
 import { ComposerContextControl } from "./ComposerContextControl";
@@ -15,10 +15,8 @@ interface ChatPaneProps {
   error: string;
   sending: boolean;
   stopping: boolean;
-  agents: AgentDefinition[];
   onSend: (text: string) => Promise<boolean>;
   onStop: () => Promise<boolean>;
-  onSelectAgent: (agentID: string) => Promise<void>;
   onOpenWorkspace?: () => void;
   onCreateTask?: (request: string) => void;
   onResumeWorkspace?: () => void;
@@ -169,21 +167,6 @@ export function ChatPane(props: ChatPaneProps) {
           </button>
         )}
         <div className="composer-toolbar">
-          <label className="agent-picker">
-            <span className="sr-only">Agent</span>
-            <select
-              aria-label="Agent"
-              value={props.session.selected_agent_id}
-              disabled={taskMode || !enabled || props.agents.length === 0}
-              onChange={(event) => void props.onSelectAgent(event.target.value)}
-            >
-              {props.agents.map((definition) => (
-                <option key={definition.id} value={definition.id}>
-                  {definition.emoji} {definition.name}{definition.default ? " · Default" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
           <ComposerContextControl
             key={props.session.id}
             currentMessageCount={contexts.activeMessages.filter(isConversationMessage).length}
@@ -208,9 +191,6 @@ export function ChatPane(props: ChatPaneProps) {
 function ConversationMessage({ message }: { message: Message }) {
   return (
     <div className={`message-entry ${message.role}`}>
-      {message.role === "assistant" && message.agent && (
-        <div className="message-agent"><span aria-hidden="true">{message.agent.emoji}</span><strong>{message.agent.name}</strong></div>
-      )}
       <div className={`message ${message.role}`}>
         {message.role === "assistant" ? <MarkdownMessage content={message.content || ""} /> : message.content}
       </div>

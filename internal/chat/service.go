@@ -15,23 +15,20 @@ type workspaceRuntime interface {
 	Shell(context.Context, string) (agent.Shell, workspace.Workspace, error)
 }
 
-type providerResolver interface {
-	Resolve(string) (agent.Provider, string, error)
-}
-
 type Notifier interface {
 	SessionChanged(workspaceID, sessionID, runID string)
 }
 
 type Service struct {
-	store     *workspace.Store
-	runtime   workspaceRuntime
-	providers providerResolver
-	notifier  Notifier
-	locksMu   sync.Mutex
-	locks     map[string]*sync.Mutex
-	runsMu    sync.Mutex
-	runs      map[string]*activeRun
+	store    *workspace.Store
+	runtime  workspaceRuntime
+	provider agent.Provider
+	model    string
+	notifier Notifier
+	locksMu  sync.Mutex
+	locks    map[string]*sync.Mutex
+	runsMu   sync.Mutex
+	runs     map[string]*activeRun
 }
 
 type activeRun struct {
@@ -47,13 +44,14 @@ type runResult struct {
 }
 
 func New(
-	store *workspace.Store, runtime workspaceRuntime, providers providerResolver, notifiers ...Notifier,
+	store *workspace.Store, runtime workspaceRuntime, provider agent.Provider, model string,
+	notifiers ...Notifier,
 ) (*Service, error) {
-	if store == nil || runtime == nil || providers == nil {
-		return nil, errors.New("chat store, workspace runtime, and provider registry are required")
+	if store == nil || runtime == nil || provider == nil || strings.TrimSpace(model) == "" {
+		return nil, errors.New("chat store, workspace runtime, Fireworks client, and model are required")
 	}
 	service := &Service{
-		store: store, runtime: runtime, providers: providers,
+		store: store, runtime: runtime, provider: provider, model: strings.TrimSpace(model),
 		locks: make(map[string]*sync.Mutex), runs: make(map[string]*activeRun),
 	}
 	if len(notifiers) > 0 {
@@ -221,14 +219,13 @@ type recorder struct {
 	ctx         context.Context
 	store       *workspace.Store
 	sessionID   string
-	attribution *agent.Attribution
 	notifier    Notifier
 	workspaceID string
 	runID       string
 }
 
 func (r recorder) Append(message agent.Message) error {
-	if err := r.store.AppendAttributedMessage(r.ctx, r.sessionID, message, r.attribution); err != nil {
+	if err := r.store.AppendMessage(r.ctx, r.sessionID, message); err != nil {
 		return fmt.Errorf("record conversation: %w", err)
 	}
 	if r.notifier != nil {

@@ -18,8 +18,8 @@ import (
 	"github.com/Saieshwar5/perpetual/internal/config"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/fireworks"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
 	"github.com/Saieshwar5/perpetual/internal/sandbox"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
@@ -115,7 +115,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		return 1
 	}
 	events := NewEventBroker()
-	providers, providerConnections, conversation, err := modelServices(store, workspaces, events)
+	conversation, err := modelServices(store, workspaces, events)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
@@ -123,7 +123,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	logger := log.New(errorOutput, "perpetual: ", log.LstdFlags)
 	application, err := New(Options{
 		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
-		Providers: providers, ProviderConnections: providerConnections, GitHub: github,
+		GitHub:          github,
 		Environments:    management,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 		Events: events,
@@ -192,21 +192,20 @@ func ensureLocalEnvironment(
 
 func modelServices(
 	store *workspace.Store, runtime *workspace.Service, events *EventBroker,
-) (*modelprovider.Registry, *modelprovider.Connections, *chat.Service, error) {
+) (*chat.Service, error) {
 	path, err := config.DefaultPath()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	connections, err := modelprovider.NewConnections(path, modelprovider.BuiltinSpecifications()...)
+	values, err := config.Load(path)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	providers := connections.Registry()
-	conversation, err := chat.New(store, runtime, providers, events)
+	provider, err := fireworks.New(values.FireworksAPIKey)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, err
 	}
-	return providers, connections, conversation, nil
+	return chat.New(store, runtime, provider, values.Model, events)
 }
 
 type paths struct{ database, workspaces string }

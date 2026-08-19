@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import type { AgentDefinition, Workspace, WorkspaceSession } from "../api/contracts";
+import type { Workspace, WorkspaceSession } from "../api/contracts";
 import { ChatPane } from "./ChatPane";
 
 const workspace: Workspace = {
@@ -25,39 +25,8 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Improve the UI",
   status: "idle",
-  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
-};
-
-const builtInAgent: AgentDefinition = {
-  id: "builtin-perpetual",
-  name: "Perpetual",
-  emoji: "✦",
-  description: "General coding agent",
-  provider_id: "fireworks",
-  model: "",
-  max_steps: 20,
-  shell_enabled: true,
-  instructions: "",
-  skill_ids: [],
-  revision: 1,
-  built_in: true,
-  default: true,
-  created_at: "2026-08-16T00:00:00Z",
-  updated_at: "2026-08-16T00:00:00Z",
-};
-
-const reviewerAgent: AgentDefinition = {
-  ...builtInAgent,
-  id: "reviewer",
-  name: "Reviewer",
-  emoji: "🔍",
-  description: "Reviews changes",
-  max_steps: 8,
-  built_in: false,
-  default: false,
-  skill_ids: [],
 };
 
 describe("ChatPane", () => {
@@ -74,10 +43,8 @@ describe("ChatPane", () => {
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={vi.fn()}
+		onStop={vi.fn()}
       />,
     );
 
@@ -104,56 +71,24 @@ describe("ChatPane", () => {
             ],
           },
           { role: "tool", tool_call_id: "call-1", content: "{\"stdout\":\"\",\"exit_code\":0}" },
-          {
-            role: "assistant",
-            content: "The project is ready.",
-            agent: {
-              id: "builtin-perpetual", name: "Perpetual", emoji: "✦", revision: 1,
-              provider_id: "fireworks", model: "test-model",
-            },
-          },
+		  { role: "assistant", content: "The project is ready." },
         ]}
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={send}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={send}
+		onStop={vi.fn()}
       />,
     );
 
     expect(screen.getByText("Please inspect this.")).toBeTruthy();
     expect(screen.getByText("The project is ready.")).toBeTruthy();
-    expect(screen.getByText("Perpetual")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Agent activity: Completed · 1 step/ })).toBeTruthy();
     expect(screen.queryByText("shell")).toBeNull();
     await user.type(screen.getByRole("textbox"), "Implement the change");
     await user.click(screen.getByRole("button", { name: "Send message" }));
     expect(send).toHaveBeenCalledWith("Implement the change");
     expect((screen.getByRole("textbox") as HTMLTextAreaElement).value).toBe("");
-  });
-
-  it("persists a different agent from the composer selector", async () => {
-    const selectAgent = vi.fn().mockResolvedValue(undefined);
-    const user = userEvent.setup();
-    render(
-      <ChatPane
-        workspace={workspace}
-        session={session}
-        workspaceSessions={[session]}
-        messages={[]}
-        error=""
-        sending={false}
-        stopping={false}
-        agents={[builtInAgent, reviewerAgent]}
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        onSelectAgent={selectAgent}
-      />,
-    );
-    await user.selectOptions(screen.getByRole("combobox", { name: "Agent" }), reviewerAgent.id);
-    expect(selectAgent).toHaveBeenCalledWith(reviewerAgent.id);
   });
 
   it("creates a task draft from the conversation without sending an agent message", async () => {
@@ -169,10 +104,8 @@ describe("ChatPane", () => {
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={onSend}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={onSend}
+		onStop={vi.fn()}
         onCreateTask={onCreateTask}
       />,
     );
@@ -196,10 +129,8 @@ describe("ChatPane", () => {
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={vi.fn()}
+		onStop={vi.fn()}
       />,
     );
 
@@ -237,10 +168,8 @@ describe("ChatPane", () => {
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={vi.fn()}
+		onStop={vi.fn()}
       />,
     );
 
@@ -263,10 +192,8 @@ describe("ChatPane", () => {
         error=""
         sending={false}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={vi.fn()}
-        onStop={vi.fn()}
-        onSelectAgent={vi.fn()}
+		onSend={vi.fn()}
+		onStop={vi.fn()}
       />,
     );
     const textbox = screen.getByRole("textbox") as HTMLTextAreaElement;
@@ -287,10 +214,8 @@ describe("ChatPane", () => {
         error=""
         sending={true}
         stopping={false}
-        agents={[builtInAgent]}
-        onSend={vi.fn()}
-        onStop={stop}
-        onSelectAgent={vi.fn()}
+		onSend={vi.fn()}
+		onStop={stop}
       />,
     );
 

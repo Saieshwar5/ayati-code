@@ -1,5 +1,5 @@
 import type { AppRoute } from "../app/useAppRoute";
-import { isAgentRoute, workspaceConversationPath, workspacePath } from "../app/useAppRoute";
+import { workspaceConversationPath, workspacePath } from "../app/useAppRoute";
 import type { WorkspaceController } from "../app/useWorkspaceController";
 import { Icon, type IconName } from "../ui/Icon";
 import { PerpetualPendulumMark } from "../ui/PerpetualPendulumMark";
@@ -68,7 +68,6 @@ export function Sidebar({ controller, route, collapsed, onCollapsedChange, onNav
             <Icon name="plus" />
           </button>
         </div>
-        <NavButton label="Agents" icon="agents" active={isAgentRoute(route)} onClick={() => onNavigate("/agents")} />
         <NavButton label="Environments" icon="environments" active={route.page === "environments"} onClick={() => onNavigate("/environments")} />
       </nav>
 

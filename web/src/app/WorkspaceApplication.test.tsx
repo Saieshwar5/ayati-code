@@ -26,7 +26,6 @@ const session: WorkspaceSession = {
   workspace_id: workspace.id,
   title: "Original session",
   status: "idle",
-  selected_agent_id: "builtin-perpetual",
   created_at: "2026-08-16T00:00:00Z",
   updated_at: "2026-08-16T00:00:00Z",
 };
@@ -325,8 +324,6 @@ describe("WorkspaceApplication", () => {
       if (path === "/api/workspaces?archived=true") return json([]);
       if (path === `/api/workspaces/${workspace.id}/sessions`) return json([session]);
       if (path === `/api/workspaces/${workspace.id}/sessions/${session.id}/messages`) return json([]);
-      if (path === "/api/agents" || path === "/api/agents?archived=true") return json([]);
-      if (path === "/api/providers") return json([]);
       throw new Error(`Unexpected request: GET ${path}`);
     });
 

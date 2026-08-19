@@ -2,9 +2,9 @@
 
 ## Product boundary
 
-Perpetual is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub and configured model providers, owns SQLite, and controls local Docker containers. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or executable provider-plugin runtime.
+Perpetual is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub and Fireworks, owns SQLite, and controls local Docker containers. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or provider-plugin runtime.
 
-The durable project object is a workspace containing one or more sessions. Reusable agent definitions are global configuration and are not owned by a workspace:
+The durable project object is a workspace containing one or more sessions. Every run uses the built-in Perpetual agent and the configured Fireworks model:
 
 ```text
 Existing or newly created GitHub repository + base/working branch
@@ -31,11 +31,9 @@ The repository, cache, sessions, and SQLite record survive a normal Stop. Stop d
 - `internal/sandbox` owns disposable Docker-runtime creation, restoration and removal, the Docker environment driver, and bounded shell execution.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
 - `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
-- `internal/agent` owns agent and skill definitions, prompt composition, shared messages, and the sequential loop with a hard 20-decision ceiling.
-- `internal/provider` owns validated provider definitions, registration, discovery, and runtime resolution.
+- `internal/agent` owns the built-in prompt, shared messages, and the sequential loop with a hard 20-decision ceiling.
 - `internal/fireworks` owns the Fireworks request format and implements the shared agent-provider contract.
-- `internal/openaichat` owns the shared OpenAI-compatible Chat Completions format and connection verification.
-- `internal/config` owns versioned private provider configuration, legacy Fireworks migration, and the terminal setup command.
+- `internal/config` owns the private Fireworks key and model configuration and the terminal setup command.
 
 Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
 
@@ -52,10 +50,6 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
 - `agent_runs`: durable accepted work with exact workspace/session ownership, lifecycle, failure, and timestamps.
-- `agents`: global built-in and custom execution profiles containing identity, provider and model, step budget, shell capability, instructions, revision, and archive state.
-- `skills`: global reusable Markdown guidance with revision and archive state.
-- `agent_skills`: ordered custom-agent skill attachments.
-- `application_settings`: the single global default-agent reference.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
 - `environments`: reusable runtime configuration, resolved image identity, resource policy, provisioning health, and lease generation.
@@ -78,7 +72,7 @@ a new lease generation.
 
 Workspace lifecycle values describe only the environment: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, cache, leased environment, runtime, and diff. They isolate conversational context and activity history, not filesystem state. Each session stores its selected global agent; new sessions copy the current default while existing sessions keep their selection. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, agent selection, run cancellation, and internal activity are session-scoped.
+Sessions share one workspace clone, branch, cache, leased environment, runtime, and diff. They isolate conversational context and activity history, not filesystem state. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, run cancellation, and internal activity are session-scoped.
 
 The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
 
@@ -135,15 +129,11 @@ Commands run through `docker exec -i` and a fixed launcher with a two-minute tim
 
 Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization or an active agent run. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, log, and Docker-metadata exposure, not against commands that are intentionally given the values.
 
-## Agent Studio and execution
+## Agent execution
 
-Agent Studio has a global catalog containing one immutable built-in Perpetual agent, reusable custom agents, and reusable Markdown skills. Exactly one active agent is the global default. A custom agent can change identity, provider, model, instructions, step limit from 1 through 20, whether the shell tool is exposed, and an ordered list of at most twelve active skills. Archiving a non-default custom agent reassigns sessions using it to the current default. A skill cannot be archived while any agent still references it.
+Perpetual has one built-in coding agent and one provider: Fireworks. The private configuration file contains the Fireworks API key and model selected through the terminal `perpetual config` command. The browser has no provider configuration or model-discovery surface.
 
-Agent definitions and skills do not store conversation or workspace context. Skill Markdown is inert prompt guidance stored in SQLite; browser import and export provide `.md` interchange without allowing executable skill scripts. At the start of a run, `internal/chat` loads the session's selected agent and its ordered skills, snapshots their revisions, resolves the agent's provider through the registry, resolves an empty model to that provider's private configured default, combines the non-overridable workspace prompt with custom instructions and skill Markdown, loads the session history, and runs the model. Editing an agent or skill affects future runs only. Historical assistant messages keep the producing agent, provider, model, and skill revision snapshot. Attachment count and combined Markdown size are bounded before storage.
-
-Provider definitions are non-secret metadata. The registry exposes identity, protocol, capability flags, configured state, and the non-secret default model to the browser. Credentials remain in the private `0600` controller configuration file and are accepted write-only through mutation endpoints. Leaving the key field blank preserves an existing key; removal clears the saved connection and immediately disables runtime resolution. Fireworks, OpenAI, OpenRouter, Groq, Together AI, and DeepSeek are compiled provider specifications. The latter five reuse the bounded OpenAI-compatible protocol client while retaining fixed controller-owned endpoints and token-limit behavior. Connection verification calls the provider's models endpoint and returns only success or a bounded status error.
-
-Model discovery is an on-demand controller operation for configured providers. `GET /api/providers/{id}/models` loads the saved key privately, calls only the specification's compiled endpoint, bounds and validates the response, sorts and deduplicates model IDs, and returns those non-secret IDs to the browser. Catalogs are not persisted or refreshed in the background, and provider and agent forms always retain manual model entry. Fireworks remains manual because its official catalog requires account context not stored by Perpetual. Perpetual does not load native libraries, scripts, downloaded packages, arbitrary endpoints, or arbitrary headers as provider plugins. Additional providers must register a compiled specification, implement the shared request contract, and pass the shell-call conformance tests.
+At the start of a run, `internal/chat` loads the session history and current workspace facts, then calls the configured Fireworks model with the built-in prompt. Conversations remain session-specific while the repository and its uncommitted changes remain workspace-wide.
 
 The model receives exactly one function:
 
@@ -151,9 +141,9 @@ The model receives exactly one function:
 {"name":"shell","arguments":{"command":"go test ./..."}}
 ```
 
-There are no file, GitHub, service, lifecycle, or database tools exposed to the model. A shell-disabled agent receives no tools, and an unexpected shell call is rejected. A shell-enabled agent receives the one tool shown above. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
+There are no file, GitHub, service, lifecycle, or database tools exposed to the model. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
 
-The composer has one Send action, a session-persisted agent selector, and a Stop action while that session owns the active run. Stop cancels the shared provider and shell context, preserves messages and activity already recorded, and moves the session to `canceled` instead of presenting a user decision as a failure. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Custom instructions and skills remain subordinate to these controller rules. Publishing and workspace lifecycle remain unavailable through the model-facing shell.
+The composer has one Send action and a Stop action while that session owns the active run. Stop cancels the shared Fireworks and shell context, preserves messages and activity already recorded, and moves the session to `canceled` instead of presenting a user decision as a failure. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Publishing and workspace lifecycle remain unavailable through the model-facing shell.
 
 ## GitHub and publish boundary
 

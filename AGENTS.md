@@ -2,7 +2,7 @@
 
 ## Project scope
 
-Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, reusable global agent profiles and Markdown skills, durable browser chat, explicit agent work, diff review, and a draft pull request.
+Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, durable browser chat with one built-in agent backed by Fireworks, explicit agent work, diff review, and a draft pull request.
 
 Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The model has one tool: `shell(command)`.
 
@@ -16,11 +16,9 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 - `internal/sandbox/`: disposable Docker runtimes, the verified Docker environment driver, runtime restoration, and bounded shell execution.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
-- `internal/agent/`: agent and skill definitions, prompt composition, shared messages, and sequential loop.
-- `internal/provider/`: provider definitions, registration, discovery, and runtime resolution.
-- `internal/config/`: versioned private provider configuration and setup command.
+- `internal/agent/`: built-in prompt composition, shared messages, and sequential loop.
+- `internal/config/`: private Fireworks key and model configuration and setup command.
 - `internal/fireworks/`: Fireworks protocol adapter.
-- `internal/openaichat/`: shared OpenAI-compatible chat protocol and connection verification.
 - `docs/`: architecture and important design decisions.
 
 Keep logic in the package that owns the responsibility. `internal/webapp` may connect packages, but infrastructure packages should not depend on it.
@@ -50,7 +48,7 @@ Workspace environment values are separate user-provided development credentials.
 
 Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, a writable selected workspace, and a managed cache outside the repository. Preserve command, output, timeout, workspace, cache, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
 
-Each active workspace holds one exclusive, generation-checked environment lease. Stop destroys the exact leased runtime and releases the environment while preserving the repository and cache; Resume acquires available capacity and creates a new runtime. Custom agent instructions and inert Markdown skills never override controller credential and publishing rules. Skills do not add tools or executable controller behavior. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
+Each active workspace holds one exclusive, generation-checked environment lease. Stop destroys the exact leased runtime and releases the environment while preserving the repository and cache; Resume acquires available capacity and creates a new runtime. The built-in agent never overrides controller credential and publishing rules. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
 
 ## Git changes
 

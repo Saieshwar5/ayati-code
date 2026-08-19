@@ -13,10 +13,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
-	"github.com/Saieshwar5/perpetual/internal/config"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
@@ -251,10 +248,8 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	}); err != nil {
 		t.Fatalf("SaveCredentials: %v", err)
 	}
-	connections := testProviderConnections(t, root)
 	server, err := New(Options{
 		Store: store, Workspaces: workspaces, Chat: fakeChat{store: store}, GitHub: github,
-		Providers: connections.Registry(), ProviderConnections: connections,
 		Environments:    &fakeEnvironmentManagement{},
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
@@ -262,43 +257,6 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 		t.Fatalf("New: %v", err)
 	}
 	return server.Handler(), store, workspaces, github
-}
-
-func testProviderConnections(t *testing.T, root string) *modelprovider.Connections {
-	t.Helper()
-	path := filepath.Join(root, "providers.json")
-	if err := config.Save(path, config.Values{Version: config.CurrentVersion,
-		Providers: map[string]config.ProviderValues{
-			agent.FireworksProviderID: {APIKey: "test-key", DefaultModel: "test-model"},
-		}}); err != nil {
-		t.Fatalf("config.Save: %v", err)
-	}
-	connections, err := modelprovider.NewConnections(path,
-		modelprovider.Specification{
-			Definition: modelprovider.Definition{
-				ID: agent.FireworksProviderID, Name: "Fireworks", Protocol: "openai-chat",
-			},
-			Factory: func(string) (agent.Provider, error) { return scriptedWebProvider{}, nil },
-		},
-		modelprovider.Specification{
-			Definition: modelprovider.Definition{ID: "openai", Name: "OpenAI", Protocol: "openai-chat"},
-			Factory:    func(string) (agent.Provider, error) { return scriptedWebProvider{}, nil },
-			Verifier:   func(context.Context, string, string) error { return nil },
-			Models: func(context.Context, string) ([]string, error) {
-				return []string{"gpt-z", "gpt-a", "gpt-a"}, nil
-			},
-		},
-	)
-	if err != nil {
-		t.Fatalf("provider.NewConnections: %v", err)
-	}
-	return connections
-}
-
-type scriptedWebProvider struct{}
-
-func (scriptedWebProvider) Next(context.Context, agent.Request) (agent.Message, error) {
-	return agent.Message{Role: "assistant", Content: "done"}, nil
 }
 
 type fakeChat struct{ store *workspace.Store }

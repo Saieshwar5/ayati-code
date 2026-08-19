@@ -27,12 +27,11 @@ func Configure(ctx context.Context, input io.Reader, output, errorOutput io.Writ
 	}
 	fmt.Fprintf(output, "Perpetual configuration\nConfiguration: %s\n\n", path)
 	reader := bufio.NewReader(input)
-	fireworks, configured := values.Provider("fireworks")
 	keyLabel := "Fireworks API key: "
 	modelLabel := "Fireworks model: "
-	if exists && configured {
+	if exists {
 		keyLabel = "Fireworks API key (leave blank to keep saved key): "
-		modelLabel = fmt.Sprintf("Fireworks model [%s]: ", fireworks.DefaultModel)
+		modelLabel = fmt.Sprintf("Fireworks model [%s]: ", values.Model)
 	}
 	key, err := readSecret(ctx, reader, input, output, keyLabel)
 	if err != nil {
@@ -43,12 +42,11 @@ func Configure(ctx context.Context, input io.Reader, output, errorOutput io.Writ
 		return configError(errorOutput, err)
 	}
 	if strings.TrimSpace(key) != "" {
-		fireworks.APIKey = key
+		values.FireworksAPIKey = key
 	}
 	if strings.TrimSpace(model) != "" {
-		fireworks.DefaultModel = model
+		values.Model = model
 	}
-	values.SetProvider("fireworks", fireworks)
 	if err := Save(path, values); err != nil {
 		return configError(errorOutput, err)
 	}

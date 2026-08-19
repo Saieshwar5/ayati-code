@@ -15,7 +15,6 @@ import (
 
 	compute "github.com/Saieshwar5/perpetual/internal/environment"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
-	modelprovider "github.com/Saieshwar5/perpetual/internal/provider"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
@@ -64,8 +63,6 @@ type Server struct {
 	store           *workspace.Store
 	workspaces      workspaceService
 	chat            chatService
-	providers       *modelprovider.Registry
-	connections     *modelprovider.Connections
 	environments    environmentManagement
 	github          githubClient
 	credentialsPath string
@@ -76,23 +73,21 @@ type Server struct {
 }
 
 type Options struct {
-	Context             context.Context
-	Store               *workspace.Store
-	Workspaces          workspaceService
-	Chat                chatService
-	Providers           *modelprovider.Registry
-	ProviderConnections *modelprovider.Connections
-	Environments        environmentManagement
-	GitHub              githubClient
-	CredentialsPath     string
-	WorkspaceRoot       string
-	Logger              *log.Logger
-	Events              *EventBroker
+	Context         context.Context
+	Store           *workspace.Store
+	Workspaces      workspaceService
+	Chat            chatService
+	Environments    environmentManagement
+	GitHub          githubClient
+	CredentialsPath string
+	WorkspaceRoot   string
+	Logger          *log.Logger
+	Events          *EventBroker
 }
 
 func New(options Options) (*Server, error) {
-	if options.Store == nil || options.Workspaces == nil || options.Providers == nil {
-		return nil, errors.New("workspace store, service, and provider registry are required")
+	if options.Store == nil || options.Workspaces == nil {
+		return nil, errors.New("workspace store and service are required")
 	}
 	if strings.TrimSpace(options.CredentialsPath) == "" || strings.TrimSpace(options.WorkspaceRoot) == "" {
 		return nil, errors.New("credential path and workspace root are required")
@@ -112,7 +107,6 @@ func New(options Options) (*Server, error) {
 	}
 	return &Server{
 		ctx: options.Context, store: options.Store, workspaces: options.Workspaces, chat: options.Chat,
-		providers: options.Providers, connections: options.ProviderConnections,
 		environments: options.Environments,
 		github:       options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
@@ -130,21 +124,6 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/logout", s.mutate(s.logout))
 	mux.HandleFunc("GET /api/repositories", s.repositories)
 	mux.HandleFunc("GET /api/repositories/", s.branches)
-	mux.HandleFunc("GET /api/agents", s.agentsRead)
-	mux.HandleFunc("GET /api/agents/", s.agentsRead)
-	mux.HandleFunc("POST /api/agents", s.mutate(s.createAgent))
-	mux.HandleFunc("POST /api/agents/", s.mutate(s.agentAction))
-	mux.HandleFunc("PATCH /api/agents/", s.mutate(s.updateAgent))
-	mux.HandleFunc("GET /api/providers", s.listProviders)
-	mux.HandleFunc("GET /api/providers/", s.listProviderModels)
-	mux.HandleFunc("PUT /api/providers/", s.mutate(s.configureProvider))
-	mux.HandleFunc("POST /api/providers/", s.mutate(s.testProvider))
-	mux.HandleFunc("DELETE /api/providers/", s.mutate(s.removeProvider))
-	mux.HandleFunc("GET /api/skills", s.skillsRead)
-	mux.HandleFunc("GET /api/skills/", s.skillsRead)
-	mux.HandleFunc("POST /api/skills", s.mutate(s.createSkill))
-	mux.HandleFunc("POST /api/skills/", s.mutate(s.skillAction))
-	mux.HandleFunc("PATCH /api/skills/", s.mutate(s.updateSkill))
 	mux.HandleFunc("GET /api/environments", s.listEnvironments)
 	mux.HandleFunc("POST /api/environments", s.mutate(s.createEnvironment))
 	mux.HandleFunc("POST /api/environments/", s.mutate(s.repairEnvironment))
@@ -177,12 +156,11 @@ func (s *Server) index(writer http.ResponseWriter, request *http.Request) {
 
 func applicationPath(path string) bool {
 	if path == "/" || path == "/workspaces" || path == "/workspaces/new" ||
-		path == "/workspaces/archived" || path == "/agents" || path == "/agents/new" ||
-		path == "/agents/providers" || path == "/agents/skills" || path == "/environments" {
+		path == "/workspaces/archived" || path == "/environments" {
 		return true
 	}
 	parts := strings.Split(strings.Trim(path, "/"), "/")
-	return len(parts) == 2 && (parts[0] == "workspaces" || parts[0] == "agents") ||
+	return len(parts) == 2 && parts[0] == "workspaces" ||
 		len(parts) == 4 && parts[0] == "workspaces" && parts[2] == "sessions"
 }
 

@@ -37,7 +37,6 @@ const sessionSchema = `CREATE TABLE IF NOT EXISTS sessions (
 	title TEXT NOT NULL,
 	status TEXT NOT NULL,
 	error TEXT NOT NULL DEFAULT '',
-	selected_agent_id TEXT NOT NULL DEFAULT 'builtin-perpetual',
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL
 )`
@@ -46,13 +45,6 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
 	payload TEXT NOT NULL,
-	agent_id TEXT NOT NULL DEFAULT '',
-	agent_name TEXT NOT NULL DEFAULT '',
-	agent_emoji TEXT NOT NULL DEFAULT '',
-	agent_revision INTEGER NOT NULL DEFAULT 0,
-	agent_provider_id TEXT NOT NULL DEFAULT '',
-	agent_model TEXT NOT NULL DEFAULT '',
-	agent_skills TEXT NOT NULL DEFAULT '[]',
 	created_at TEXT NOT NULL
 )`
 
@@ -100,10 +92,7 @@ func (s *Store) configure() error {
 	if err := s.migrateWorkspaceArchive(context.Background()); err != nil {
 		return err
 	}
-	if err := s.migrateAgentCatalog(context.Background()); err != nil {
-		return err
-	}
-	if err := s.migrateSkillCatalog(context.Background()); err != nil {
+	if err := s.removeAgentCustomization(context.Background()); err != nil {
 		return err
 	}
 	if err := s.migrateAgentRuns(context.Background()); err != nil {
@@ -196,7 +185,7 @@ func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
 		if err != nil {
 			return err
 		}
-		session, err := createLegacySession(ctx, tx, value.id, "Original session", createdAt)
+		session, err := createSession(ctx, tx, value.id, "Original session", createdAt)
 		if err != nil {
 			return err
 		}
