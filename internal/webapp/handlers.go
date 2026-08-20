@@ -1,7 +1,6 @@
 package webapp
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -112,51 +111,6 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		s.writeJSON(writer, http.StatusOK, value)
 		return
 	}
-	if len(parts) == 4 && parts[1] == "sessions" && parts[3] == "messages" {
-		if s.chat == nil {
-			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run perpetual config")
-			return
-		}
-		var input struct {
-			Text string `json:"text"`
-		}
-		if !s.decode(writer, request, &input) {
-			return
-		}
-		run, err := s.chat.Start(s.ctx, parts[0], parts[2], input.Text)
-		if err != nil {
-			s.writeError(writer, http.StatusConflict, err.Error())
-			return
-		}
-		s.writeJSON(writer, http.StatusAccepted, run)
-		return
-	}
-	if len(parts) == 6 && parts[1] == "sessions" && parts[3] == "runs" && parts[5] == "cancel" {
-		if s.chat == nil {
-			s.writeError(writer, http.StatusServiceUnavailable, "agent chat is not configured")
-			return
-		}
-		if _, err := s.store.GetSession(request.Context(), parts[0], parts[2]); errors.Is(err, sql.ErrNoRows) {
-			s.writeError(writer, http.StatusNotFound, "session not found")
-			return
-		} else if err != nil {
-			s.writeError(writer, http.StatusInternalServerError, "load session")
-			return
-		}
-		if _, err := s.store.AgentRun(request.Context(), parts[0], parts[2], parts[4]); errors.Is(err, sql.ErrNoRows) {
-			s.writeError(writer, http.StatusNotFound, "agent run not found")
-			return
-		} else if err != nil {
-			s.writeError(writer, http.StatusInternalServerError, "load agent run")
-			return
-		}
-		if !s.chat.CancelRun(parts[0], parts[2], parts[4]) {
-			s.writeError(writer, http.StatusConflict, "agent run is not active")
-			return
-		}
-		writer.WriteHeader(http.StatusNoContent)
-		return
-	}
 	if len(parts) != 2 {
 		http.NotFound(writer, request)
 		return
@@ -184,19 +138,11 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			}()
 		}
 	case "stop":
-		if s.chat != nil {
-			s.chat.CancelAndWait(parts[0])
-		}
 		err = s.workspaces.Stop(request.Context(), parts[0])
 	case "resume":
 		err = s.workspaces.Resume(request.Context(), parts[0])
 	case "archive":
-		archive := func() error { return s.workspaces.Archive(request.Context(), parts[0]) }
-		if s.chat != nil {
-			err = s.chat.WithWorkspaceIdle(parts[0], archive)
-		} else {
-			err = archive()
-		}
+		err = s.workspaces.Archive(request.Context(), parts[0])
 	case "restore":
 		err = s.workspaces.RestoreArchived(request.Context(), parts[0])
 	case "publish":

@@ -47,19 +47,6 @@ const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
 	created_at TEXT NOT NULL
 )`
 
-const agentRunSchema = `CREATE TABLE IF NOT EXISTS agent_runs (
-	id TEXT PRIMARY KEY,
-	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-	session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-	input TEXT NOT NULL,
-	status TEXT NOT NULL CHECK (status IN ('accepted', 'running', 'completed', 'failed', 'canceled', 'interrupted')),
-	error TEXT NOT NULL DEFAULT '',
-	created_at TEXT NOT NULL,
-	started_at TEXT NOT NULL DEFAULT '',
-	finished_at TEXT NOT NULL DEFAULT '',
-	updated_at TEXT NOT NULL
-)`
-
 const environmentSchema = `CREATE TABLE IF NOT EXISTS workspace_environment (
 	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
 	name TEXT NOT NULL,
@@ -94,13 +81,13 @@ func (s *Store) configure() error {
 	if err := s.removeAgentCustomization(context.Background()); err != nil {
 		return err
 	}
-	if err := s.migrateAgentRuns(context.Background()); err != nil {
-		return err
-	}
 	if err := s.migrateSingleWorkspaceMode(context.Background()); err != nil {
 		return err
 	}
 	if err := s.migrateRemoveComputeSandbox(context.Background()); err != nil {
+		return err
+	}
+	if err := s.migrateRemoveAgentRuns(context.Background()); err != nil {
 		return err
 	}
 	return s.recoverInterruptedWork(context.Background())

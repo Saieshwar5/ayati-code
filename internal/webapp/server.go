@@ -42,19 +42,10 @@ type workspaceService interface {
 	Publish(context.Context, string, string, string, string) error
 }
 
-type chatService interface {
-	Messages(context.Context, string, string) ([]workspace.ConversationMessage, error)
-	Start(context.Context, string, string, string) (workspace.AgentRun, error)
-	CancelRun(string, string, string) bool
-	CancelAndWait(string)
-	WithWorkspaceIdle(string, func() error) error
-}
-
 type Server struct {
 	ctx             context.Context
 	store           *workspace.Store
 	workspaces      workspaceService
-	chat            chatService
 	github          githubClient
 	credentialsPath string
 	workspaceRoot   string
@@ -67,7 +58,6 @@ type Options struct {
 	Context         context.Context
 	Store           *workspace.Store
 	Workspaces      workspaceService
-	Chat            chatService
 	GitHub          githubClient
 	CredentialsPath string
 	WorkspaceRoot   string
@@ -96,7 +86,7 @@ func New(options Options) (*Server, error) {
 		return nil, err
 	}
 	return &Server{
-		ctx: options.Context, store: options.Store, workspaces: options.Workspaces, chat: options.Chat,
+		ctx: options.Context, store: options.Store, workspaces: options.Workspaces,
 		github: options.GitHub, credentialsPath: options.CredentialsPath,
 		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
 		assets: http.FileServer(http.FS(static)), events: options.Events,

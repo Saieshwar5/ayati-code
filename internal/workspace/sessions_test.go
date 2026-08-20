@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
 	_ "modernc.org/sqlite"
 )
 
@@ -28,11 +27,11 @@ func TestStoreKeepsSessionConversationsSeparate(t *testing.T) {
 		t.Fatalf("CreateSession: %v", err)
 	}
 	if err := store.AppendMessage(context.Background(), sessions[0].ID,
-		agent.Message{Role: "user", Content: "first"}); err != nil {
+		Message{Role: "user", Content: "first"}); err != nil {
 		t.Fatalf("AppendMessage first: %v", err)
 	}
 	if err := store.AppendMessage(context.Background(), second.ID,
-		agent.Message{Role: "user", Content: "second"}); err != nil {
+		Message{Role: "user", Content: "second"}); err != nil {
 		t.Fatalf("AppendMessage second: %v", err)
 	}
 	firstMessages, _ := store.Messages(context.Background(), sessions[0].ID)

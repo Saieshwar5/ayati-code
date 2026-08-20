@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
 func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
@@ -23,7 +23,7 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	shells := &fakeShells{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
+	shells := &fakeShells{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
 	git := &recordingGit{statusResults: []string{"", "?? package-lock.json\n"}}
 	service := &Service{store: store, shells: shells.open, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
@@ -54,7 +54,7 @@ func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	shells := &fakeShells{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
+	shells := &fakeShells{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
 	service := &Service{store: store, shells: shells.open,
 		git: &recordingGit{statusResults: []string{"", " M package-lock.json\n"}}}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
@@ -96,7 +96,7 @@ func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
 	service := &Service{
 		store: store,
 		shells: (&fakeShells{shell: &recordingShell{
-			result: agent.ShellResult{ExitCode: 0},
+			result: exec.ShellResult{ExitCode: 0},
 		}}).open,
 		git: &recordingGit{},
 	}

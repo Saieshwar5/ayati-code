@@ -28,7 +28,6 @@ type Session struct {
 	Title       string    `json:"title"`
 	Status      string    `json:"status"`
 	Error       string    `json:"error,omitempty"`
-	ActiveRunID string    `json:"active_run_id,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 }
@@ -245,15 +244,13 @@ func (s *Store) touchWorkspaceForSession(ctx context.Context, sessionID string, 
 }
 
 const selectSession = `SELECT id, workspace_id, title, status, error,
-	COALESCE((SELECT id FROM agent_runs WHERE agent_runs.session_id = sessions.id
-		AND agent_runs.status IN ('accepted', 'running') ORDER BY created_at DESC LIMIT 1), ''),
 	created_at, updated_at FROM sessions`
 
 func scanSession(row scanner) (Session, error) {
 	var value Session
 	var createdAt, updatedAt string
 	if err := row.Scan(&value.ID, &value.WorkspaceID, &value.Title, &value.Status,
-		&value.Error, &value.ActiveRunID, &createdAt, &updatedAt); err != nil {
+		&value.Error, &createdAt, &updatedAt); err != nil {
 		return Session{}, err
 	}
 	var err error

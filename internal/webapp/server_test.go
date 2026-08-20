@@ -168,21 +168,12 @@ func TestHandlerCreatesRenamesAndDeletesWorkspaceSessions(t *testing.T) {
 		t.Fatalf("session messages status = %d, body = %s", response.Code, response.Body.String())
 	}
 	response = serve(handler, http.MethodPost, path+"/messages", `{"text":"continue the work"}`, true)
-	if response.Code != http.StatusAccepted {
+	if response.Code != http.StatusNotFound {
 		t.Fatalf("send session message status = %d, body = %s", response.Code, response.Body.String())
 	}
-	var run workspace.AgentRun
-	if err := json.Unmarshal(response.Body.Bytes(), &run); err != nil {
-		t.Fatalf("decode agent run: %v", err)
-	}
-	response = serve(handler, http.MethodPost, path+"/runs/"+run.ID+"/cancel", "", true)
-	if response.Code != http.StatusNoContent {
-		t.Fatalf("cancel agent run status = %d, body = %s", response.Code, response.Body.String())
-	}
-	response = serve(handler, http.MethodPost,
-		"/api/workspaces/"+value.ID+"/sessions/"+session.ID+"/runs/missing/cancel", "", true)
+	response = serve(handler, http.MethodPost, path+"/runs/missing/cancel", "", true)
 	if response.Code != http.StatusNotFound {
-		t.Fatalf("cancel missing session status = %d, body = %s", response.Code, response.Body.String())
+		t.Fatalf("cancel agent run status = %d, body = %s", response.Code, response.Body.String())
 	}
 	response = serve(handler, http.MethodDelete, path, "", true)
 	if response.Code != http.StatusNoContent {
@@ -249,34 +240,13 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 		t.Fatalf("SaveCredentials: %v", err)
 	}
 	server, err := New(Options{
-		Store: store, Workspaces: workspaces, Chat: fakeChat{store: store}, GitHub: github,
+		Store: store, Workspaces: workspaces, GitHub: github,
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	return server.Handler(), store, workspaces, github
-}
-
-type fakeChat struct{ store *workspace.Store }
-
-func (fakeChat) Messages(
-	context.Context, string, string,
-) ([]workspace.ConversationMessage, error) {
-	return nil, nil
-}
-func (f fakeChat) CancelRun(workspaceID, sessionID, runID string) bool {
-	value, err := f.store.AgentRun(context.Background(), workspaceID, sessionID, runID)
-	if err != nil || value.Status != workspace.AgentRunStatusAccepted {
-		return false
-	}
-	return f.store.FinishAgentRun(context.Background(), runID, workspace.AgentRunStatusCanceled,
-		workspace.SessionStatusCanceled, "") == nil
-}
-func (fakeChat) CancelAndWait(string)                                  {}
-func (fakeChat) WithWorkspaceIdle(_ string, action func() error) error { return action() }
-func (f fakeChat) Start(ctx context.Context, workspaceID, sessionID, text string) (workspace.AgentRun, error) {
-	return f.store.BeginAgentRun(ctx, workspaceID, sessionID, text)
 }
 
 func serve(handler http.Handler, method, path, body string, mutation bool) *httptest.ResponseRecorder {

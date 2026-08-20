@@ -55,11 +55,7 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 		}
 		s.writeJSON(writer, http.StatusOK, value)
 	case len(parts) == 4 && parts[1] == "sessions" && parts[3] == "messages":
-		if s.chat == nil {
-			s.writeError(writer, http.StatusServiceUnavailable, "Fireworks is not configured; run perpetual config")
-			return
-		}
-		messages, err := s.chat.Messages(request.Context(), parts[0], parts[2])
+		messages, err := s.store.ConversationMessages(request.Context(), parts[2])
 		if err != nil {
 			s.writeError(writer, http.StatusInternalServerError, "load conversation")
 			return
@@ -76,14 +72,7 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *http.Request) {
 	parts := workspaceParts(request)
 	if request.Method == http.MethodDelete && len(parts) == 1 {
-		remove := func() error { return s.workspaces.Delete(request.Context(), parts[0]) }
-		var err error
-		if s.chat != nil {
-			err = s.chat.WithWorkspaceIdle(parts[0], remove)
-		} else {
-			err = remove()
-		}
-		if err != nil {
+		if err := s.workspaces.Delete(request.Context(), parts[0]); err != nil {
 			s.writeError(writer, http.StatusConflict, err.Error())
 			return
 		}

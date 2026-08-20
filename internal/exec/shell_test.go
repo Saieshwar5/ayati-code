@@ -7,8 +7,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestShellExecutesCommandInWorkingDirectory(t *testing.T) {
@@ -17,7 +15,7 @@ func TestShellExecutesCommandInWorkingDirectory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "pwd"})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "pwd"})
 	if result.ExitCode != 0 || strings.TrimSpace(result.Stdout) != dir {
 		t.Fatalf("result = %#v", result)
 	}
@@ -28,7 +26,7 @@ func TestShellInjectsEnvironmentVariables(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "printf %s \"${#TEST_VALUE}\""})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "printf %s \"${#TEST_VALUE}\""})
 	if result.ExitCode != 0 || result.Stdout != "5" {
 		t.Fatalf("result = %#v", result)
 	}
@@ -39,7 +37,7 @@ func TestShellRedactsConfiguredValues(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "printf 12345678"})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "printf 12345678"})
 	if result.ExitCode != 0 || !strings.Contains(result.Stdout, "[REDACTED:SECRET]") {
 		t.Fatalf("result = %#v", result)
 	}
@@ -50,7 +48,7 @@ func TestShellReportsEmptyCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "  "})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "  "})
 	if result.Error != "shell command is empty" || result.ExitCode != -1 {
 		t.Fatalf("result = %#v", result)
 	}
@@ -61,7 +59,7 @@ func TestShellRejectsOversizedCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: strings.Repeat("x", commandLimit+1)})
+	result := shell.Execute(context.Background(), ShellRequest{Command: strings.Repeat("x", commandLimit+1)})
 	if result.Error != "shell command exceeds 64 KiB" {
 		t.Fatalf("result = %#v", result)
 	}
@@ -74,7 +72,7 @@ func TestShellTimesOutLongCommand(t *testing.T) {
 	}
 	shell.timeout = 100 * time.Millisecond
 	started := time.Now()
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "sleep 5"})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "sleep 5"})
 	if !result.TimedOut || result.Error != "shell command timed out" || time.Since(started) > 5*time.Second {
 		t.Fatalf("result = %#v", result)
 	}
@@ -85,7 +83,7 @@ func TestShellReportsExitCode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "exit 3"})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "exit 3"})
 	if result.ExitCode != 3 {
 		t.Fatalf("result = %#v", result)
 	}
@@ -109,12 +107,12 @@ func TestShellCancelsProcessGroup(t *testing.T) {
 		t.Fatalf("New: %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	var result agent.ShellResult
+	var result ShellResult
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		result = shell.Execute(ctx, agent.ShellRequest{Command: "sleep 30"})
+		result = shell.Execute(ctx, ShellRequest{Command: "sleep 30"})
 	}()
 	time.Sleep(200 * time.Millisecond)
 	cancel()
@@ -130,7 +128,7 @@ func TestShellParanoiaWorkingDirectoryOutsideRepo(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	result := shell.Execute(context.Background(), agent.ShellRequest{Command: "pwd"})
+	result := shell.Execute(context.Background(), ShellRequest{Command: "pwd"})
 	if filepath.Clean(strings.TrimSpace(result.Stdout)) != filepath.Clean(dir) {
 		t.Fatalf("result = %#v", result)
 	}

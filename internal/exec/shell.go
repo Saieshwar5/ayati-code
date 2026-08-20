@@ -9,8 +9,6 @@ import (
 	"strings"
 	"syscall"
 	"time"
-
-	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 const (
@@ -19,8 +17,8 @@ const (
 	commandTimeout = 2 * time.Minute
 )
 
-// Shell executes bounded commands directly on the local machine.
-type Shell struct {
+// LocalShell executes bounded commands directly on the local machine.
+type LocalShell struct {
 	variables map[string]string
 	env       []string
 	dir       string
@@ -31,7 +29,7 @@ type Shell struct {
 // shell that runs commands with dir as its working directory. When no
 // variables are supplied only PATH is inherited from the controller; the full
 // host environment is never passed so credentials stay out of shell commands.
-func New(variables map[string]string, dir string) (*Shell, error) {
+func New(variables map[string]string, dir string) (*LocalShell, error) {
 	if err := validateVariables(variables); err != nil {
 		return nil, err
 	}
@@ -44,7 +42,7 @@ func New(variables map[string]string, dir string) (*Shell, error) {
 			variables = map[string]string{"PATH": path}
 		}
 	}
-	return &Shell{
+	return &LocalShell{
 		variables: copyVariables(variables),
 		env:       environmentSlice(variables),
 		dir:       dir,
@@ -53,9 +51,9 @@ func New(variables map[string]string, dir string) (*Shell, error) {
 }
 
 // Execute runs a single shell command with an output and timeout bound.
-func (s *Shell) Execute(ctx context.Context, request agent.ShellRequest) agent.ShellResult {
+func (s *LocalShell) Execute(ctx context.Context, request ShellRequest) ShellResult {
 	started := time.Now()
-	result := agent.ShellResult{Command: request.Command, ExitCode: -1}
+	result := ShellResult{Command: request.Command, ExitCode: -1}
 	command := strings.TrimSpace(request.Command)
 	if command == "" {
 		result.Error = "shell command is empty"
