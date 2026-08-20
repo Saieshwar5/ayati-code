@@ -11,67 +11,7 @@ import (
 	"testing"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
-	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
-
-type fakeEnvironment struct {
-	ensured    []recordedRuntime
-	removed    []string
-	variables  []map[string]string
-	shell      agent.Shell
-	err        error
-	ensureErrs []error
-}
-
-func (f *fakeEnvironment) Ensure(ctx context.Context, input compute.StopInput) (compute.Assignment, error) {
-	return f.Start(ctx, compute.StartInput{
-		WorkspaceID: input.WorkspaceID, WorkspacePath: input.WorkspacePath,
-		CachePath: input.CachePath,
-	})
-}
-
-func (f *fakeEnvironment) Start(_ context.Context, input compute.StartInput) (compute.Assignment, error) {
-	spec := recordedRuntimeSpec(input.WorkspaceID, input.WorkspacePath, input.CachePath)
-	f.ensured = append(f.ensured, spec)
-	return compute.Assignment{}, f.nextError()
-}
-
-func (f *fakeEnvironment) nextError() error {
-	if len(f.ensureErrs) > 0 {
-		err := f.ensureErrs[0]
-		f.ensureErrs = f.ensureErrs[1:]
-		return err
-	}
-	return f.err
-}
-
-func (f *fakeEnvironment) Open(
-	_ context.Context, _ compute.StopInput, variables map[string]string,
-) (agent.Shell, error) {
-	f.variables = append(f.variables, variables)
-	return f.shell, f.err
-}
-
-func (f *fakeEnvironment) Stop(_ context.Context, input compute.StopInput) error {
-	f.removed = append(f.removed, input.WorkspaceID)
-	return f.err
-}
-
-func (f *fakeEnvironment) Cleanup(ctx context.Context, input compute.StopInput) error {
-	return f.Stop(ctx, input)
-}
-
-type recordedRuntime struct {
-	WorkspaceID   string
-	WorkspacePath string
-	CachePath     string
-}
-
-func recordedRuntimeSpec(id, path, cache string) recordedRuntime {
-	return recordedRuntime{
-		WorkspaceID: id, WorkspacePath: path, CachePath: cache,
-	}
-}
 
 type recordingShell struct {
 	commands []string
@@ -121,7 +61,7 @@ func (g *recordingGit) Output(_ context.Context, arguments ...string) (string, e
 	return "", nil
 }
 
-func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
+func TestServiceInitializesBranchAndDependencies(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -141,9 +81,9 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	shell := &recordingShell{result: agent.ShellResult{ExitCode: 0}}
-	environment := &fakeEnvironment{shell: shell}
+	shells := &fakeShells{shell: shell}
 	git := &recordingGit{}
-	service := &Service{store: store, environment: environment, git: git}
+	service := &Service{store: store, shells: shells.open, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
@@ -154,13 +94,19 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
 	}
-	if len(environment.ensured) != 1 || shell.commands[0] != "go mod download" {
-		t.Fatalf("sandbox = %#v, commands = %#v", environment.ensured, shell.commands)
+	if len(shells.variables) != 1 || shell.commands[0] != "go mod download" {
+		t.Fatalf("shells = %#v, commands = %#v", shells.variables, shell.commands)
 	}
-	if len(environment.variables) != 1 || environment.variables[0]["SETUP_TOKEN"] != "setup-secret" ||
-		environment.variables[0]["GOCACHE"] != "/cache/go-build" ||
-		environment.variables[0]["XDG_CACHE_HOME"] != "/cache" {
-		t.Fatalf("setup environment = %#v", environment.variables)
+	setup := shells.variables[0]
+	if setup["SETUP_TOKEN"] != "setup-secret" {
+		t.Fatalf("setup environment = %#v", setup)
+	}
+	if _, ok := setup["RUNTIME_TOKEN"]; ok {
+		t.Fatalf("runtime-only variable leaked into setup: %#v", setup)
+	}
+	if !strings.HasSuffix(setup["GOCACHE"], filepath.Join("cache", "go-build")) ||
+		!strings.HasSuffix(setup["XDG_CACHE_HOME"], filepath.Join("cache", "xdg")) {
+		t.Fatalf("setup cache environment = %#v", setup)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusReady || loaded.Profile == nil || loaded.Profile.BaselineCommit != "abc123" ||
@@ -169,7 +115,7 @@ func TestServiceInitializesBranchSandboxAndDependencies(t *testing.T) {
 	}
 }
 
-func TestServiceRecordsInitializationFailure(t *testing.T) {
+func TestServiceRecordsSetupFailure(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -183,14 +129,17 @@ func TestServiceRecordsInitializationFailure(t *testing.T) {
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "main", Setup: "npm ci", Path: path,
 	})
-	environment := &fakeEnvironment{err: errors.New("docker unavailable")}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}}
+	shell := &recordingShell{result: agent.ShellResult{ExitCode: 1, Stderr: "npm not found"}}
+	service := &Service{
+		store: store, shells: (&fakeShells{shell: shell}).open, git: &recordingGit{},
+	}
 	if err := service.Initialize(context.Background(), value.ID); err == nil {
 		t.Fatal("Initialize succeeded")
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusInitializationFailed || loaded.Error == "" ||
-		loaded.PreparationFailedStage != PreparationStartingEnvironment {
+		loaded.PreparationFailedStage != PreparationInstalling ||
+		loaded.Profile == nil || loaded.Profile.SetupResult != "failed" {
 		t.Fatalf("workspace = %#v", loaded)
 	}
 }
@@ -223,13 +172,9 @@ func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 		agent.Message{Role: "user", Content: "delete me"}); err != nil {
 		t.Fatalf("AppendMessage: %v", err)
 	}
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}, root: root}
+	service := &Service{store: store, git: &recordingGit{}, root: root}
 	if err := service.Delete(context.Background(), value.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
-	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
-		t.Fatalf("removed sandboxes = %#v", environment.removed)
 	}
 	if _, err := os.Stat(filepath.Join(root, value.ID)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("workspace directory still exists: %v", err)
@@ -264,14 +209,10 @@ func TestServiceRefusesToDeleteWorkspaceOutsideManagedRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}, root: t.TempDir()}
+	service := &Service{store: store, git: &recordingGit{}, root: t.TempDir()}
 	err = service.Delete(context.Background(), value.ID)
 	if err == nil || !strings.Contains(err.Error(), "outside the managed data root") {
 		t.Fatalf("Delete error = %v", err)
-	}
-	if len(environment.removed) != 0 {
-		t.Fatalf("removed sandboxes = %#v", environment.removed)
 	}
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("unmanaged path was removed: %v", err)
@@ -292,7 +233,7 @@ func TestServiceRefusesDeletionDuringInitialization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}, root: root}
+	service := &Service{store: store, git: &recordingGit{}, root: root}
 	err = service.Delete(context.Background(), value.ID)
 	if err == nil || !strings.Contains(err.Error(), "initialization is still running") {
 		t.Fatalf("Delete error = %v", err)

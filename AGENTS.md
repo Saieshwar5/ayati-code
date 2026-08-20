@@ -10,10 +10,9 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 
 - `cmd/perpetual/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
-- `internal/environment/`: reusable compute definitions, availability, exclusive workspace leases, and lease/runtime coordination.
+- `internal/exec/`: bounded local shell execution for setup and agent commands.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
 - `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
-- `internal/sandbox/`: disposable Docker runtimes, the verified Docker environment driver, runtime restoration, and bounded shell execution.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `internal/chat/`: durable workspace conversation and serialized agent runs.
 - `internal/agent/`: built-in prompt composition, shared messages, and sequential loop.
@@ -26,7 +25,6 @@ Keep logic in the package that owns the responsibility. `internal/webapp` may co
 ## Development commands
 
 ```bash
-make sandbox
 make run
 make test
 make check

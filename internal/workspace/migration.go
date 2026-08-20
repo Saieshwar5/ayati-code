@@ -21,7 +21,6 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	configuration_candidates TEXT NOT NULL DEFAULT '[]',
 	setup_command TEXT NOT NULL,
 	path TEXT NOT NULL UNIQUE,
-	sandbox_name TEXT NOT NULL UNIQUE,
 	status TEXT NOT NULL,
 	error TEXT NOT NULL DEFAULT '',
 	pull_request_number INTEGER NOT NULL DEFAULT 0,
@@ -99,6 +98,9 @@ func (s *Store) configure() error {
 		return err
 	}
 	if err := s.migrateSingleWorkspaceMode(context.Background()); err != nil {
+		return err
+	}
+	if err := s.migrateRemoveComputeSandbox(context.Background()); err != nil {
 		return err
 	}
 	return s.recoverInterruptedWork(context.Background())

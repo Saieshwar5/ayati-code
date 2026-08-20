@@ -56,7 +56,7 @@ export function EnvironmentRow(props: EnvironmentRowProps) {
 
     {props.expanded && <div className="environment-row-details" id={detailsID}>
       <dl>
-        <Detail label="Driver" value="Docker" />
+        <Detail label="Driver" value="Local" />
         <Detail label="Network" value={value.network_policy === "outbound" ? "Outbound" : "Disabled"} />
         <Detail label="Process limit" value={String(value.pid_limit)} />
         <Detail label="Generation" value={String(value.generation)} />

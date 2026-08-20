@@ -22,9 +22,8 @@ func TestServiceDeletesWorkspaceWithReadOnlyModuleCache(t *testing.T) {
 	if err := os.Chmod(module, 0o555); err != nil {
 		t.Fatalf("Chmod: %v", err)
 	}
-	environment := &fakeEnvironment{}
 	git := &recordingGit{}
-	service := &Service{store: store, environment: environment, git: git, root: root}
+	service := &Service{store: store, git: git, root: root}
 
 	if err := service.Delete(context.Background(), value.ID); err != nil {
 		t.Fatalf("Delete: %v", err)
@@ -35,8 +34,8 @@ func TestServiceDeletesWorkspaceWithReadOnlyModuleCache(t *testing.T) {
 	if _, err := store.Get(context.Background(), value.ID); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("workspace record still exists: %v", err)
 	}
-	if len(environment.removed) != 1 || len(git.calls) != 0 {
-		t.Fatalf("environment cleanup = %#v, Git calls = %#v", environment.removed, git.calls)
+	if len(git.calls) != 0 {
+		t.Fatalf("Git calls = %#v", git.calls)
 	}
 }
 
@@ -51,7 +50,7 @@ func TestServiceRetriesDeletionWithoutFollowingWorkspaceSymlink(t *testing.T) {
 	if err := os.Symlink(outside, workspaceDirectory); err != nil {
 		t.Fatalf("Symlink: %v", err)
 	}
-	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}, root: root}
+	service := &Service{store: store, git: &recordingGit{}, root: root}
 
 	err := service.Delete(context.Background(), value.ID)
 	if err == nil {
@@ -80,8 +79,7 @@ func TestServiceSerializesDuplicateWorkspaceDeletion(t *testing.T) {
 	if err := os.MkdirAll(value.Path, 0o700); err != nil {
 		t.Fatalf("MkdirAll: %v", err)
 	}
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}, root: root}
+	service := &Service{store: store, git: &recordingGit{}, root: root}
 	errorsFound := make(chan error, 2)
 	var requests sync.WaitGroup
 	for range 2 {
@@ -98,9 +96,6 @@ func TestServiceSerializesDuplicateWorkspaceDeletion(t *testing.T) {
 			t.Fatalf("duplicate Delete: %v", err)
 		}
 	}
-	if len(environment.removed) != 1 {
-		t.Fatalf("environment cleanup = %#v", environment.removed)
-	}
 }
 
 func TestServiceRecoveryFinishesArchivedWorkspaceDeletion(t *testing.T) {
@@ -114,7 +109,7 @@ func TestServiceRecoveryFinishesArchivedWorkspaceDeletion(t *testing.T) {
 	if err := store.Archive(context.Background(), value.ID); err != nil {
 		t.Fatalf("Archive: %v", err)
 	}
-	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}, root: root}
+	service := &Service{store: store, git: &recordingGit{}, root: root}
 
 	if err := service.Recover(context.Background()); err != nil {
 		t.Fatalf("Recover: %v", err)

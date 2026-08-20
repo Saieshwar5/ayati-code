@@ -38,7 +38,7 @@ export function EnvironmentCreateDrawer(props: EnvironmentCreateDrawerProps) {
       </header>
       <div className="environment-create-body">
         <label>Name<input required autoFocus maxLength={80} value={input.name} placeholder={props.suggestedName} onChange={(event) => setInput({ ...input, name: event.target.value })} /></label>
-        <label>Docker image<input required maxLength={512} value={input.image_ref} onChange={(event) => setInput({ ...input, image_ref: event.target.value })} /></label>
+        <label>Image reference<input required maxLength={512} value={input.image_ref} onChange={(event) => setInput({ ...input, image_ref: event.target.value })} /></label>
 
         <details className="environment-resource-disclosure">
           <summary>
@@ -59,10 +59,10 @@ export function EnvironmentCreateDrawer(props: EnvironmentCreateDrawerProps) {
 
         <div className="environment-controller-note">
           <strong>Controller-owned</strong>
-          <p>Perpetual resolves the local image and controls leases and containers. Agents receive only the bounded workspace shell.</p>
+          <p>Perpetual resolves the local image and controls the runtime. Agents receive only the bounded workspace shell.</p>
         </div>
-        <p className="environment-image-note">The Docker image must already exist on this machine.</p>
-        {busy && <p className="environment-create-progress" role="status">Resolving Docker image…</p>}
+        <p className="environment-image-note">The image must already exist on this machine.</p>
+        {busy && <p className="environment-create-progress" role="status">Resolving image…</p>}
         {error && <div className="error" role="alert">{error}</div>}
       </div>
       <footer><button className="quiet" type="button" disabled={busy} onClick={props.onCancel}>Cancel</button><button className="primary" type="submit" disabled={busy || !input.name.trim() || !input.image_ref.trim()}>{busy ? "Preparing…" : "Create environment"}</button></footer>

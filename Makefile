@@ -2,19 +2,17 @@ SHELL := /bin/sh
 
 GO ?= go
 NPM ?= npm
-DOCKER ?= docker
 GOCACHE ?= /tmp/perpetual-gocache
 BUILD_DIR ?= dist
 BINARY := $(BUILD_DIR)/perpetual
 BIN_DIR ?= $(HOME)/.local/bin
 ARGS ?=
 
-.PHONY: help fmt fmt-check test race vet web-install web-build web-test web-check go-build build check sandbox run install
+.PHONY: help fmt fmt-check test race vet web-install web-build web-test web-check go-build build check run install
 
 help:
 	@echo "Perpetual development commands"
 	@echo ""
-	@echo "  make sandbox     build the persistent workspace image"
 	@echo "  make web-install install the locked React development dependencies"
 	@echo "  make web-check   type-check, test, and build the React interface"
 	@echo "  make run         start the local web application"
@@ -61,9 +59,6 @@ go-build:
 build: web-build go-build
 
 check: fmt-check web-check test race vet go-build
-
-sandbox:
-	$(DOCKER) build -t perpetual-sandbox:dev sandbox
 
 run: web-build
 	GOCACHE=$(GOCACHE) $(GO) run -buildvcs=false ./cmd/perpetual $(ARGS)

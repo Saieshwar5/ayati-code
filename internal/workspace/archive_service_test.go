@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestServiceArchiveStopsSandboxAndBlocksWorkspaceUse(t *testing.T) {
+func TestServiceArchiveStopsWorkspaceAndBlocksUse(t *testing.T) {
 	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
 	if err != nil {
 		t.Fatalf("Open: %v", err)
@@ -23,14 +23,10 @@ func TestServiceArchiveStopsSandboxAndBlocksWorkspaceUse(t *testing.T) {
 	if err := store.UpdateStatus(context.Background(), value.ID, StatusReady, ""); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment}
+	service := &Service{store: store}
 
 	if err := service.Archive(context.Background(), value.ID); err != nil {
 		t.Fatalf("Archive: %v", err)
-	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
-		t.Fatalf("removed sandboxes = %#v", environment.removed)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
 	if err != nil || loaded.Status != StatusStopped || loaded.ArchivedAt == nil {

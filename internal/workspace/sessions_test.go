@@ -74,9 +74,9 @@ func TestStoreMigratesWorkspaceMessagesToOriginalSession(t *testing.T) {
 	}
 	_, err = database.Exec(`INSERT INTO workspaces (
 		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
-		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
+		status, error, pull_request_number, pull_request_url, created_at, updated_at
 	) VALUES ('workspace-1', 'owner/project', 'https://github.com/owner/project.git', 'main',
-		'perpetual/change', 0, '', '/tmp/legacy-repo', 'legacy-sandbox', 'review', '', 0, '', ?, ?)`, now, now)
+		'perpetual/change', 0, '', '/tmp/legacy-repo', 'review', '', 0, '', ?, ?)`, now, now)
 	if err != nil {
 		t.Fatalf("insert legacy workspace: %v", err)
 	}

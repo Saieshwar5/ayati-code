@@ -29,7 +29,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 	}
 	shell := &recordingShell{result: agent.ShellResult{Stdout: " M app.go\n", ExitCode: 0}}
 	git := &recordingGit{}
-	service := &Service{store: store, environment: &fakeEnvironment{shell: shell}, git: git}
+	service := &Service{store: store, shells: (&fakeShells{shell: shell}).open, git: git}
 	if err := service.Publish(context.Background(), value.ID, "feat: change", "octocat", "octocat@example.com"); err != nil {
 		t.Fatalf("Publish: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestServiceRefusesDirectBranchPublishing(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	shell, git := &recordingShell{}, &recordingGit{}
-	service := &Service{store: store, environment: &fakeEnvironment{shell: shell}, git: git}
+	service := &Service{store: store, shells: (&fakeShells{shell: shell}).open, git: git}
 	err = service.Publish(context.Background(), value.ID, "feat: direct", "octocat", "octocat@example.com")
 	if err == nil || !strings.Contains(err.Error(), "working branch") {
 		t.Fatalf("Publish error = %v", err)

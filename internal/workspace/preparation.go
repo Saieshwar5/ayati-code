@@ -2,15 +2,14 @@ package workspace
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
-	compute "github.com/Saieshwar5/perpetual/internal/environment"
 )
 
 func (s *Service) Initialize(ctx context.Context, id string) error {
@@ -77,60 +76,43 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	if err := s.store.UpdatePreparation(ctx, id, PreparationStartingEnvironment,
-		"Assigning capacity and starting the workspace container"); err != nil {
-		return s.fail(ctx, id, err)
-	}
-	if _, err := s.environment.Start(ctx, compute.StartInput{
-		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path),
-	}); err != nil {
-		return s.fail(ctx, id, fmt.Errorf("acquire environment: %w", err))
-	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
 		profilePreparationDetail(profile)); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
 		"Checking the Git baseline"); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	after, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil {
 		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.failActivePreparation(ctx, value, fmt.Errorf("verify setup baseline: %w", err))
+		return s.fail(ctx, id, fmt.Errorf("verify setup baseline: %w", err))
 	}
 	profile.BaselineResult = "clean"
 	if after != before {
 		profile.BaselineResult = "changed"
 	}
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationSealing,
 		"Finalizing workspace"); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	now := time.Now().UTC()
 	profile.PreparedAt = &now
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	if err := s.store.CompletePreparation(ctx, id); err != nil {
-		return s.failActivePreparation(ctx, value, err)
+		return s.fail(ctx, id, err)
 	}
 	return nil
-}
-
-func (s *Service) failActivePreparation(ctx context.Context, value Workspace, cause error) error {
-	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil && !errors.Is(err, sql.ErrNoRows) {
-		cause = fmt.Errorf("%w; release preparation environment: %v", cause, err)
-	}
-	return s.fail(ctx, value.ID, cause)
 }
 
 func (s *Service) runSetup(ctx context.Context, value Workspace, profile *ProjectProfile) error {
@@ -138,11 +120,7 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 		profile.SetupResult = "skipped"
 		return nil
 	}
-	variables, err := s.store.EnvironmentValues(ctx, value.ID, true)
-	if err != nil {
-		return err
-	}
-	shell, err := s.environment.Open(ctx, runtimeInput(value), runtimeEnvironment(variables))
+	shell, err := s.openShell(ctx, value, true)
 	if err != nil {
 		return err
 	}
@@ -164,22 +142,28 @@ func workspaceCachePath(repositoryPath string) string {
 	return filepath.Join(filepath.Dir(repositoryPath), "cache")
 }
 
-var managedRuntimeEnvironment = map[string]string{
-	"TMPDIR": "/tmp", "XDG_CACHE_HOME": "/cache",
-	"GOCACHE": "/cache/go-build", "GOMODCACHE": "/cache/go-mod",
-	"COREPACK_HOME": "/cache/corepack", "npm_config_cache": "/cache/npm",
-	"PIP_CACHE_DIR": "/cache/pip",
-	"CARGO_HOME":    "/cache/cargo", "CARGO_TARGET_DIR": "/cache/rust-target",
-	"PYTHONDONTWRITEBYTECODE": "1",
-}
-
-func runtimeEnvironment(values map[string]string) map[string]string {
-	result := make(map[string]string, len(values)+len(managedRuntimeEnvironment))
+// shellEnvironment builds a safe local environment for setup and agent shell
+// commands. Tool caches live inside the managed workspace cache so they survive
+// Stop and Resume, and HOME is private to the workspace so host configuration
+// and controller credentials are never visible to commands.
+func shellEnvironment(cachePath string, values map[string]string) map[string]string {
+	result := make(map[string]string, len(values)+12)
 	for name, value := range values {
 		result[name] = value
 	}
-	for name, value := range managedRuntimeEnvironment {
-		result[name] = value
+	if path := os.Getenv("PATH"); path != "" {
+		result["PATH"] = path
 	}
+	result["HOME"] = filepath.Join(cachePath, "home")
+	result["TMPDIR"] = "/tmp"
+	result["XDG_CACHE_HOME"] = filepath.Join(cachePath, "xdg")
+	result["GOCACHE"] = filepath.Join(cachePath, "go-build")
+	result["GOMODCACHE"] = filepath.Join(cachePath, "go-mod")
+	result["COREPACK_HOME"] = filepath.Join(cachePath, "corepack")
+	result["npm_config_cache"] = filepath.Join(cachePath, "npm")
+	result["PIP_CACHE_DIR"] = filepath.Join(cachePath, "pip")
+	result["CARGO_HOME"] = filepath.Join(cachePath, "cargo")
+	result["CARGO_TARGET_DIR"] = filepath.Join(cachePath, "rust-target")
+	result["PYTHONDONTWRITEBYTECODE"] = "1"
 	return result
 }

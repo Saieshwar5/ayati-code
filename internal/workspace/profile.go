@@ -72,7 +72,7 @@ func AnalyzeProjectAt(root, projectRoot string) (ProjectProfile, error) {
 		}
 	}
 	if _, unsupported := files["Cargo.toml"]; unsupported {
-		return ProjectProfile{}, errors.New("Rust workspace preparation is not supported by the current sandbox")
+		return ProjectProfile{}, errors.New("Rust workspace preparation is not supported")
 	}
 	var setup, tests, lint, typecheck, build []string
 	if goMod, ok := files["go.mod"]; ok {
@@ -200,14 +200,14 @@ func nodeRuntime(files map[string][]byte, manifest nodeManifest) string {
 	if value := strings.TrimSpace(manifest.Engines["node"]); value != "" {
 		return "Node " + value
 	}
-	return "Node (sandbox default)"
+	return "Node (default)"
 }
 
 func pythonRuntime(files map[string][]byte) string {
 	if value := strings.TrimSpace(string(files[".python-version"])); value != "" {
 		return "Python " + value
 	}
-	return "Python (sandbox default)"
+	return "Python (default)"
 }
 
 func fingerprint(projectRoot string, files map[string][]byte) string {
