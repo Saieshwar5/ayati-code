@@ -14,10 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/perpetual/internal/chat"
-	"github.com/Saieshwar5/perpetual/internal/config"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
-	"github.com/Saieshwar5/perpetual/internal/fireworks"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
@@ -88,14 +85,9 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		return 1
 	}
 	events := NewEventBroker()
-	conversation, err := modelServices(store, workspaces, events)
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
 	logger := log.New(errorOutput, "perpetual: ", log.LstdFlags)
 	application, err := New(Options{
-		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
+		Context: ctx, Store: store, Workspaces: workspaces,
 		GitHub:          github,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 		Events: events,
@@ -132,24 +124,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		}
 		return 0
 	}
-}
-
-func modelServices(
-	store *workspace.Store, runtime *workspace.Service, events *EventBroker,
-) (*chat.Service, error) {
-	path, err := config.DefaultPath()
-	if err != nil {
-		return nil, err
-	}
-	values, err := config.Load(path)
-	if err != nil {
-		return nil, err
-	}
-	provider, err := fireworks.New(values.FireworksAPIKey)
-	if err != nil {
-		return nil, err
-	}
-	return chat.New(store, runtime, provider, values.Model, events)
 }
 
 type paths struct{ database, workspaces string }

@@ -2,15 +2,15 @@
 
 ## Product boundary
 
-Perpetual is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub and Fireworks, owns SQLite, and runs bounded shell commands for workspace setup and agent work. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or provider-plugin runtime; virtual-machine compute is under design as a replacement for the removed Docker sandbox.
+Perpetual is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub, owns SQLite, and runs bounded shell commands for workspace setup. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or provider-plugin runtime; virtual-machine compute is under design as a replacement for the removed Docker sandbox, and a new built-in agent is under design to replace the removed Fireworks-backed agent.
 
-The durable project object is a workspace containing one or more sessions. Every run uses the built-in Perpetual agent and the configured Fireworks model:
+The durable project object is a workspace containing one or more sessions. The Fireworks-backed agent was removed; the chat interface and session storage are kept while a new agent is designed:
 
 ```text
 Existing or newly created GitHub repository + base/working branch
   -> local clone + SQLite record
   -> deterministic project analysis + dependency initialization
-  -> separate durable session chats and explicit agent runs
+  -> durable session conversations (agent execution being redesigned)
   -> Git status/diff review
   -> commit, push, and draft pull request
   -> user stops or deletes the local workspace
@@ -20,18 +20,13 @@ The repository, cache, sessions, and SQLite record survive a normal Stop. Stop m
 
 ## Component ownership
 
-- `cmd/perpetual` owns signal handling and selects the web server or the small `config` command.
+- `cmd/perpetual` owns signal handling and starts the web server.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
 - `internal/exec` owns bounded local shell execution for setup and agent commands.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
-- `internal/chat` binds each durable session conversation to the agent loop and permits only one active run per workspace.
-- `internal/agent` owns the built-in prompt, shared messages, and the sequential loop with a hard 20-decision ceiling.
-- `internal/fireworks` owns the Fireworks request format and implements the shared agent-provider contract.
-- `internal/config` owns the private Fireworks key and model configuration and the terminal setup command.
-
 Infrastructure packages do not depend on `internal/webapp`; the web layer connects consumer-owned interfaces.
 
 The React application calls the existing JSON endpoints and does not own durable state or runtime
@@ -45,8 +40,8 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 
 - `workspaces`: repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
-- `messages`: ordered full agent messages, including tool calls and tool results, linked to a session.
-- `agent_runs`: durable accepted work with exact workspace/session ownership, lifecycle, failure, and timestamps.
+- `messages`: ordered conversation messages, including tool calls and tool results, linked to a session.
+- The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
 
@@ -58,14 +53,14 @@ management is unavailable.
 
 Workspace lifecycle values describe only the workspace: `creating`, `initializing`, `needs_configuration`, `initialization_failed`, `ready`, and `stopped`. Preparation independently records `pending`, `cloning`, `analyzing`, `installing`, `verifying`, `sealing`, `needs_configuration`, `ready`, or `failed`, plus the stage that failed. Session lifecycle values describe agent work: `idle`, `working`, `review`, `failed`, and `canceled`. Existing workspace conversations are migrated into an `Original session` without losing messages.
 
-Sessions share one workspace clone, branch, cache, and diff. They isolate conversational context and activity history, not filesystem state. Before accepting a run, one SQLite transaction creates its `agent_runs` row, records the user message, marks the session working, and enforces one active run per workspace. Execution is then owned by the Go process context rather than the initiating HTTP request, so closing or reconnecting the browser does not cancel it. The exact run ID is required for Stop, so a stale or cross-session cancellation cannot stop later work. Changes, environment, and publishing are workspace-scoped, while conversation, run cancellation, and internal activity are session-scoped.
+Sessions share one workspace clone, branch, cache, and diff. They isolate conversational context and activity history, not filesystem state. Sessions and their stored messages remain durable SQLite state; the message-send and run-cancel endpoints were removed with the agent backend, so the browser composer is currently parked until the new agent defines its execution model. Changes, environment, and publishing stay workspace-scoped.
 
 The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
 
 ## Shell execution
 
 The Docker sandbox backend was removed. `internal/exec` now provides a bounded local shell for
-dependency setup, agent tool calls, change inspection, and publishing commits. Commands run through `/bin/sh -c` on the controller machine with a two-minute timeout, 64 KiB command limit, and 32 KiB bounds for each output stream with truncation reporting. Commands execute in the workspace repository directory with a process-group cancel that kills the whole tree on browser Stop or timeout.
+dependency setup, change inspection, and publishing commits (and will back the planned agent's shell tool). Commands run through `/bin/sh -c` on the controller machine with a two-minute timeout, 64 KiB command limit, and 32 KiB bounds for each output stream with truncation reporting. Commands execute in the workspace repository directory with a process-group cancel that kills the whole tree on browser Stop or timeout.
 
 Each workspace gets a private environment that never includes host configuration:
 
@@ -76,35 +71,31 @@ Each workspace gets a private environment that never includes host configuration
 - configured values are best-effort redacted from captured output before tool results are recorded.
 
 This is an intermediate execution mode while virtual-machine compute is designed; it runs with
-host user privileges and is not a hostile-code sandbox. The controller never places GitHub,
-Fireworks, or workspace secrets in the shell environment, repository URLs, messages, logs, or
-tests.
+host user privileges and is not a hostile-code sandbox. The controller never places GitHub or
+workspace secrets in the shell environment, repository URLs, messages, logs, or tests.
 
 Initialization first clones or opens the repository with trusted host Git. A requested new working branch is created only in the local clone. Fixed rules inspect regular metadata files, resolve the repository root or one nested project, and derive Go, Node, and Python setup and verification commands. Multiple nested roots require a later user selection rather than an AI guess. The controller records the current commit and requires a clean Git status before setup.
 
 Each preparation transition is persisted before its work starts, allowing browser polling and process restarts to report truthful progress. Multiple project candidates are stored as non-secret summaries. `POST /api/workspaces/{id}/configure` accepts only a stored candidate, persists the selected root, and restarts deterministic analysis at that root. Failure records both an actionable error and the stage that failed; retry preserves the managed clone, cache, and sessions.
 
-On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved. Accepted or running agent work is marked `interrupted`, and its session is marked failed; Perpetual does not pretend a process restart can resume an in-memory provider or shell call.
+On controller startup, any workspace left in `creating` or `initializing` is atomically moved to `initialization_failed` with its interrupted stage preserved.
 
-Preparation runs dependency setup through the same bounded shell contract later used by the agent. It compares Git status after setup and records any tracked or untracked changes in the project profile so they remain visible for review. `Stop` marks the workspace stopped; `Resume` returns it to ready. Deletion waits for canceled agent work to finish, validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the workspace directory including the tool cache, and then deletes the workspace record; foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
+Preparation runs dependency setup through the bounded shell contract that the planned agent will reuse. It compares Git status after setup and records any tracked or untracked changes in the project profile so they remain visible for review. `Stop` marks the workspace stopped; `Resume` returns it to ready. Deletion validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the workspace directory including the tool cache, and then deletes the workspace record; foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
 
-Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization or an active agent run. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, and log exposure, not against commands that are intentionally given the values.
+Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, and log exposure, not against commands that are intentionally given the values.
 
-## Agent execution
+## Agent backend (removed)
 
-Perpetual has one built-in coding agent and one provider: Fireworks. The private configuration file contains the Fireworks API key and model selected through the terminal `perpetual config` command. The browser has no provider configuration or model-discovery surface.
+The Fireworks-backed agent was removed: `internal/agent`, `internal/chat`,
+`internal/fireworks`, and `internal/config` (including the `perpetual config` CLI
+command) no longer exist, the `agent_runs` table was dropped, and the send/cancel
+message endpoints were removed. The startup no longer loads a provider
+configuration, so the server runs without a `config.json`.
 
-At the start of a run, `internal/chat` loads the session history and current workspace facts, then calls the configured Fireworks model with the built-in prompt. Conversations remain session-specific while the repository and its uncommitted changes remain workspace-wide.
-
-The model receives exactly one function:
-
-```json
-{"name":"shell","arguments":{"command":"go test ./..."}}
-```
-
-There are no file, GitHub, service, lifecycle, or database tools exposed to the model. The web controller owns workspace creation, initialization, stopping, Git credentials, commits, pushes, and pull requests.
-
-The composer has one Send action and a Stop action while that session owns the active run. Stop cancels the shared Fireworks and shell context, preserves messages and activity already recorded, and moves the session to `canceled` instead of presenting a user decision as a failure. Discussion, planning, and review requests do not grant permission to modify files; the user must state an explicit implementation request. Every run receives the resolved project root, language/runtime/package-manager facts, baseline commit, preparation result, and detected verification commands. Publishing and workspace lifecycle remain unavailable through the model-facing shell.
+The browser chat interface, session list, composer, and stored conversation
+history are kept as parked client code for the new agent being designed. Opening
+a conversation still renders past messages; Send and Stop currently report that
+the agent is unavailable because those endpoints are gone.
 
 ## GitHub and publish boundary
 

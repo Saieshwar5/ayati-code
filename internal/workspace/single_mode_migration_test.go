@@ -4,8 +4,6 @@ import (
 	"context"
 	"path/filepath"
 	"testing"
-
-	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestSingleWorkspaceModeMigrationPreservesWorkspaceConversation(t *testing.T) {
@@ -26,7 +24,7 @@ func TestSingleWorkspaceModeMigrationPreservesWorkspaceConversation(t *testing.T
 		t.Fatalf("ListSessions: %v", err)
 	}
 	if err := store.AppendMessage(context.Background(), sessions[0].ID,
-		agent.Message{Role: "user", Content: "preserve this"}); err != nil {
+		Message{Role: "user", Content: "preserve this"}); err != nil {
 		t.Fatalf("AppendMessage: %v", err)
 	}
 	for _, statement := range []string{

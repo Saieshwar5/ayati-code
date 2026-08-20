@@ -10,15 +10,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
 type recordingShell struct {
 	commands []string
-	result   agent.ShellResult
+	result   exec.ShellResult
 }
 
-func (s *recordingShell) Execute(_ context.Context, request agent.ShellRequest) agent.ShellResult {
+func (s *recordingShell) Execute(_ context.Context, request exec.ShellRequest) exec.ShellResult {
 	s.commands = append(s.commands, request.Command)
 	return s.result
 }
@@ -80,7 +80,7 @@ func TestServiceInitializesBranchAndDependencies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	shell := &recordingShell{result: agent.ShellResult{ExitCode: 0}}
+	shell := &recordingShell{result: exec.ShellResult{ExitCode: 0}}
 	shells := &fakeShells{shell: shell}
 	git := &recordingGit{}
 	service := &Service{store: store, shells: shells.open, git: git}
@@ -129,7 +129,7 @@ func TestServiceRecordsSetupFailure(t *testing.T) {
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "main", Setup: "npm ci", Path: path,
 	})
-	shell := &recordingShell{result: agent.ShellResult{ExitCode: 1, Stderr: "npm not found"}}
+	shell := &recordingShell{result: exec.ShellResult{ExitCode: 1, Stderr: "npm not found"}}
 	service := &Service{
 		store: store, shells: (&fakeShells{shell: shell}).open, git: &recordingGit{},
 	}
@@ -169,7 +169,7 @@ func TestServiceDeletesManagedWorkspaceAndHistory(t *testing.T) {
 		t.Fatalf("ListSessions: %v", err)
 	}
 	if err := store.AppendMessage(context.Background(), sessions[0].ID,
-		agent.Message{Role: "user", Content: "delete me"}); err != nil {
+		Message{Role: "user", Content: "delete me"}); err != nil {
 		t.Fatalf("AppendMessage: %v", err)
 	}
 	service := &Service{store: store, git: &recordingGit{}, root: root}

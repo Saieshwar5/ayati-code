@@ -2,22 +2,18 @@
 
 ## Project scope
 
-Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, an exclusive lease on a reusable local Docker environment, dependency initialization, durable browser chat with one built-in agent backed by Fireworks, explicit agent work, diff review, and a draft pull request.
+Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, dependency initialization in a bounded local shell, durable browser chat (currently parked while a new agent is designed), diff review, and a draft pull request.
 
-Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The model has one tool: `shell(command)`.
+Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The planned agent has one tool: `shell(command)` through `internal/exec`.
 
 ## Package ownership
 
 - `cmd/perpetual/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
-- `internal/exec/`: bounded local shell execution for setup and agent commands.
+- `internal/exec/`: bounded local shell execution and the shell contract for setup and the planned agent.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
-- `internal/workspace/`: SQLite state, lifecycle, deterministic project preparation, trusted Git, review, and publish.
+- `internal/workspace/`: SQLite state, lifecycle, sessions and stored conversation messages, deterministic project preparation, trusted Git, review, and publish.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
-- `internal/chat/`: durable workspace conversation and serialized agent runs.
-- `internal/agent/`: built-in prompt composition, shared messages, and sequential loop.
-- `internal/config/`: private Fireworks key and model configuration and setup command.
-- `internal/fireworks/`: Fireworks protocol adapter.
 - `docs/`: architecture and important design decisions.
 
 Keep logic in the package that owns the responsibility. `internal/webapp` may connect packages, but infrastructure packages should not depend on it.
@@ -40,13 +36,13 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 ## Security and runtime rules
 
-The controller owns GitHub, Git, SQLite, environment leases, Docker lifecycle, and model-provider credentials. Never expose credentials to the model sandbox, repository URLs, messages, logs, or tests.
+The controller owns GitHub, Git, SQLite, and workspace execution. Never expose credentials to shell commands, repository URLs, messages, logs, or tests.
 
-Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, out of Git and Docker metadata, and best-effort redacted from shell results. Do not confuse them with controller-owned GitHub or model-provider credentials. A sandbox command that receives a workspace value can read it; do not claim otherwise.
+Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, and best-effort redacted from shell results. A local shell command that receives a workspace value can read it; do not claim otherwise.
 
-Sandbox containers run non-root with a read-only root, dropped capabilities, no-new-privileges, bounded resources, private temporary/home mounts, a writable selected workspace, and a managed cache outside the repository. Preserve command, output, timeout, workspace, cache, mount verification, and process-group cancellation bounds. Validate container names before lifecycle actions. Network access is currently allowed for dependency setup.
+Setup and agent commands run through the bounded local shell in `internal/exec` with a private per-workspace `HOME` and tool caches under the managed cache. Preserve command, output, timeout, working-directory, environment, and process-group cancellation bounds. The controller never places GitHub credentials in the shell environment.
 
-Each active workspace holds one exclusive, generation-checked environment lease. Stop destroys the exact leased runtime and releases the environment while preserving the repository and cache; Resume acquires available capacity and creates a new runtime. The built-in agent never overrides controller credential and publishing rules. Discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
+The agent backend (Fireworks, chat, provider config) was removed; the browser chat UI is parked until a new agent is designed. When it lands, the agent must never override controller credential and publishing rules; discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
 
 ## Git changes
 

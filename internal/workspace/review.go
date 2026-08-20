@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
 type Changes struct {
@@ -19,14 +19,14 @@ func (s *Service) Changes(ctx context.Context, id string) (Changes, error) {
 	if err != nil {
 		return Changes{}, err
 	}
-	status := shell.Execute(ctx, agent.ShellRequest{Command: "git status --short"})
+	status := shell.Execute(ctx, exec.ShellRequest{Command: "git status --short"})
 	if status.ExitCode != 0 || status.Error != "" {
 		return Changes{}, fmt.Errorf("inspect Git status: %s", shellError(status))
 	}
 	diffCommand := `git diff --no-ext-diff --stat && git diff --no-ext-diff && ` +
 		`git ls-files --others --exclude-standard -z | ` +
 		`xargs -0 -r -n1 sh -c 'git diff --no-index -- /dev/null "$1"; code=$?; test "$code" -eq 0 -o "$code" -eq 1' sh`
-	diff := shell.Execute(ctx, agent.ShellRequest{Command: diffCommand})
+	diff := shell.Execute(ctx, exec.ShellRequest{Command: diffCommand})
 	if diff.ExitCode != 0 || diff.Error != "" {
 		return Changes{}, fmt.Errorf("inspect Git diff: %s", shellError(diff))
 	}
@@ -56,7 +56,7 @@ func (s *Service) Publish(ctx context.Context, id, message, authorName, authorEm
 	if message == "" {
 		return errors.New("commit message is required")
 	}
-	status := shell.Execute(ctx, agent.ShellRequest{Command: "git status --porcelain"})
+	status := shell.Execute(ctx, exec.ShellRequest{Command: "git status --porcelain"})
 	if status.ExitCode != 0 || status.Error != "" {
 		return fmt.Errorf("inspect changes: %s", shellError(status))
 	}
@@ -70,7 +70,7 @@ func (s *Service) Publish(ctx context.Context, id, message, authorName, authorEm
 			arguments = append(arguments, "-c", shellQuote("user.email="+strings.TrimSpace(authorEmail)))
 		}
 		arguments = append(arguments, "commit", "--no-verify", "-m", shellQuote(message))
-		commit := shell.Execute(ctx, agent.ShellRequest{Command: strings.Join(arguments, " ")})
+		commit := shell.Execute(ctx, exec.ShellRequest{Command: strings.Join(arguments, " ")})
 		if commit.ExitCode != 0 || commit.Error != "" {
 			return fmt.Errorf("commit changes: %s", shellError(commit))
 		}

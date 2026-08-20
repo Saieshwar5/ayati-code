@@ -9,7 +9,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
 	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
@@ -21,7 +20,7 @@ type gitClient interface {
 
 // shellFactory creates a bounded shell for a workspace command. The factory is
 // injectable so tests can record variables without executing on the host.
-type shellFactory func(variables map[string]string, dir string) (agent.Shell, error)
+type shellFactory func(variables map[string]string, dir string) (exec.Shell, error)
 
 type Service struct {
 	store    *Store
@@ -48,7 +47,7 @@ func NewService(store *Store, token func() (string, error), root string) (*Servi
 		return nil, err
 	}
 	service := &Service{store: store, git: git, root: filepath.Clean(root)}
-	service.shells = func(variables map[string]string, dir string) (agent.Shell, error) {
+	service.shells = func(variables map[string]string, dir string) (exec.Shell, error) {
 		return exec.New(variables, dir)
 	}
 	return service, nil
@@ -85,7 +84,7 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
 
-func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace, error) {
+func (s *Service) Shell(ctx context.Context, id string) (exec.Shell, Workspace, error) {
 	value, err := s.store.Get(ctx, id)
 	if err != nil {
 		return nil, Workspace{}, err
@@ -100,7 +99,7 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	return shell, value, err
 }
 
-func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool) (agent.Shell, error) {
+func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool) (exec.Shell, error) {
 	variables, err := s.store.EnvironmentValues(ctx, value.ID, setupOnly)
 	if err != nil {
 		return nil, err
@@ -157,7 +156,7 @@ func boundedMessage(value string) string {
 	return value[:4096] + "…"
 }
 
-func shellError(result agent.ShellResult) string {
+func shellError(result exec.ShellResult) string {
 	return boundedMessage(strings.TrimSpace(strings.Join([]string{result.Error, result.Stderr, result.Stdout}, "\n")))
 }
 

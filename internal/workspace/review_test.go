@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
 func TestServicePublishesWorkspaceChanges(t *testing.T) {
@@ -27,7 +27,7 @@ func TestServicePublishesWorkspaceChanges(t *testing.T) {
 	if err := store.UpdateStatus(context.Background(), value.ID, StatusReady, ""); err != nil {
 		t.Fatalf("UpdateStatus: %v", err)
 	}
-	shell := &recordingShell{result: agent.ShellResult{Stdout: " M app.go\n", ExitCode: 0}}
+	shell := &recordingShell{result: exec.ShellResult{Stdout: " M app.go\n", ExitCode: 0}}
 	git := &recordingGit{}
 	service := &Service{store: store, shells: (&fakeShells{shell: shell}).open, git: git}
 	if err := service.Publish(context.Background(), value.ID, "feat: change", "octocat", "octocat@example.com"); err != nil {

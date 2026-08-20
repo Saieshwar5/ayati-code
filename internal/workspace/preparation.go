@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Saieshwar5/perpetual/internal/agent"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
 
 func (s *Service) Initialize(ctx context.Context, id string) error {
@@ -124,7 +124,7 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 	if err != nil {
 		return err
 	}
-	result := shell.Execute(ctx, agent.ShellRequest{Command: profile.SetupCommand})
+	result := shell.Execute(ctx, exec.ShellRequest{Command: profile.SetupCommand})
 	if result.ExitCode != 0 || result.Error != "" {
 		profile.SetupResult = "failed"
 		return fmt.Errorf("setup failed: %s", shellError(result))

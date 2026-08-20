@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/Saieshwar5/perpetual/internal/agent"
 )
 
 func TestStoreCreatesListsAndUpdatesWorkspace(t *testing.T) {
@@ -69,8 +67,8 @@ func TestStorePersistsCompleteAgentMessages(t *testing.T) {
 	if err != nil || len(sessions) != 1 || sessions[0].Title != "Original session" {
 		t.Fatalf("sessions = %#v, error = %v", sessions, err)
 	}
-	want := agent.Message{Role: "assistant", ToolCalls: []agent.ToolCall{{
-		ID: "call-1", Type: "function", Function: agent.FunctionCall{Name: "shell", Arguments: `{"command":"pwd"}`},
+	want := Message{Role: "assistant", ToolCalls: []ToolCall{{
+		ID: "call-1", Type: "function", Function: FunctionCall{Name: "shell", Arguments: `{"command":"pwd"}`},
 	}}}
 	if err := store.AppendMessage(context.Background(), sessions[0].ID, want); err != nil {
 		t.Fatalf("AppendMessage: %v", err)
