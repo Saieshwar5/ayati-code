@@ -161,10 +161,10 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
 		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
-		sandbox_name, status, error, pull_request_number, pull_request_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
+		status, error, pull_request_number, pull_request_url, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
 		value.ID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
-		value.CreateBranch, value.Setup, value.Path, value.ID, value.Status,
+		value.CreateBranch, value.Setup, value.Path, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
 	if err != nil {
@@ -246,20 +246,20 @@ func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
 	create_branch, preparation_stage, preparation_detail, preparation_failed_stage,
-	selected_project_root, configuration_candidates, setup_command, path, sandbox_name, status, error,
+	selected_project_root, configuration_candidates, setup_command, path, status, error,
 	pull_request_number, pull_request_url, archived_at, created_at, updated_at FROM workspaces`
 
 type scanner interface{ Scan(...any) error }
 
 func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
-	var archivedAt, createdAt, updatedAt, candidates, legacySandboxName string
+	var archivedAt, createdAt, updatedAt, candidates string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
 		&value.CreateBranch,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
-		&value.Path, &legacySandboxName, &value.Status, &value.Error,
+		&value.Path, &value.Status, &value.Error,
 		&value.PullRequestNumber, &value.PullRequestURL,
 		&archivedAt, &createdAt, &updatedAt,
 	)

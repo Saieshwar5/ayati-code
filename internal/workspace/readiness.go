@@ -11,22 +11,20 @@ import (
 )
 
 const (
-	PreparationPending             = "pending"
-	PreparationCloning             = "cloning"
-	PreparationAnalyzing           = "analyzing"
-	PreparationStartingEnvironment = "starting_environment"
-	PreparationInstalling          = "installing"
-	PreparationVerifying           = "verifying"
-	PreparationSealing             = "sealing"
-	PreparationNeedsConfiguration  = "needs_configuration"
-	PreparationReady               = "ready"
-	PreparationFailed              = "failed"
+	PreparationPending            = "pending"
+	PreparationCloning            = "cloning"
+	PreparationAnalyzing          = "analyzing"
+	PreparationInstalling         = "installing"
+	PreparationVerifying          = "verifying"
+	PreparationSealing            = "sealing"
+	PreparationNeedsConfiguration = "needs_configuration"
+	PreparationReady              = "ready"
+	PreparationFailed             = "failed"
 )
 
 var preparationStages = map[string]bool{
 	PreparationPending: true, PreparationCloning: true, PreparationAnalyzing: true,
-	PreparationStartingEnvironment: true, PreparationInstalling: true,
-	PreparationVerifying: true, PreparationSealing: true,
+	PreparationInstalling: true, PreparationVerifying: true, PreparationSealing: true,
 	PreparationNeedsConfiguration: true, PreparationReady: true, PreparationFailed: true,
 }
 

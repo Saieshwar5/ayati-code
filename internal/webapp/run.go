@@ -17,10 +17,8 @@ import (
 	"github.com/Saieshwar5/perpetual/internal/chat"
 	"github.com/Saieshwar5/perpetual/internal/config"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
-	compute "github.com/Saieshwar5/perpetual/internal/environment"
 	"github.com/Saieshwar5/perpetual/internal/fireworks"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
-	"github.com/Saieshwar5/perpetual/internal/sandbox"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
@@ -32,7 +30,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	address := flags.String("address", envOr("PERPETUAL_ADDRESS", "127.0.0.1:8080"), "local web address")
 	databasePath := flags.String("database", "", "SQLite database path")
 	dataRoot := flags.String("data-root", "", "workspace data directory")
-	image := flags.String("sandbox-image", envOr("PERPETUAL_SANDBOX_IMAGE", sandbox.DefaultImage), "workspace sandbox image")
 	clientID := flags.String("github-client-id", os.Getenv("PERPETUAL_GITHUB_CLIENT_ID"), "GitHub App client ID")
 	clientSecret := flags.String("github-client-secret", os.Getenv("PERPETUAL_GITHUB_CLIENT_SECRET"), "GitHub App client secret")
 	callback := flags.String("github-callback-url", os.Getenv("PERPETUAL_GITHUB_CALLBACK_URL"), "GitHub callback URL")
@@ -67,30 +64,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	environments, err := compute.NewStore(database)
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
-	driver, err := sandbox.NewDockerDriver()
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
-	if err := ensureLocalEnvironment(ctx, environments, driver, *image); err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
-	management, err := compute.NewManagementService(environments, driver)
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
-	runtime, err := sandbox.NewRuntimeManager(environments, driver)
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
 	credentialPath, err := githubapp.DefaultCredentialsPath()
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -100,7 +73,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		credentials, err := githubapp.LoadCredentials(credentialPath)
 		return credentials.AccessToken, err
 	}
-	workspaces, err := workspace.NewService(store, runtime, token, paths.workspaces)
+	workspaces, err := workspace.NewService(store, token, paths.workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
@@ -124,7 +97,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	application, err := New(Options{
 		Context: ctx, Store: store, Workspaces: workspaces, Chat: conversation,
 		GitHub:          github,
-		Environments:    management,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 		Events: events,
 	})
@@ -160,34 +132,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		}
 		return 0
 	}
-}
-
-type imageResolver interface {
-	ResolveImage(context.Context, string) (string, error)
-}
-
-func ensureLocalEnvironment(
-	ctx context.Context, store *compute.Store, resolver imageResolver, image string,
-) error {
-	values, err := store.List(ctx)
-	if err != nil {
-		return fmt.Errorf("list environments: %w", err)
-	}
-	if len(values) != 0 {
-		return nil
-	}
-	digest, err := resolver.ResolveImage(ctx, image)
-	if err != nil {
-		return err
-	}
-	value, err := store.Create(ctx, compute.CreateInput{Name: "Local Docker", ImageRef: image})
-	if err != nil {
-		return fmt.Errorf("create local environment: %w", err)
-	}
-	if err := store.MarkReady(ctx, value.ID, digest); err != nil {
-		return fmt.Errorf("prepare local environment: %w", err)
-	}
-	return nil
 }
 
 func modelServices(

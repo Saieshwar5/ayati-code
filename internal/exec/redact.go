@@ -1,4 +1,4 @@
-package sandbox
+package exec
 
 import (
 	"errors"
@@ -7,16 +7,10 @@ import (
 	"strings"
 )
 
-const environmentScript = `set -eu
-file=$(mktemp /tmp/perpetual-environment.XXXXXX)
-trap 'rm -f "$file"' EXIT HUP INT TERM
-chmod 600 "$file"
-cat > "$file"
-. "$file"
-rm -f "$file"
-trap - EXIT
-exec timeout -k 1 "$1" /bin/sh -c "$2"`
+type secret struct{ name, value string }
 
+// validateVariables rejects names that cannot be exported and values that
+// contain NUL bytes.
 func validateVariables(variables map[string]string) error {
 	for name, value := range variables {
 		if name == "" || (name[0] != '_' && (name[0] < 'A' || name[0] > 'Z') && (name[0] < 'a' || name[0] > 'z')) {
@@ -35,28 +29,6 @@ func validateVariables(variables map[string]string) error {
 	return nil
 }
 
-func environmentCommand(name, seconds, command string, variables map[string]string) (string, []string) {
-	names := make([]string, 0, len(variables))
-	for name := range variables {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	var input strings.Builder
-	for _, name := range names {
-		input.WriteString("export ")
-		input.WriteString(name)
-		input.WriteByte('=')
-		input.WriteString(shellQuote(variables[name]))
-		input.WriteByte('\n')
-	}
-	arguments := []string{"exec", "-i", name, "/bin/sh", "-c", environmentScript, "sh", seconds, command}
-	return input.String(), arguments
-}
-
-func shellQuote(value string) string {
-	return "'" + strings.ReplaceAll(value, "'", `'"'"'`) + "'"
-}
-
 func copyVariables(variables map[string]string) map[string]string {
 	copy := make(map[string]string, len(variables))
 	for name, value := range variables {
@@ -65,8 +37,12 @@ func copyVariables(variables map[string]string) map[string]string {
 	return copy
 }
 
+func sortStrings(values []string) {
+	sort.Strings(values)
+}
+
+// redactEnvironment replaces configured values in captured output.
 func redactEnvironment(value string, variables map[string]string, truncated bool) string {
-	type secret struct{ name, value string }
 	secrets := make([]secret, 0, len(variables))
 	for name, value := range variables {
 		if value != "" {
@@ -74,12 +50,12 @@ func redactEnvironment(value string, variables map[string]string, truncated bool
 		}
 	}
 	sort.Slice(secrets, func(i, j int) bool { return len(secrets[i].value) > len(secrets[j].value) })
-	for _, secret := range secrets {
-		value = strings.ReplaceAll(value, secret.value, "[REDACTED:"+secret.name+"]")
+	for _, current := range secrets {
+		value = strings.ReplaceAll(value, current.value, "[REDACTED:"+current.name+"]")
 		if truncated {
-			for length := len(secret.value) - 1; length >= 4; length-- {
-				if strings.HasSuffix(value, secret.value[:length]) {
-					value = strings.TrimSuffix(value, secret.value[:length]) + "[REDACTED:" + secret.name + "]"
+			for length := len(current.value) - 1; length >= 4; length-- {
+				if strings.HasSuffix(value, current.value[:length]) {
+					value = strings.TrimSuffix(value, current.value[:length]) + "[REDACTED:" + current.name + "]"
 					break
 				}
 			}

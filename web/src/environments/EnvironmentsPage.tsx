@@ -25,7 +25,7 @@ export function EnvironmentsPage({ workspaces = [], onOpenWorkspace }: Environme
       <header className="environment-page-heading">
         <div>
           <h1>Environments</h1>
-          <p className="muted">Reusable local Docker capacity for active workspaces.</p>
+          <p className="muted">Reusable local capacity for active workspaces.</p>
         </div>
         <button className="primary environment-add-button" type="button" aria-expanded={creating} aria-controls="environment-create-drawer" onClick={() => setCreating(true)}>
           <Icon name="plus" />Add environment
@@ -57,13 +57,13 @@ export function EnvironmentsPage({ workspaces = [], onOpenWorkspace }: Environme
       ) : <div className="environment-empty-state">
         <Icon name="environments" />
         <h2>No environment capacity</h2>
-        <p className="muted">Add a local Docker environment before starting a workspace.</p>
+        <p className="muted">Add a local environment before starting a workspace.</p>
         <button className="primary" type="button" onClick={() => setCreating(true)}>Create environment</button>
       </div>}
     </div>
 
     {creating && <EnvironmentCreateDrawer
-      suggestedName={`Local Docker ${controller.environments.length + 1}`}
+      suggestedName={`Local environment ${controller.environments.length + 1}`}
       onCancel={() => setCreating(false)}
       onCreate={async (input) => {
         await controller.create(input);

@@ -23,9 +23,9 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment := &fakeEnvironment{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
+	shells := &fakeShells{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
 	git := &recordingGit{statusResults: []string{"", "?? package-lock.json\n"}}
-	service := &Service{store: store, environment: environment, git: git}
+	service := &Service{store: store, shells: shells.open, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
@@ -35,8 +35,8 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 		loaded.PreparationStage != PreparationReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, loadErr)
 	}
-	if len(environment.ensured) != 1 || len(environment.removed) != 0 {
-		t.Fatalf("sandbox lifecycle = ensured %#v, removed %#v", environment.ensured, environment.removed)
+	if len(shells.variables) != 1 {
+		t.Fatalf("shell variables = %#v", shells.variables)
 	}
 }
 
@@ -54,8 +54,8 @@ func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment := &fakeEnvironment{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
-	service := &Service{store: store, environment: environment,
+	shells := &fakeShells{shell: &recordingShell{result: agent.ShellResult{ExitCode: 0}}}
+	service := &Service{store: store, shells: shells.open,
 		git: &recordingGit{statusResults: []string{"", " M package-lock.json\n"}}}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -95,9 +95,9 @@ func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
 	}
 	service := &Service{
 		store: store,
-		environment: &fakeEnvironment{shell: &recordingShell{
+		shells: (&fakeShells{shell: &recordingShell{
 			result: agent.ShellResult{ExitCode: 0},
-		}},
+		}}).open,
 		git: &recordingGit{},
 	}
 	err = service.Initialize(context.Background(), value.ID)

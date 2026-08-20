@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"context"
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,50 +61,6 @@ func TestStoreRecoversWorkInterruptedByRestart(t *testing.T) {
 	}
 }
 
-func TestServiceRemovesInterruptedPreparationSandbox(t *testing.T) {
-	store, value := readyWorkspace(t, "main", false)
-	if err := store.UpdateStatus(context.Background(), value.ID,
-		StatusInitializationFailed, interruptedPreparationMessage); err != nil {
-		t.Fatalf("UpdateStatus: %v", err)
-	}
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}}
-	if err := service.Recover(context.Background()); err != nil {
-		t.Fatalf("Recover: %v", err)
-	}
-	if len(environment.removed) != 1 || environment.removed[0] != value.ID {
-		t.Fatalf("removed sandboxes = %#v", environment.removed)
-	}
-}
-
-func TestServiceRestoresReadyWorkspaceEnvironment(t *testing.T) {
-	store, value := readyWorkspace(t, "main", false)
-	environment := &fakeEnvironment{}
-	service := &Service{store: store, environment: environment, git: &recordingGit{}}
-	if err := service.Recover(context.Background()); err != nil {
-		t.Fatalf("Recover: %v", err)
-	}
-	if len(environment.ensured) != 1 || environment.ensured[0].WorkspaceID != value.ID {
-		t.Fatalf("restored environments = %#v", environment.ensured)
-	}
-}
-
-func TestServiceStopsReadyWorkspaceWhenCapacityIsUnavailable(t *testing.T) {
-	store, value := readyWorkspace(t, "perpetual/change", true)
-	service := &Service{
-		store: store, environment: &fakeEnvironment{err: errors.New("no environment is available")},
-		git: &recordingGit{},
-	}
-	if err := service.Recover(context.Background()); err != nil {
-		t.Fatalf("Recover: %v", err)
-	}
-	loaded, err := store.Get(context.Background(), value.ID)
-	if err != nil || loaded.Status != StatusStopped ||
-		!strings.Contains(loaded.Error, "no environment is available") {
-		t.Fatalf("workspace = %#v, error = %v", loaded, err)
-	}
-}
-
 func TestServiceResumesStoppedWorkspaceWithoutReinitializing(t *testing.T) {
 	store, value := readyWorkspace(t, "perpetual/change", true)
 	if err := os.MkdirAll(value.Path, 0o700); err != nil {
@@ -114,9 +69,8 @@ func TestServiceResumesStoppedWorkspaceWithoutReinitializing(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(value.Path, "uncommitted.go"), []byte("package change\n"), 0o600); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	environment := &fakeEnvironment{}
 	git := &recordingGit{}
-	service := &Service{store: store, environment: environment, git: git}
+	service := &Service{store: store, git: git}
 	if err := service.Stop(context.Background(), value.ID); err != nil {
 		t.Fatalf("Stop: %v", err)
 	}
@@ -127,9 +81,8 @@ func TestServiceResumesStoppedWorkspaceWithoutReinitializing(t *testing.T) {
 	if err != nil || loaded.Status != StatusReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
-	if len(environment.removed) != 1 || len(environment.ensured) != 1 || len(git.calls) != 0 {
-		t.Fatalf("sandbox = removed %#v ensured %#v, git = %#v",
-			environment.removed, environment.ensured, git.calls)
+	if len(git.calls) != 0 {
+		t.Fatalf("git = %#v", git.calls)
 	}
 	data, err := os.ReadFile(filepath.Join(value.Path, "uncommitted.go"))
 	if err != nil || string(data) != "package change\n" {
@@ -139,7 +92,7 @@ func TestServiceResumesStoppedWorkspaceWithoutReinitializing(t *testing.T) {
 
 func TestServiceRejectsInitializationOutsideCreationOrRetry(t *testing.T) {
 	store, value := readyWorkspace(t, "main", false)
-	service := &Service{store: store, environment: &fakeEnvironment{}, git: &recordingGit{}}
+	service := &Service{store: store, git: &recordingGit{}}
 	if err := service.Initialize(context.Background(), value.ID); err == nil ||
 		!strings.Contains(err.Error(), "cannot be initialized") {
 		t.Fatalf("Initialize error = %v", err)

@@ -26,21 +26,21 @@ describe("WorkspaceReadiness", () => {
     render(<WorkspaceReadiness workspace={workspace} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
     expect(screen.getByText("Repository").closest("li")?.className).toBe("done");
     expect(screen.getAllByText("Project").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
-    expect(screen.getByText("Environment").closest("li")?.className).toBe("pending");
     expect(screen.getByText("Dependencies").closest("li")?.className).toBe("pending");
+    expect(screen.getByText("Verify").closest("li")?.className).toBe("pending");
     expect(screen.getByText("Inspecting project metadata")).toBeTruthy();
   });
 
-  it("shows environment startup separately from dependency installation", () => {
+  it("moves from dependencies to verification", () => {
     const { rerender } = render(
-      <WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "starting_environment" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />,
+      <WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "installing" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />,
     );
-    expect(screen.getAllByText("Environment").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
-    expect(screen.getByText("Dependencies").closest("li")?.className).toBe("pending");
-
-    rerender(<WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "installing" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
-    expect(screen.getAllByText("Environment").find((element) => element.closest("li"))?.closest("li")?.className).toBe("done");
     expect(screen.getAllByText("Dependencies").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
+    expect(screen.getAllByText("Verify").find((element) => element.closest("li"))?.closest("li")?.className).toBe("pending");
+
+    rerender(<WorkspaceReadiness workspace={{ ...workspace, preparation_stage: "verifying" }} onConfigure={vi.fn()} onRetry={vi.fn()} onResume={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.getAllByText("Dependencies").find((element) => element.closest("li"))?.closest("li")?.className).toBe("done");
+    expect(screen.getAllByText("Verify").find((element) => element.closest("li"))?.closest("li")?.className).toBe("current");
   });
 
   it("submits the selected project root", async () => {
@@ -93,7 +93,7 @@ describe("WorkspaceReadiness", () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
-  it("resumes a stopped sandbox without retrying preparation", async () => {
+  it("resumes a stopped workspace without retrying preparation", async () => {
     const retry = vi.fn().mockResolvedValue(undefined);
     const resume = vi.fn().mockResolvedValue(undefined);
     const user = userEvent.setup();

@@ -133,7 +133,7 @@ func shellTool() chatTool {
 			"type": "object", "additionalProperties": false,
 			"properties": map[string]any{
 				"command": map[string]any{
-					"type": "string", "description": "Shell command to run in the persistent workspace sandbox.",
+					"type": "string", "description": "Shell command to run in the persistent workspace.",
 				},
 			},
 			"required": []string{"command"},

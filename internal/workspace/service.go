@@ -10,16 +10,8 @@ import (
 	"sync"
 
 	"github.com/Saieshwar5/perpetual/internal/agent"
-	compute "github.com/Saieshwar5/perpetual/internal/environment"
+	"github.com/Saieshwar5/perpetual/internal/exec"
 )
-
-type environment interface {
-	Cleanup(context.Context, compute.StopInput) error
-	Ensure(context.Context, compute.StopInput) (compute.Assignment, error)
-	Start(context.Context, compute.StartInput) (compute.Assignment, error)
-	Stop(context.Context, compute.StopInput) error
-	Open(context.Context, compute.StopInput, map[string]string) (agent.Shell, error)
-}
 
 type gitClient interface {
 	Run(context.Context, ...string) error
@@ -27,17 +19,21 @@ type gitClient interface {
 	Output(context.Context, ...string) (string, error)
 }
 
+// shellFactory creates a bounded shell for a workspace command. The factory is
+// injectable so tests can record variables without executing on the host.
+type shellFactory func(variables map[string]string, dir string) (agent.Shell, error)
+
 type Service struct {
-	store       *Store
-	environment environment
-	git         gitClient
-	root        string
-	deleteMu    sync.Mutex
+	store    *Store
+	shells   shellFactory
+	git      gitClient
+	root     string
+	deleteMu sync.Mutex
 }
 
-func NewService(store *Store, environment environment, token func() (string, error), root string) (*Service, error) {
-	if store == nil || environment == nil {
-		return nil, errors.New("workspace store and sandbox environment are required")
+func NewService(store *Store, token func() (string, error), root string) (*Service, error) {
+	if store == nil {
+		return nil, errors.New("workspace store is required")
 	}
 	root = strings.TrimSpace(root)
 	if root == "" {
@@ -51,7 +47,11 @@ func NewService(store *Store, environment environment, token func() (string, err
 	if err != nil {
 		return nil, err
 	}
-	return &Service{store: store, environment: environment, git: git, root: filepath.Clean(root)}, nil
+	service := &Service{store: store, git: git, root: filepath.Clean(root)}
+	service.shells = func(variables map[string]string, dir string) (agent.Shell, error) {
+		return exec.New(variables, dir)
+	}
+	return service, nil
 }
 
 func (s *Service) Stop(ctx context.Context, id string) error {
@@ -64,9 +64,6 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	}
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
-	}
-	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
-		return fmt.Errorf("release environment: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
 }
@@ -85,17 +82,7 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	if value.PreparationStage != PreparationReady {
 		return fmt.Errorf("workspace preparation is %s and cannot be resumed", value.PreparationStage)
 	}
-	_, err = s.environment.Start(ctx, compute.StartInput{
-		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path),
-	})
-	if err != nil {
-		return fmt.Errorf("resume environment: %w", err)
-	}
-	if err := s.store.UpdateStatus(ctx, id, StatusReady, ""); err != nil {
-		return s.releaseAfterResumeFailure(ctx, value, err)
-	}
-	return nil
+	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
 
 func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace, error) {
@@ -109,26 +96,20 @@ func (s *Service) Shell(ctx context.Context, id string) (agent.Shell, Workspace,
 	if value.Status != StatusReady {
 		return nil, Workspace{}, fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	variables, err := s.store.EnvironmentValues(ctx, id, false)
-	if err != nil {
-		return nil, Workspace{}, err
-	}
-	shell, err := s.environment.Open(ctx, runtimeInput(value), runtimeEnvironment(variables))
+	shell, err := s.openShell(ctx, value, false)
 	return shell, value, err
 }
 
-func runtimeInput(value Workspace) compute.StopInput {
-	return compute.StopInput{
-		WorkspaceID: value.ID, WorkspacePath: value.Path,
-		CachePath: workspaceCachePath(value.Path),
+func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool) (agent.Shell, error) {
+	variables, err := s.store.EnvironmentValues(ctx, value.ID, setupOnly)
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (s *Service) releaseAfterResumeFailure(ctx context.Context, value Workspace, cause error) error {
-	if err := s.environment.Stop(ctx, runtimeInput(value)); err != nil {
-		return errors.Join(cause, fmt.Errorf("release resumed environment: %w", err))
+	environment := shellEnvironment(workspaceCachePath(value.Path), variables)
+	if err := os.MkdirAll(environment["HOME"], 0o700); err != nil {
+		return nil, fmt.Errorf("create shell home: %w", err)
 	}
-	return cause
+	return s.shells(environment, value.Path)
 }
 
 func (s *Service) prepareRepository(ctx context.Context, value Workspace) error {

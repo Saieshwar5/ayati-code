@@ -31,7 +31,7 @@ export function WorkspaceHome(props: WorkspaceHomeProps) {
             ? props.repositoryError
             : props.repositoryError
             ? `${props.repositoryError}. Check the GitHub App installation, then reload perpetual.`
-            : "Choose an existing project from the left, or create a workspace to prepare a repository and its sandbox."}
+            : "Choose an existing project from the left, or create a workspace to prepare a repository."}
         </p>
         {props.repositoryReconnectRequired ? (
           <a className="primary button" href="/auth/github">Reconnect GitHub</a>
