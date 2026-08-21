@@ -106,6 +106,9 @@ func TestInitializeReusesEnvironmentVersionAcrossWorkspaces(t *testing.T) {
 	if err := service.Initialize(context.Background(), first.ID); err != nil {
 		t.Fatalf("Initialize first: %v", err)
 	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("run first environment build: %v", err)
+	}
 	if err := service.Initialize(context.Background(), second.ID); err != nil {
 		t.Fatalf("Initialize second: %v", err)
 	}
@@ -139,8 +142,11 @@ func TestInitializeMarksFailedEnvironmentVersion(t *testing.T) {
 		}},
 		git: &recordingGit{},
 	}
-	if err := service.Initialize(context.Background(), value.ID); err == nil {
-		t.Fatal("Initialize succeeded")
+	if err := service.Initialize(context.Background(), value.ID); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("run environment build: %v", err)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.EnvironmentVersionID == "" || loaded.Status != StatusInitializationFailed {

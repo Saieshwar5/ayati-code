@@ -219,6 +219,7 @@ function workspacePrimaryAction(status: WorkspaceStatus): string {
   if (status === "ready") return "Continue";
   if (status === "stopped") return "Resume & continue";
   if (status === "creating" || status === "initializing") return "View setup";
+  if (status === "waiting_environment") return "View environment build";
   if (status === "needs_configuration") return "Resolve";
   if (status === "initialization_failed") return "Review failure";
   return "";
@@ -262,13 +263,14 @@ function selectWorkspaces(values: Workspace[], query: string, filter: WorkspaceF
 }
 
 function workspaceGroup(status: WorkspaceStatus): WorkspaceFilter {
-  if (status === "creating" || status === "initializing" || status === "deleting") return "preparing";
+  if (status === "creating" || status === "initializing" || status === "waiting_environment" || status === "deleting") return "preparing";
   if (status === "needs_configuration" || status === "initialization_failed" || status === "deletion_failed") return "attention";
   return status;
 }
 
 function workspaceStateLabel(status: WorkspaceStatus): string {
   if (status === "creating" || status === "initializing") return "Preparing";
+  if (status === "waiting_environment") return "Building environment";
   if (status === "needs_configuration") return "Needs input";
   if (status === "initialization_failed") return "Needs attention";
   if (status === "deleting") return "Deleting";

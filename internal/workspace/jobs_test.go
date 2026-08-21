@@ -74,14 +74,18 @@ func TestRunNextJobPreparesWorkspaceAndRecordsSuccess(t *testing.T) {
 		t.Fatalf("StartPreparation: %v", err)
 	}
 	if err := service.RunNextJob(context.Background()); err != nil {
-		t.Fatalf("RunNextJob: %v", err)
+		t.Fatalf("run prepare: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("run environment build: %v", err)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
 	if err != nil || loaded.Status != StatusReady || loaded.PreparationStage != PreparationReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 	jobs, err := store.Jobs(context.Background(), value.ID)
-	if err != nil || len(jobs) != 1 || jobs[0].State != JobStateSucceeded {
+	if err != nil || len(jobs) != 2 || jobs[0].State != JobStateSucceeded ||
+		jobs[1].State != JobStateSucceeded {
 		t.Fatalf("jobs = %#v, error = %v", jobs, err)
 	}
 }
@@ -100,15 +104,18 @@ func TestRunNextJobRecordsPreparationFailure(t *testing.T) {
 		t.Fatalf("StartPreparation: %v", err)
 	}
 	if err := service.RunNextJob(context.Background()); err != nil {
-		t.Fatalf("RunNextJob: %v", err)
+		t.Fatalf("run prepare: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("run environment build: %v", err)
 	}
 	loaded, err := store.Get(context.Background(), value.ID)
 	if err != nil || loaded.Status != StatusInitializationFailed {
 		t.Fatalf("workspace = %#v, error = %v", loaded, err)
 	}
 	jobs, err := store.Jobs(context.Background(), value.ID)
-	if err != nil || len(jobs) != 1 || jobs[0].State != JobStateFailed ||
-		!strings.Contains(jobs[0].Error, "npm not found") {
+	if err != nil || len(jobs) != 2 || jobs[1].State != JobStateFailed ||
+		!strings.Contains(jobs[1].Error, "npm not found") {
 		t.Fatalf("jobs = %#v, error = %v", jobs, err)
 	}
 }

@@ -16,6 +16,7 @@ import (
 const (
 	StatusCreating             = "creating"
 	StatusInitializing         = "initializing"
+	StatusWaitingEnvironment   = "waiting_environment"
 	StatusInitializationFailed = "initialization_failed"
 	StatusNeedsConfiguration   = "needs_configuration"
 	StatusReady                = "ready"
@@ -25,9 +26,9 @@ const (
 )
 
 var statuses = map[string]bool{
-	StatusCreating: true, StatusInitializing: true, StatusInitializationFailed: true,
-	StatusNeedsConfiguration: true, StatusReady: true, StatusStopped: true,
-	StatusDeleting: true, StatusDeletionFailed: true,
+	StatusCreating: true, StatusInitializing: true, StatusWaitingEnvironment: true,
+	StatusInitializationFailed: true, StatusNeedsConfiguration: true, StatusReady: true,
+	StatusStopped: true, StatusDeleting: true, StatusDeletionFailed: true,
 }
 
 type Workspace struct {

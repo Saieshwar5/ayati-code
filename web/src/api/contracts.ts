@@ -1,6 +1,7 @@
 export type WorkspaceStatus =
   | "creating"
   | "initializing"
+  | "waiting_environment"
   | "initialization_failed"
   | "needs_configuration"
   | "ready"

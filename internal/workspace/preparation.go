@@ -115,53 +115,65 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
 		return failEnvironment(err)
 	}
+	if createdEnvironment {
+		if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
+			"Waiting for environment build"); err != nil {
+			return failEnvironment(err)
+		}
+		if err := s.store.UpdateStatus(ctx, id, StatusWaitingEnvironment, ""); err != nil {
+			return failEnvironment(err)
+		}
+		if err := s.StartEnvironmentBuild(ctx, id); err != nil {
+			return failEnvironment(fmt.Errorf("enqueue environment build: %w", err))
+		}
+		return nil
+	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
 		profilePreparationDetail(profile)); err != nil {
-		return failEnvironment(err)
+		return s.fail(ctx, id, err)
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
-		if createdEnvironment {
-			_ = s.store.SetEnvironmentVersionState(ctx, environmentVersionID,
-				EnvironmentVersionFailed, boundedMessage(err.Error()))
-		}
 		_ = s.store.SaveProfile(ctx, id, profile)
 		return s.fail(ctx, id, err)
 	}
-	if createdEnvironment {
-		if err := s.store.SetEnvironmentVersionState(ctx, environmentVersionID,
-			EnvironmentVersionReady, ""); err != nil {
-			return s.fail(ctx, id, fmt.Errorf("record environment version: %w", err))
-		}
-	}
-	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
-		"Checking the Git baseline"); err != nil {
+	if err := s.finalizePreparedWorkspace(ctx, value, &profile, before); err != nil {
 		return s.fail(ctx, id, err)
+	}
+	return nil
+}
+
+// finalizePreparedWorkspace records the post-setup baseline, seals the
+// profile, and marks the workspace ready. It is shared by the inline
+// materialization path and by build_environment jobs that finish a waiting
+// workspace.
+func (s *Service) finalizePreparedWorkspace(
+	ctx context.Context, value Workspace, profile *ProjectProfile, before string,
+) error {
+	if err := s.store.UpdatePreparation(ctx, value.ID, PreparationVerifying,
+		"Checking the Git baseline"); err != nil {
+		return err
 	}
 	after, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
 	if err != nil {
-		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.fail(ctx, id, fmt.Errorf("verify setup baseline: %w", err))
+		return fmt.Errorf("verify setup baseline: %w", err)
 	}
 	profile.BaselineResult = "clean"
 	if after != before {
 		profile.BaselineResult = "changed"
 	}
-	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.fail(ctx, id, err)
+	if err := s.store.SaveProfile(ctx, value.ID, *profile); err != nil {
+		return err
 	}
-	if err := s.store.UpdatePreparation(ctx, id, PreparationSealing,
+	if err := s.store.UpdatePreparation(ctx, value.ID, PreparationSealing,
 		"Finalizing workspace"); err != nil {
-		return s.fail(ctx, id, err)
+		return err
 	}
 	now := time.Now().UTC()
 	profile.PreparedAt = &now
-	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.fail(ctx, id, err)
+	if err := s.store.SaveProfile(ctx, value.ID, *profile); err != nil {
+		return err
 	}
-	if err := s.store.CompletePreparation(ctx, id); err != nil {
-		return s.fail(ctx, id, err)
-	}
-	return nil
+	return s.store.CompletePreparation(ctx, value.ID)
 }
 
 func (s *Service) runSetup(ctx context.Context, value Workspace, profile *ProjectProfile) error {
@@ -207,18 +219,32 @@ func (s *Service) executeEnvironmentBuild(ctx context.Context, workspaceID strin
 	if err != nil {
 		return fmt.Errorf("load environment build profile: %w", err)
 	}
-	if profile.SetupCommand != "" {
-		if err := s.runSetup(ctx, value, profile); err != nil {
-			_ = s.store.SetEnvironmentVersionState(ctx, version.ID,
-				EnvironmentVersionFailed, boundedMessage(err.Error()))
-			_ = s.store.SaveProfile(ctx, workspaceID, *profile)
-			return err
+	before, err := s.gitOutput(ctx, value.Path, "status", "--porcelain=v1", "--untracked-files=all")
+	if err != nil {
+		return fmt.Errorf("record environment build baseline: %w", err)
+	}
+	if err := s.runSetup(ctx, value, profile); err != nil {
+		_ = s.store.SetEnvironmentVersionState(ctx, version.ID,
+			EnvironmentVersionFailed, boundedMessage(err.Error()))
+		_ = s.store.SaveProfile(ctx, workspaceID, *profile)
+		if value.Status == StatusWaitingEnvironment {
+			_ = s.fail(ctx, workspaceID, err)
 		}
-		if err := s.store.SaveProfile(ctx, workspaceID, *profile); err != nil {
+		return err
+	}
+	if err := s.store.SaveProfile(ctx, workspaceID, *profile); err != nil {
+		return err
+	}
+	if err := s.store.SetEnvironmentVersionState(ctx, version.ID,
+		EnvironmentVersionReady, ""); err != nil {
+		return err
+	}
+	if value.Status == StatusWaitingEnvironment {
+		if err := s.finalizePreparedWorkspace(ctx, value, profile, before); err != nil {
 			return err
 		}
 	}
-	return s.store.SetEnvironmentVersionState(ctx, version.ID, EnvironmentVersionReady, "")
+	return nil
 }
 
 func (s *Service) gitOutput(ctx context.Context, path string, arguments ...string) (string, error) {
