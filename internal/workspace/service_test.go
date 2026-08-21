@@ -87,6 +87,9 @@ func TestServiceInitializesBranchAndDependencies(t *testing.T) {
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("RunNextJob: %v", err)
+	}
 	wantGit := [][]string{
 		{"clone", "--branch", "main", "--single-branch", "--", value.CloneURL, path},
 		{"-C", path, "switch", "-c", "perpetual/change"},
@@ -133,8 +136,11 @@ func TestServiceRecordsSetupFailure(t *testing.T) {
 	service := &Service{
 		store: store, runtime: &fakeRuntime{shell: shell}, git: &recordingGit{},
 	}
-	if err := service.Initialize(context.Background(), value.ID); err == nil {
-		t.Fatal("Initialize succeeded")
+	if err := service.Initialize(context.Background(), value.ID); err != nil {
+		t.Fatalf("Initialize: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("RunNextJob: %v", err)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusInitializationFailed || loaded.Error == "" ||

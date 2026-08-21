@@ -152,6 +152,12 @@ runtime seam. `POST /api/workspaces/{id}/environment/rebuild` enqueues a
 the worker runs dependency setup, saves the profile result, and marks the
 version ready or failed.
 
+When workspace preparation creates a new environment version, it moves the
+workspace to `waiting_environment` and enqueues `build_environment` instead of
+running setup inline. The build job then installs dependencies, marks the
+version ready, and finalizes the waiting workspace. Reused ready versions are
+still materialized inline by `prepare_workspace` for the local runtime.
+
 ## Agent backend (removed)
 
 The Fireworks-backed agent was removed: `internal/agent`, `internal/chat`,

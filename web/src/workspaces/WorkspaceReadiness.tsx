@@ -80,6 +80,17 @@ export function WorkspaceReadiness(props: WorkspaceReadinessProps) {
             onContinue={() => run(() => props.onConfigure(projectRoot))}
           />
         </PreparationFrame>
+      ) : workspace.status === "waiting_environment" ? (
+        <PreparationFrame workspace={workspace} current={2} title="Building your environment">
+          <div className="preparation-current-detail">
+            <span className="preparation-pulse" aria-hidden="true" />
+            <div>
+              <strong>Environment</strong>
+              <p>{workspace.preparation_detail || "Waiting for the environment build."}</p>
+            </div>
+          </div>
+          <p className="preparation-background-note">Environment builds continue even if you leave this page.</p>
+        </PreparationFrame>
       ) : workspace.status === "initialization_failed" ? (
         <PreparationFrame workspace={workspace} current={stageIndex(workspace.preparation_failed_stage)} failed title={`${stageLabel(workspace.preparation_failed_stage)} needs attention`}>
           <PreparationFailure workspace={workspace} busy={busy} onRetry={() => run(props.onRetry)} onDelete={() => run(props.onDelete)} />
@@ -184,6 +195,7 @@ function readinessTitle(workspace: Workspace): string {
   if (workspace.status === "deleting") return "Deleting local workspace";
   if (workspace.status === "deletion_failed") return "Deletion needs attention";
   if (workspace.status === "needs_configuration") return "Choose a project";
+  if (workspace.status === "waiting_environment") return "Building the environment";
   if (workspace.status === "initialization_failed") return "Preparation needs attention";
   if (workspace.status === "stopped") return `${repositoryName(workspace.repository)} is stopped`;
   return `Preparing ${repositoryName(workspace.repository)}`;

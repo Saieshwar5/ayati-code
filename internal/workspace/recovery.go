@@ -14,9 +14,9 @@ func (s *Store) recoverInterruptedWork(ctx context.Context) error {
 		status = ?, error = ?,
 		preparation_failed_stage = preparation_stage,
 		preparation_stage = ?, preparation_detail = ?, updated_at = ?
-		WHERE status IN (?, ?)`, StatusInitializationFailed, interruptedPreparationMessage,
+		WHERE status IN (?, ?, ?)`, StatusInitializationFailed, interruptedPreparationMessage,
 		PreparationFailed, "Workspace preparation was interrupted", now,
-		StatusCreating, StatusInitializing)
+		StatusCreating, StatusInitializing, StatusWaitingEnvironment)
 	if err != nil {
 		return fmt.Errorf("recover interrupted workspace preparation: %w", err)
 	}

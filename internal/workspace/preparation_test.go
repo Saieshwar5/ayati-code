@@ -24,10 +24,13 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	runtime := &fakeRuntime{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
-	git := &recordingGit{statusResults: []string{"", "?? package-lock.json\n"}}
+	git := &recordingGit{statusResults: []string{"", "", "?? package-lock.json\n"}}
 	service := &Service{store: store, runtime: runtime, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("RunNextJob: %v", err)
 	}
 	loaded, loadErr := store.Get(context.Background(), value.ID)
 	if loadErr != nil || loaded.Status != StatusReady || loaded.Profile == nil ||
@@ -56,9 +59,12 @@ func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 	}
 	runtime := &fakeRuntime{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
 	service := &Service{store: store, runtime: runtime,
-		git: &recordingGit{statusResults: []string{"", " M package-lock.json\n"}}}
+		git: &recordingGit{statusResults: []string{"", "", " M package-lock.json\n"}}}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("RunNextJob: %v", err)
 	}
 	loaded, _ := store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusReady || loaded.PreparationStage != PreparationReady ||
@@ -119,6 +125,9 @@ func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
 	}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize configured workspace: %v", err)
+	}
+	if err := service.RunNextJob(context.Background()); err != nil {
+		t.Fatalf("RunNextJob configured workspace: %v", err)
 	}
 	loaded, _ = store.Get(context.Background(), value.ID)
 	if loaded.Status != StatusReady || loaded.PreparationStage != PreparationReady ||
