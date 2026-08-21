@@ -54,7 +54,7 @@ func (s *Server) githubLogin(writer http.ResponseWriter, request *http.Request) 
 		s.writeError(writer, http.StatusInternalServerError, "create authorization state")
 		return
 	}
-	setStateCookie(writer, state)
+	setStateCookie(writer, request, state)
 	http.Redirect(writer, request, s.github.AuthorizeURL(state), http.StatusFound)
 }
 
@@ -68,7 +68,7 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		s.writeError(writer, http.StatusBadRequest, "invalid GitHub authorization state")
 		return
 	}
-	clearStateCookie(writer)
+	clearStateCookie(writer, request)
 	token, err := s.github.Exchange(request.Context(), request.URL.Query().Get("code"))
 	if err != nil {
 		s.writeError(writer, http.StatusBadGateway, "GitHub authorization failed")
