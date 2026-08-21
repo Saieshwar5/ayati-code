@@ -24,7 +24,7 @@ type fakeWorkspaceService struct {
 	published   []string
 }
 
-func (f *fakeWorkspaceService) Initialize(ctx context.Context, id string) error {
+func (f *fakeWorkspaceService) StartPreparation(ctx context.Context, id string) error {
 	_ = f.store.CompletePreparation(ctx, id)
 	f.initialized <- id
 	return nil

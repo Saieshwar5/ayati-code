@@ -44,6 +44,7 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `messages`: ordered conversation messages, including tool calls and tool results, linked to a session.
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
+- `workspace_jobs`: durable workspace operations with queued/running/succeeded/failed/canceled state, attempts, lease owner, expiration, and recorded error.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
 
 The Docker environment tables (`environments`, `environment_leases`) and the legacy
@@ -98,6 +99,20 @@ idempotent, `OpenShell` creates the private per-workspace home and returns a
 bounded local shell rooted at the workspace repository directory. Cloud-backed
 implementations may replace it behind the same contract, which keeps workspace
 and webapp code independent of the final execution substrate.
+
+## Durable workspace jobs
+
+Workspace preparation is enqueued as a durable job instead of being started
+from an HTTP handler goroutine. `workspace_jobs` records the operation state,
+attempts, lease, and error; a single worker loop claims queued jobs and drives
+`Initialize` through the workspace runtime. On startup, queued and running jobs
+are marked failed as interrupted so the user can retry explicitly, and the
+workspace itself is similarly marked for retry.
+
+Browser requests only enqueue work and return accepted. The worker owns
+execution, which keeps preparation observable and safe across process
+restarts, and gives environment builds and agent runs a shared durable
+execution primitive.
 
 ## Agent backend (removed)
 

@@ -90,6 +90,12 @@ func (s *Store) configure() error {
 	if err := s.migrateRemoveAgentRuns(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migrateWorkspaceJobs(context.Background()); err != nil {
+		return err
+	}
+	if err := s.RecoverJobs(context.Background()); err != nil {
+		return err
+	}
 	return s.recoverInterruptedWork(context.Background())
 }
 
