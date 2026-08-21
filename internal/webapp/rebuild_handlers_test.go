@@ -19,7 +19,7 @@ func TestHandlerRebuildsBoundEnvironment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}

@@ -23,6 +23,7 @@ const (
 // recorded as new EnvironmentVersion rows instead.
 type Environment struct {
 	ID          string
+	UserID      string
 	Repository  string
 	ProjectRoot string
 	CreatedAt   time.Time
@@ -52,11 +53,12 @@ type EnvironmentVersion struct {
 
 const projectEnvironmentsSchema = `CREATE TABLE IF NOT EXISTS project_environments (
 	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL DEFAULT '',
 	repository TEXT NOT NULL,
 	project_root TEXT NOT NULL,
 	created_at TEXT NOT NULL,
 	updated_at TEXT NOT NULL,
-	UNIQUE(repository, project_root)
+	UNIQUE(user_id, repository, project_root)
 )`
 
 const environmentVersionsSchema = `CREATE TABLE IF NOT EXISTS environment_versions (
@@ -78,17 +80,19 @@ const environmentVersionsSchema = `CREATE TABLE IF NOT EXISTS environment_versio
 	created_at TEXT NOT NULL
 )`
 
-func (s *Store) FindOrCreateEnvironment(ctx context.Context, repository, projectRoot string) (Environment, error) {
-	repository, projectRoot = strings.TrimSpace(repository), strings.TrimSpace(projectRoot)
+func (s *Store) FindOrCreateEnvironment(
+	ctx context.Context, userID, repository, projectRoot string,
+) (Environment, error) {
+	userID, repository, projectRoot = strings.TrimSpace(userID), strings.TrimSpace(repository), strings.TrimSpace(projectRoot)
 	if repository == "" || projectRoot == "" {
 		return Environment{}, errors.New("repository and project root are required")
 	}
 	var value Environment
 	var createdAt, updatedAt string
-	err := s.db.QueryRowContext(ctx, `SELECT id, repository, project_root,
+	err := s.db.QueryRowContext(ctx, `SELECT id, user_id, repository, project_root,
 		created_at, updated_at FROM project_environments
-		WHERE repository = ? AND project_root = ?`, repository, projectRoot).
-		Scan(&value.ID, &value.Repository, &value.ProjectRoot, &createdAt, &updatedAt)
+		WHERE user_id = ? AND repository = ? AND project_root = ?`, userID, repository, projectRoot).
+		Scan(&value.ID, &value.UserID, &value.Repository, &value.ProjectRoot, &createdAt, &updatedAt)
 	if err == nil {
 		parsedCreated, parseErr := parseStoredTime(createdAt)
 		if parseErr != nil {
@@ -109,27 +113,30 @@ func (s *Store) FindOrCreateEnvironment(ctx context.Context, repository, project
 		return Environment{}, err
 	}
 	now := time.Now().UTC()
-	_, err = s.db.ExecContext(ctx, `INSERT INTO project_environments (id, repository, project_root,
-		created_at, updated_at) VALUES (?, ?, ?, ?, ?)`,
-		id, repository, projectRoot, formatTime(now), formatTime(now))
+	_, err = s.db.ExecContext(ctx, `INSERT INTO project_environments (id, user_id, repository, project_root,
+		created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		id, userID, repository, projectRoot, formatTime(now), formatTime(now))
 	if err != nil {
 		return Environment{}, fmt.Errorf("create environment: %w", err)
 	}
 	return Environment{
-		ID: id, Repository: repository, ProjectRoot: projectRoot,
+		ID: id, UserID: userID, Repository: repository, ProjectRoot: projectRoot,
 		CreatedAt: now, UpdatedAt: now,
 	}, nil
 }
 
 func (s *Store) FindReadyEnvironmentVersion(
-	ctx context.Context, environmentID, fingerprint string,
+	ctx context.Context, userID, environmentID, fingerprint string,
 ) (EnvironmentVersion, bool, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT id, environment_id, version, source_fingerprint,
-		spec, state, artifact_ref, cache_ref, error, snapshot_type, snapshot_ref,
-		snapshot_manifest, snapshot_bytes, snapshot_created_at, ready_at, created_at
-		FROM environment_versions WHERE environment_id = ? AND source_fingerprint = ?
-		AND state = ? ORDER BY version DESC LIMIT 1`,
-		strings.TrimSpace(environmentID), strings.TrimSpace(fingerprint), EnvironmentVersionReady)
+	row := s.db.QueryRowContext(ctx, `SELECT v.id, v.environment_id, v.version, v.source_fingerprint,
+		v.spec, v.state, v.artifact_ref, v.cache_ref, v.error, v.snapshot_type, v.snapshot_ref,
+		v.snapshot_manifest, v.snapshot_bytes, v.snapshot_created_at, v.ready_at, v.created_at
+		FROM environment_versions v
+		JOIN project_environments e ON e.id = v.environment_id
+		WHERE e.user_id = ? AND v.environment_id = ? AND v.source_fingerprint = ?
+		AND v.state = ? ORDER BY v.version DESC LIMIT 1`,
+		strings.TrimSpace(userID), strings.TrimSpace(environmentID),
+		strings.TrimSpace(fingerprint), EnvironmentVersionReady)
 	value, err := scanEnvironmentVersion(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return EnvironmentVersion{}, false, nil

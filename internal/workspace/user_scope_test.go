@@ -62,3 +62,81 @@ func (s *Store) mustWorkspaceIDsForUser(ctx context.Context, userID string) []st
 	}
 	return ids
 }
+
+func TestStoreScopesEnvironmentsByOwner(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	first, err := store.FindOrCreateEnvironment(ctx, "user-a", "owner/project", ".")
+	if err != nil {
+		t.Fatalf("FindOrCreateEnvironment user-a: %v", err)
+	}
+	second, err := store.FindOrCreateEnvironment(ctx, "user-b", "owner/project", ".")
+	if err != nil {
+		t.Fatalf("FindOrCreateEnvironment user-b: %v", err)
+	}
+	if first.ID == second.ID || first.UserID != "user-a" || second.UserID != "user-b" {
+		t.Fatalf("environment isolation failed: %#v vs %#v", first, second)
+	}
+	spec := EnvironmentSpec{ProjectRoot: ".", Fingerprint: "shared-fingerprint"}
+	version, err := store.CreateEnvironmentVersion(ctx, first.ID, spec.Fingerprint, spec, "cache")
+	if err != nil {
+		t.Fatalf("CreateEnvironmentVersion: %v", err)
+	}
+	if err := store.SetEnvironmentVersionState(ctx, version.ID, EnvironmentVersionReady, ""); err != nil {
+		t.Fatalf("SetEnvironmentVersionState: %v", err)
+	}
+	if found, ok, err := store.FindReadyEnvironmentVersion(ctx, "user-a", first.ID, spec.Fingerprint); err != nil || !ok || found.ID != version.ID {
+		t.Fatalf("owner-ready version = %#v, ok = %v, error = %v", found, ok, err)
+	}
+	if _, ok, err := store.FindReadyEnvironmentVersion(ctx, "user-b", first.ID, spec.Fingerprint); err != nil || ok {
+		t.Fatalf("cross-owner ready version ok = %v, error = %v", ok, err)
+	}
+}
+
+func TestStoreRecordsJobOwner(t *testing.T) {
+	store, err := Open(filepath.Join(t.TempDir(), "perpetual.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	ctx := context.Background()
+	root := t.TempDir()
+	first, err := store.Create(ctx, Create{
+		UserID: "user-a", Repository: "owner/project-a",
+		CloneURL:   "https://github.com/owner/project-a.git",
+		BaseBranch: "main", Branch: "main", Path: filepath.Join(root, "a", "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create user-a: %v", err)
+	}
+	second, err := store.Create(ctx, Create{
+		UserID: "user-b", Repository: "owner/project-b",
+		CloneURL:   "https://github.com/owner/project-b.git",
+		BaseBranch: "main", Branch: "main", Path: filepath.Join(root, "b", "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create user-b: %v", err)
+	}
+	jobA, err := store.CreateJob(ctx, first.ID, JobKindPrepare)
+	if err != nil {
+		t.Fatalf("CreateJob user-a: %v", err)
+	}
+	jobB, err := store.CreateJob(ctx, second.ID, JobKindPrepare)
+	if err != nil {
+		t.Fatalf("CreateJob user-b: %v", err)
+	}
+	if jobA.UserID != "user-a" || jobB.UserID != "user-b" {
+		t.Fatalf("job owners = %q and %q", jobA.UserID, jobB.UserID)
+	}
+	claimed, err := store.ClaimNextJob(ctx)
+	if err != nil {
+		t.Fatalf("ClaimNextJob: %v", err)
+	}
+	if claimed.UserID != "user-a" && claimed.UserID != "user-b" {
+		t.Fatalf("claimed job owner = %q", claimed.UserID)
+	}
+}

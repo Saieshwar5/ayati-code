@@ -61,7 +61,7 @@ func TestInitializeReusesSnapshotWithoutRunningSetup(t *testing.T) {
 	}
 	root := t.TempDir()
 	snapshotDir, snapshotBytes := writeSnapshotFixture(t, root, value.ID)
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestInitializeFallsBackToSetupWithoutSnapshot(t *testing.T) {
 	if err := store.UpdateSetup(context.Background(), value.ID, "npm ci"); err != nil {
 		t.Fatalf("UpdateSetup: %v", err)
 	}
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}
@@ -179,7 +179,7 @@ func TestBuildEnvironmentJobCapturesSnapshot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}
