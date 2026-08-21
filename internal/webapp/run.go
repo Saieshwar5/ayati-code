@@ -166,7 +166,7 @@ func resolvePaths(database, root string) (paths, error) {
 // A loopback listen address keeps the historical local default; any other
 // address (for example 0.0.0.0 for remote access) requires an explicit
 // callback URL or public URL because GitHub cannot redirect to a wildcard.
-func optionalGitHub(clientID, secret, callback, address, publicURL string) (*githubapp.Client, error) {
+func optionalGitHub(clientID, secret, callback, address, publicURL string) (githubClient, error) {
 	clientID, secret = strings.TrimSpace(clientID), strings.TrimSpace(secret)
 	if clientID == "" && secret == "" {
 		return nil, nil

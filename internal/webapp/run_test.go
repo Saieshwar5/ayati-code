@@ -10,12 +10,15 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
 func TestResolvePathsUsesPerpetualDirectories(t *testing.T) {
@@ -251,4 +254,32 @@ func (b *lockedBuffer) String() string {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	return b.buf.String()
+}
+
+func TestSessionReportsGitHubUnconfiguredWhenCredentialsMissing(t *testing.T) {
+	root := t.TempDir()
+	store, err := workspace.Open(filepath.Join(root, "perpetual.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	github, err := optionalGitHub("", "", "", "127.0.0.1:8080", "")
+	if err != nil {
+		t.Fatalf("optionalGitHub: %v", err)
+	}
+	server, err := New(Options{
+		Store: store, Workspaces: &fakeWorkspaceService{store: store, initialized: make(chan string, 1)},
+		GitHub: github, CredentialsPath: filepath.Join(root, "github.json"),
+		WorkspaceRoot: filepath.Join(root, "workspaces"),
+	})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	response := serve(server.Handler(), http.MethodGet, "/api/session", "", false)
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if !strings.Contains(response.Body.String(), `"github_configured":false`) {
+		t.Fatalf("session body = %s", response.Body.String())
+	}
 }
