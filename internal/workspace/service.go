@@ -25,19 +25,26 @@ type GitHubTokenProvider interface {
 	TokenForUser(context.Context, string) (string, error)
 }
 
+// RuntimeProvider maps a workspace's persisted runtime provider name to the
+// runtime implementation that should execute its commands.
+type RuntimeProvider interface {
+	RuntimeFor(provider string) (workspaceruntime.Runtime, error)
+}
+
 // Service coordinates workspace lifecycle with the controller's Git and the
 // workspace runtime that executes setup and agent commands. The runtime is the
 // only execution seam; the service never opens a shell directly on the host.
 type Service struct {
 	store       *Store
 	runtime     workspaceruntime.Runtime
+	provider    RuntimeProvider
 	git         gitClient
 	credentials GitHubTokenProvider
 	root        string
 	deleteMu    sync.Mutex
 }
 
-func NewService(store *Store, credentials GitHubTokenProvider, root string) (*Service, error) {
+func NewService(store *Store, credentials GitHubTokenProvider, provider RuntimeProvider, root string) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workspace store is required")
 	}
@@ -56,6 +63,7 @@ func NewService(store *Store, credentials GitHubTokenProvider, root string) (*Se
 	return &Service{
 		store:       store,
 		git:         git,
+		provider:    provider,
 		credentials: credentials,
 		root:        filepath.Clean(root),
 		runtime:     workspaceruntime.NewLocal(),
@@ -73,8 +81,15 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
 	}
-	if err := s.runtimeFor().Stop(ctx, runtimeRef(value)); err != nil {
+	runtime, err := s.runtimeFor(value)
+	if err != nil {
+		return err
+	}
+	if err := runtime.Stop(ctx, runtimeRef(value)); err != nil {
 		return fmt.Errorf("stop workspace runtime: %w", err)
+	}
+	if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateStopped); err != nil {
+		return fmt.Errorf("record stopped runtime: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
 }
@@ -93,8 +108,15 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	if value.PreparationStage != PreparationReady {
 		return fmt.Errorf("workspace preparation is %s and cannot be resumed", value.PreparationStage)
 	}
-	if err := s.runtimeFor().Start(ctx, runtimeRef(value)); err != nil {
+	runtime, runtimeErr := s.runtimeFor(value)
+	if runtimeErr != nil {
+		return runtimeErr
+	}
+	if err := runtime.Start(ctx, runtimeRef(value)); err != nil {
 		return fmt.Errorf("start workspace runtime: %w", err)
+	}
+	if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateRunning); err != nil {
+		return fmt.Errorf("record running runtime: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
@@ -120,21 +142,40 @@ func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool
 		return nil, err
 	}
 	environment := shellEnvironment(workspaceCachePath(value.Path), variables)
-	return s.runtimeFor().OpenShell(ctx, runtimeRef(value), environment)
+	runtime, err := s.runtimeFor(value)
+	if err != nil {
+		return nil, err
+	}
+	return runtime.OpenShell(ctx, runtimeRef(value), environment)
 }
 
-// runtimeFor returns the configured workspace runtime, falling back to the
-// local compatibility runtime so a zero-value Service remains usable in tests.
-func (s *Service) runtimeFor() workspaceruntime.Runtime {
-	if s.runtime != nil {
-		return s.runtime
+// runtimeFor returns the runtime selected for value's provider, falling back
+// to the directly configured runtime and then the local compatibility runtime
+// so a zero-value Service remains usable in tests. Provider resolution errors
+// are propagated instead of silently falling back, so misconfiguration is
+// visible inside workspace jobs.
+func (s *Service) runtimeFor(value Workspace) (workspaceruntime.Runtime, error) {
+	provider := strings.TrimSpace(value.RuntimeProvider)
+	if provider == "" {
+		provider = "local"
 	}
-	return workspaceruntime.NewLocal()
+	if s.provider != nil {
+		runtime, err := s.provider.RuntimeFor(provider)
+		if err != nil {
+			return nil, fmt.Errorf("resolve workspace runtime %q: %w", provider, err)
+		}
+		return runtime, nil
+	}
+	if s.runtime != nil {
+		return s.runtime, nil
+	}
+	return workspaceruntime.NewLocal(), nil
 }
 
 func runtimeRef(value Workspace) workspaceruntime.Ref {
 	return workspaceruntime.Ref{
 		ID:        value.ID,
+		RuntimeID: value.RuntimeRef,
 		Directory: value.Path,
 		CacheDir:  workspaceCachePath(value.Path),
 	}

@@ -4,12 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 )
 
 const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	id TEXT PRIMARY KEY,
 	user_id TEXT NOT NULL DEFAULT '',
+	runtime_provider TEXT NOT NULL DEFAULT 'local',
+	runtime_ref TEXT NOT NULL DEFAULT '',
+	runtime_state TEXT NOT NULL DEFAULT 'not_created',
+	runtime_updated_at TEXT NOT NULL DEFAULT '',
 	repository TEXT NOT NULL,
 	clone_url TEXT NOT NULL,
 	base_branch TEXT NOT NULL,
@@ -92,6 +97,9 @@ func (s *Store) configure() error {
 	if err := s.migrateWorkspaceUsers(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migrateWorkspaceRuntimeColumns(context.Background()); err != nil {
+		return err
+	}
 	if err := s.migrateRemoveAgentRuns(context.Background()); err != nil {
 		return err
 	}
@@ -128,6 +136,44 @@ func (s *Store) migrateWorkspaceUsers(ctx context.Context) error {
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit workspace owner migration: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) migrateWorkspaceRuntimeColumns(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin workspace runtime migration: %w", err)
+	}
+	defer tx.Rollback()
+	columns, err := tableColumns(ctx, tx, "workspaces")
+	if err != nil {
+		return err
+	}
+	for _, statement := range []string{
+		`ALTER TABLE workspaces ADD COLUMN runtime_provider TEXT NOT NULL DEFAULT 'local'`,
+		`ALTER TABLE workspaces ADD COLUMN runtime_ref TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE workspaces ADD COLUMN runtime_state TEXT NOT NULL DEFAULT 'not_created'`,
+		`ALTER TABLE workspaces ADD COLUMN runtime_updated_at TEXT NOT NULL DEFAULT ''`,
+	} {
+		name := strings.Fields(strings.TrimPrefix(statement, "ALTER TABLE workspaces ADD COLUMN "))[0]
+		if columns[name] {
+			continue
+		}
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate workspace runtime %s: %w", name, err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE workspaces SET runtime_provider = 'local'
+		WHERE runtime_provider = ''`); err != nil {
+		return fmt.Errorf("default workspace runtime provider: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE workspaces SET runtime_state = 'not_created'
+		WHERE runtime_state = ''`); err != nil {
+		return fmt.Errorf("default workspace runtime state: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit workspace runtime migration: %w", err)
 	}
 	return nil
 }

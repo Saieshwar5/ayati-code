@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 func (s *Service) Delete(ctx context.Context, id string) error {
@@ -40,7 +42,14 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.store.UpdateStatus(ctx, id, StatusDeleting, ""); err != nil {
 		return fmt.Errorf("mark workspace for deletion: %w", err)
 	}
-	if err := s.runtimeFor().Destroy(ctx, runtimeRef(value)); err != nil {
+	if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateDestroying); err != nil {
+		return s.failDeletion(ctx, id, fmt.Errorf("record destroying runtime: %w", err))
+	}
+	runtime, err := s.runtimeFor(value)
+	if err != nil {
+		return s.failDeletion(ctx, id, err)
+	}
+	if err := runtime.Destroy(ctx, runtimeRef(value)); err != nil {
 		return s.failDeletion(ctx, id, fmt.Errorf("destroy workspace runtime: %w", err))
 	}
 	if err := removeManagedWorkspace(s.root, workspaceDirectory); err != nil {

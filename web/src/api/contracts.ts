@@ -105,6 +105,10 @@ export interface Branch {
 export interface Workspace {
   id: string;
   user_id?: string;
+  runtime_provider?: string;
+  runtime_ref?: string;
+  runtime_state?: string;
+  runtime_updated_at?: string;
   repository: string;
   clone_url: string;
   base_branch: string;

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Saieshwar5/perpetual/internal/exec"
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 func (s *Service) Initialize(ctx context.Context, id string) error {
@@ -26,7 +27,14 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.UpdateStatus(ctx, id, StatusInitializing, ""); err != nil {
 		return err
 	}
-	if err := s.runtimeFor().Start(ctx, runtimeRef(value)); err != nil {
+	if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateCreating); err != nil {
+		return s.fail(ctx, id, err)
+	}
+	runtime, err := s.runtimeFor(value)
+	if err != nil {
+		return s.fail(ctx, id, err)
+	}
+	if err := runtime.Start(ctx, runtimeRef(value)); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("start workspace runtime: %w", err))
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationCloning,
@@ -148,6 +156,9 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		}
 	}
 	if err := s.finalizePreparedWorkspace(ctx, value, &profile, before); err != nil {
+		return s.fail(ctx, id, err)
+	}
+	if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateRunning); err != nil {
 		return s.fail(ctx, id, err)
 	}
 	return nil

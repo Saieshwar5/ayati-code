@@ -11,6 +11,7 @@ import (
 	"time"
 
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 const (
@@ -34,6 +35,10 @@ var statuses = map[string]bool{
 type Workspace struct {
 	ID                      string             `json:"id"`
 	UserID                  string             `json:"user_id"`
+	RuntimeProvider         string             `json:"runtime_provider,omitempty"`
+	RuntimeRef              string             `json:"runtime_ref,omitempty"`
+	RuntimeState            string             `json:"runtime_state,omitempty"`
+	RuntimeUpdatedAt        *time.Time         `json:"runtime_updated_at,omitempty"`
 	Repository              string             `json:"repository"`
 	CloneURL                string             `json:"clone_url"`
 	BaseBranch              string             `json:"base_branch"`
@@ -58,16 +63,17 @@ type Workspace struct {
 }
 
 type Create struct {
-	UserID       string
-	Repository   string
-	CloneURL     string
-	BaseBranch   string
-	Branch       string
-	CreateBranch bool
-	Setup        string
-	Path         string
-	Root         string
-	Environment  []EnvironmentInput
+	UserID          string
+	RuntimeProvider string
+	Repository      string
+	CloneURL        string
+	BaseBranch      string
+	Branch          string
+	CreateBranch    bool
+	Setup           string
+	Path            string
+	Root            string
+	Environment     []EnvironmentInput
 }
 
 type Store struct {
@@ -127,6 +133,7 @@ func (s *Store) Close() error {
 
 func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	input.UserID = strings.TrimSpace(input.UserID)
+	input.RuntimeProvider = strings.TrimSpace(input.RuntimeProvider)
 	input.Repository = strings.TrimSpace(input.Repository)
 	input.CloneURL = strings.TrimSpace(input.CloneURL)
 	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
@@ -151,8 +158,13 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		return Workspace{}, fmt.Errorf("resolve workspace path: %w", err)
 	}
 	now := time.Now().UTC()
+	if input.RuntimeProvider == "" {
+		input.RuntimeProvider = "local"
+	}
 	value := Workspace{
-		ID: id, UserID: input.UserID, Repository: input.Repository, CloneURL: input.CloneURL,
+		ID: id, UserID: input.UserID, RuntimeProvider: input.RuntimeProvider,
+		RuntimeState: workspaceruntime.RuntimeStateNotCreated,
+		Repository:   input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
 		CreateBranch:     input.CreateBranch,
 		PreparationStage: PreparationPending, ConfigurationCandidates: []ProjectCandidate{},
@@ -165,10 +177,12 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
-		id, user_id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
+		id, user_id, runtime_provider, runtime_ref, runtime_state, runtime_updated_at,
+		repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		status, error, pull_request_number, pull_request_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
-		value.ID, value.UserID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
+	) VALUES (?, ?, ?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
+		value.ID, value.UserID, value.RuntimeProvider, value.RuntimeRef, value.RuntimeState,
+		value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
 		value.CreateBranch, value.Setup, value.Path, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
@@ -295,7 +309,8 @@ func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 	return values, nil
 }
 
-const selectWorkspace = `SELECT id, user_id, repository, clone_url, base_branch, branch,
+const selectWorkspace = `SELECT id, user_id, runtime_provider, runtime_ref, runtime_state,
+	runtime_updated_at, repository, clone_url, base_branch, branch,
 	create_branch, environment_version_id, preparation_stage, preparation_detail,
 	preparation_failed_stage,
 	selected_project_root, configuration_candidates, setup_command, path, status, error,
@@ -305,9 +320,10 @@ type scanner interface{ Scan(...any) error }
 
 func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
-	var archivedAt, createdAt, updatedAt, candidates string
+	var archivedAt, createdAt, updatedAt, runtimeUpdatedAt, candidates string
 	err := row.Scan(
-		&value.ID, &value.UserID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
+		&value.ID, &value.UserID, &value.RuntimeProvider, &value.RuntimeRef, &value.RuntimeState,
+		&runtimeUpdatedAt, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
 		&value.CreateBranch, &value.EnvironmentVersionID,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
@@ -328,6 +344,13 @@ func scanWorkspace(row scanner) (Workspace, error) {
 			return Workspace{}, fmt.Errorf("decode workspace archive time: %w", parseErr)
 		}
 		value.ArchivedAt = &archived
+	}
+	if runtimeUpdatedAt != "" {
+		runtime, parseErr := time.Parse(time.RFC3339Nano, runtimeUpdatedAt)
+		if parseErr != nil {
+			return Workspace{}, fmt.Errorf("decode workspace runtime update time: %w", parseErr)
+		}
+		value.RuntimeUpdatedAt = &runtime
 	}
 	value.CreatedAt, err = time.Parse(time.RFC3339Nano, createdAt)
 	if err != nil {

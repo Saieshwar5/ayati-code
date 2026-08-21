@@ -40,7 +40,7 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: user ownership, repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
+- `workspaces`: user ownership, runtime provider/ref/state, repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `users`: internal ID, unique GitHub ID, login, display name, avatar URL, and timestamps.
 - `auth_sessions`: user-linked sessions storing only a SHA-256 token hash, expiry, revocation state, and timestamps.
 - `github_credentials`: user-linked GitHub access tokens encrypted with AES-GCM and never returned by APIs.
@@ -136,6 +136,16 @@ idempotent, `OpenShell` creates the private per-workspace home and returns a
 bounded local shell rooted at the workspace repository directory. Cloud-backed
 implementations may replace it behind the same contract, which keeps workspace
 and webapp code independent of the final execution substrate.
+
+Runtime selection is explicit via `PERPETUAL_RUNTIME` (default `local`) or the
+`-runtime` flag. `PERPETUAL_RUNTIME=cloud` requires
+`PERPETUAL_CLOUD_RUNTIME_ENDPOINT` and `PERPETUAL_CLOUD_RUNTIME_TOKEN`, and
+currently returns a stub that fails with a clear "not implemented" error so
+misconfiguration never silently falls back to the host. Every workspace records
+`runtime_provider`, `runtime_ref`, `runtime_state` (`not_created`, `creating`,
+`running`, `stopped`, `destroying`, `failed`), and `runtime_updated_at` in
+SQLite, and the controller persists state transitions before and after runtime
+lifecycle calls.
 
 ## Environment specification
 
