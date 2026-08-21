@@ -45,7 +45,7 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_jobs`: durable workspace operations with queued/running/succeeded/failed/canceled state, attempts, lease owner, expiration, and recorded error.
-- `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, and preparation results. It never stores secret values.
+- `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, preparation results, and the latest deterministic `EnvironmentSpec`. It never stores secret values.
 
 The Docker environment tables (`environments`, `environment_leases`) and the legacy
 `workspaces.sandbox_name` column were removed by a schema migration. The Environments page, its
@@ -99,6 +99,21 @@ idempotent, `OpenShell` creates the private per-workspace home and returns a
 bounded local shell rooted at the workspace repository directory. Cloud-backed
 implementations may replace it behind the same contract, which keeps workspace
 and webapp code independent of the final execution substrate.
+
+## Environment specification
+
+`internal/workspace` builds a deterministic `EnvironmentSpec` for every prepared
+project root. The spec records toolchains, package managers, lockfiles, setup,
+verify, build, and test commands, devcontainer services, the metadata source
+files, and a source fingerprint. It deliberately never contains secret values.
+
+The analyzer treats `.mise.toml` and `.tool-versions` as primary toolchain
+signals, recognizes `devcontainer.json` lifecycle and service features, and
+falls back to Go, Node, and Python manifests the way the workspace profile
+historically did. The spec is persisted in `workspace_profiles.environment_spec`
+so every workspace carries an inspectable description of how its environment is
+defined. Reusing and versioning those specs across workspaces is the next stage
+of the environment work.
 
 ## Durable workspace jobs
 
