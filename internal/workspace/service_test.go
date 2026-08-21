@@ -81,9 +81,9 @@ func TestServiceInitializesBranchAndDependencies(t *testing.T) {
 		t.Fatalf("Create: %v", err)
 	}
 	shell := &recordingShell{result: exec.ShellResult{ExitCode: 0}}
-	shells := &fakeShells{shell: shell}
+	runtime := &fakeRuntime{shell: shell}
 	git := &recordingGit{}
-	service := &Service{store: store, shells: shells.open, git: git}
+	service := &Service{store: store, runtime: runtime, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
@@ -94,10 +94,10 @@ func TestServiceInitializesBranchAndDependencies(t *testing.T) {
 	if !reflect.DeepEqual(git.calls, wantGit) {
 		t.Fatalf("git calls = %#v", git.calls)
 	}
-	if len(shells.variables) != 1 || shell.commands[0] != "go mod download" {
-		t.Fatalf("shells = %#v, commands = %#v", shells.variables, shell.commands)
+	if len(runtime.variables) != 1 || shell.commands[0] != "go mod download" {
+		t.Fatalf("runtime = %#v, commands = %#v", runtime.variables, shell.commands)
 	}
-	setup := shells.variables[0]
+	setup := runtime.variables[0]
 	if setup["SETUP_TOKEN"] != "setup-secret" {
 		t.Fatalf("setup environment = %#v", setup)
 	}
@@ -131,7 +131,7 @@ func TestServiceRecordsSetupFailure(t *testing.T) {
 	})
 	shell := &recordingShell{result: exec.ShellResult{ExitCode: 1, Stderr: "npm not found"}}
 	service := &Service{
-		store: store, shells: (&fakeShells{shell: shell}).open, git: &recordingGit{},
+		store: store, runtime: &fakeRuntime{shell: shell}, git: &recordingGit{},
 	}
 	if err := service.Initialize(context.Background(), value.ID); err == nil {
 		t.Fatal("Initialize succeeded")
