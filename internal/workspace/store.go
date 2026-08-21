@@ -37,6 +37,7 @@ type Workspace struct {
 	BaseBranch              string             `json:"base_branch"`
 	Branch                  string             `json:"branch"`
 	CreateBranch            bool               `json:"create_branch"`
+	EnvironmentVersionID    string             `json:"environment_version_id,omitempty"`
 	PreparationStage        string             `json:"preparation_stage"`
 	PreparationDetail       string             `json:"preparation_detail,omitempty"`
 	PreparationFailedStage  string             `json:"preparation_failed_stage,omitempty"`
@@ -245,7 +246,8 @@ func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 }
 
 const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
-	create_branch, preparation_stage, preparation_detail, preparation_failed_stage,
+	create_branch, environment_version_id, preparation_stage, preparation_detail,
+	preparation_failed_stage,
 	selected_project_root, configuration_candidates, setup_command, path, status, error,
 	pull_request_number, pull_request_url, archived_at, created_at, updated_at FROM workspaces`
 
@@ -256,7 +258,7 @@ func scanWorkspace(row scanner) (Workspace, error) {
 	var archivedAt, createdAt, updatedAt, candidates string
 	err := row.Scan(
 		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
-		&value.CreateBranch,
+		&value.CreateBranch, &value.EnvironmentVersionID,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,
 		&value.Path, &value.Status, &value.Error,

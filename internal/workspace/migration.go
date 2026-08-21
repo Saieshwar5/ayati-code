@@ -14,6 +14,7 @@ const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	base_branch TEXT NOT NULL,
 	branch TEXT NOT NULL,
 	create_branch INTEGER NOT NULL,
+	environment_version_id TEXT NOT NULL DEFAULT '',
 	preparation_stage TEXT NOT NULL DEFAULT 'pending',
 	preparation_detail TEXT NOT NULL DEFAULT '',
 	preparation_failed_stage TEXT NOT NULL DEFAULT '',
@@ -91,6 +92,9 @@ func (s *Store) configure() error {
 		return err
 	}
 	if err := s.migrateWorkspaceJobs(context.Background()); err != nil {
+		return err
+	}
+	if err := s.migrateEnvironmentVersions(context.Background()); err != nil {
 		return err
 	}
 	if err := s.RecoverJobs(context.Background()); err != nil {

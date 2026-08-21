@@ -81,16 +81,57 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		_ = s.store.SaveProfile(ctx, id, profile)
 		return s.fail(ctx, id, errors.New("repository is not clean before dependency setup: "+boundedMessage(before)))
 	}
+	environment, err := s.store.FindOrCreateEnvironment(ctx, value.Repository, profile.ProjectRoot)
+	if err != nil {
+		return s.fail(ctx, id, fmt.Errorf("record project environment: %w", err))
+	}
+	var environmentVersionID string
+	createdEnvironment := false
+	existing, found, err := s.store.FindReadyEnvironmentVersion(ctx, environment.ID, spec.Fingerprint)
+	if err != nil {
+		return s.fail(ctx, id, fmt.Errorf("find reusable environment: %w", err))
+	}
+	if found {
+		environmentVersionID = existing.ID
+	} else {
+		version, createErr := s.store.CreateEnvironmentVersion(ctx, environment.ID,
+			spec.Fingerprint, spec, workspaceCachePath(value.Path))
+		if createErr != nil {
+			return s.fail(ctx, id, fmt.Errorf("create environment version: %w", createErr))
+		}
+		environmentVersionID = version.ID
+		createdEnvironment = true
+	}
+	failEnvironment := func(cause error) error {
+		if createdEnvironment {
+			_ = s.store.SetEnvironmentVersionState(ctx, environmentVersionID,
+				EnvironmentVersionFailed, boundedMessage(cause.Error()))
+		}
+		return s.fail(ctx, id, cause)
+	}
+	if err := s.store.BindWorkspaceEnvironment(ctx, id, environmentVersionID); err != nil {
+		return failEnvironment(fmt.Errorf("bind workspace environment: %w", err))
+	}
 	if err := s.store.SaveProfile(ctx, id, profile); err != nil {
-		return s.fail(ctx, id, err)
+		return failEnvironment(err)
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationInstalling,
 		profilePreparationDetail(profile)); err != nil {
-		return s.fail(ctx, id, err)
+		return failEnvironment(err)
 	}
 	if err := s.runSetup(ctx, value, &profile); err != nil {
+		if createdEnvironment {
+			_ = s.store.SetEnvironmentVersionState(ctx, environmentVersionID,
+				EnvironmentVersionFailed, boundedMessage(err.Error()))
+		}
 		_ = s.store.SaveProfile(ctx, id, profile)
 		return s.fail(ctx, id, err)
+	}
+	if createdEnvironment {
+		if err := s.store.SetEnvironmentVersionState(ctx, environmentVersionID,
+			EnvironmentVersionReady, ""); err != nil {
+			return s.fail(ctx, id, fmt.Errorf("record environment version: %w", err))
+		}
 	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationVerifying,
 		"Checking the Git baseline"); err != nil {

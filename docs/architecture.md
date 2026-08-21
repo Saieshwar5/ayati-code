@@ -45,6 +45,8 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
 - `workspace_jobs`: durable workspace operations with queued/running/succeeded/failed/canceled state, attempts, lease owner, expiration, and recorded error.
+- `project_environments`: stable environment identity per repository + project root.
+- `environment_versions`: source-fingerprinted environment builds with pending/ready/failed state, the environment spec, artifact/cache references, and build error.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, preparation results, and the latest deterministic `EnvironmentSpec`. It never stores secret values.
 
 The Docker environment tables (`environments`, `environment_leases`) and the legacy
@@ -114,6 +116,20 @@ historically did. The spec is persisted in `workspace_profiles.environment_spec`
 so every workspace carries an inspectable description of how its environment is
 defined. Reusing and versioning those specs across workspaces is the next stage
 of the environment work.
+
+## Environment versions
+
+Each prepared workspace now finds or creates a stable `project_environments`
+row and binds to an `environment_versions` row. The version stores the
+`EnvironmentSpec` JSON and its source fingerprint, a pending/ready/failed
+state, and an artifact/cache reference. Workspace `environment_version_id`
+records the binding.
+
+Preparation first looks for an existing ready version with the same fingerprint.
+If found, the workspace binds to it. If not, a pending version is created, the
+workspace binds to it, setup runs, and the version is marked ready on success or
+failed on error. This keeps the environment identity separate from branches and
+sessions and gives the next build-job work a natural reuse target.
 
 ## Durable workspace jobs
 
