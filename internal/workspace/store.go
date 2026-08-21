@@ -33,6 +33,7 @@ var statuses = map[string]bool{
 
 type Workspace struct {
 	ID                      string             `json:"id"`
+	UserID                  string             `json:"user_id"`
 	Repository              string             `json:"repository"`
 	CloneURL                string             `json:"clone_url"`
 	BaseBranch              string             `json:"base_branch"`
@@ -57,6 +58,7 @@ type Workspace struct {
 }
 
 type Create struct {
+	UserID       string
 	Repository   string
 	CloneURL     string
 	BaseBranch   string
@@ -124,6 +126,7 @@ func (s *Store) Close() error {
 }
 
 func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
+	input.UserID = strings.TrimSpace(input.UserID)
 	input.Repository = strings.TrimSpace(input.Repository)
 	input.CloneURL = strings.TrimSpace(input.CloneURL)
 	input.BaseBranch = strings.TrimSpace(input.BaseBranch)
@@ -149,7 +152,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	}
 	now := time.Now().UTC()
 	value := Workspace{
-		ID: id, Repository: input.Repository, CloneURL: input.CloneURL,
+		ID: id, UserID: input.UserID, Repository: input.Repository, CloneURL: input.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, Setup: input.Setup,
 		CreateBranch:     input.CreateBranch,
 		PreparationStage: PreparationPending, ConfigurationCandidates: []ProjectCandidate{},
@@ -162,10 +165,10 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 	}
 	defer tx.Rollback()
 	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
-		id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
+		id, user_id, repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		status, error, pull_request_number, pull_request_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
-		value.ID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '', 0, '', ?, ?)`,
+		value.ID, value.UserID, value.Repository, value.CloneURL, value.BaseBranch, value.Branch,
 		value.CreateBranch, value.Setup, value.Path, value.Status,
 		formatTime(value.CreatedAt), formatTime(value.UpdatedAt),
 	)
@@ -221,6 +224,52 @@ func (s *Store) List(ctx context.Context) ([]Workspace, error) {
 	return values, nil
 }
 
+func (s *Store) ListForUser(ctx context.Context, userID string) ([]Workspace, error) {
+	return s.listWhere(ctx, ` WHERE user_id = ? AND archived_at = '' ORDER BY updated_at DESC`, userID)
+}
+
+func (s *Store) ListArchivedForUser(ctx context.Context, userID string) ([]Workspace, error) {
+	return s.listWhere(ctx, ` WHERE user_id = ? AND archived_at != '' ORDER BY archived_at DESC`, userID)
+}
+
+func (s *Store) listWhere(ctx context.Context, where string, args ...any) ([]Workspace, error) {
+	rows, err := s.db.QueryContext(ctx, selectWorkspace+where, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list workspaces: %w", err)
+	}
+	defer rows.Close()
+	var values []Workspace
+	for rows.Next() {
+		value, err := scanWorkspace(rows)
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("list workspaces: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	for index := range values {
+		if err := s.attachProfile(ctx, &values[index]); err != nil {
+			return nil, err
+		}
+	}
+	return values, nil
+}
+
+func (s *Store) GetForUser(ctx context.Context, userID, id string) (Workspace, error) {
+	row := s.db.QueryRowContext(ctx, selectWorkspace+` WHERE id = ? AND user_id = ?`,
+		strings.TrimSpace(id), strings.TrimSpace(userID))
+	value, err := scanWorkspace(row)
+	if err == nil {
+		err = s.attachProfile(ctx, &value)
+	}
+	return value, err
+}
+
 func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 	rows, err := s.db.QueryContext(ctx, selectWorkspace+` WHERE archived_at != '' ORDER BY archived_at DESC`)
 	if err != nil {
@@ -246,7 +295,7 @@ func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
 	return values, nil
 }
 
-const selectWorkspace = `SELECT id, repository, clone_url, base_branch, branch,
+const selectWorkspace = `SELECT id, user_id, repository, clone_url, base_branch, branch,
 	create_branch, environment_version_id, preparation_stage, preparation_detail,
 	preparation_failed_stage,
 	selected_project_root, configuration_candidates, setup_command, path, status, error,
@@ -258,7 +307,7 @@ func scanWorkspace(row scanner) (Workspace, error) {
 	var value Workspace
 	var archivedAt, createdAt, updatedAt, candidates string
 	err := row.Scan(
-		&value.ID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
+		&value.ID, &value.UserID, &value.Repository, &value.CloneURL, &value.BaseBranch, &value.Branch,
 		&value.CreateBranch, &value.EnvironmentVersionID,
 		&value.PreparationStage, &value.PreparationDetail, &value.PreparationFailedStage,
 		&value.SelectedProjectRoot, &candidates, &value.Setup,

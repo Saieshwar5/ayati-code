@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-Perpetual is a single-user personal server running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub, owns SQLite, and runs bounded shell commands for workspace setup. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or provider-plugin runtime; virtual-machine compute is under design as a replacement for the removed Docker sandbox, and a new built-in agent is under design to replace the removed Fireworks-backed agent.
+Perpetual is a local-first server for GitHub-authenticated users running on one Linux machine. One long-lived Go process serves the browser UI, calls GitHub, owns SQLite, and runs bounded shell commands for workspace setup. The browser may run on another personal device when a trusted HTTPS proxy or private network protects access. Perpetual deliberately has no Postgres, VM manager, worker fleet, queue, separate agent worker, or provider-plugin runtime; virtual-machine compute is under design as a replacement for the removed Docker sandbox, and a new built-in agent is under design to replace the removed Fireworks-backed agent.
 
 The durable project object is a workspace containing one or more sessions. The Fireworks-backed agent was removed; the chat interface and session storage are kept while a new agent is designed:
 
@@ -23,6 +23,7 @@ The repository, cache, sessions, and SQLite record survive a normal Stop. Stop m
 - `cmd/perpetual` owns signal handling and starts the web server.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
+- `internal/accounts` owns GitHub-linked users and server-side login sessions.
 - `internal/exec` owns bounded local shell execution for setup and agent commands.
 - `internal/workspaceruntime` owns the control-plane/runtime boundary and the local compatibility adapter.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
@@ -39,7 +40,9 @@ Node.js production server.
 
 SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database connection. The schema contains:
 
-- `workspaces`: repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
+- `workspaces`: user ownership, repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
+- `users`: internal ID, unique GitHub ID, login, display name, avatar URL, and timestamps.
+- `auth_sessions`: user-linked sessions storing only a SHA-256 token hash, expiry, revocation state, and timestamps.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered conversation messages, including tool calls and tool results, linked to a session.
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
@@ -60,6 +63,21 @@ Workspace lifecycle values describe only the workspace: `creating`, `initializin
 Sessions share one workspace clone, branch, cache, and diff. They isolate conversational context and activity history, not filesystem state. Sessions and their stored messages remain durable SQLite state; the message-send and run-cancel endpoints were removed with the agent backend, so the browser composer is currently parked until the new agent defines its execution model. Changes, environment, and publishing stay workspace-scoped.
 
 The browser opens one authenticated same-origin Server-Sent Events stream. The server sends only bounded `session.changed` invalidation notices containing workspace, session, and run IDs; SQLite remains authoritative, and the browser reloads current session/messages after each relevant notice. A capacity-one channel per browser coalesces slow consumers, heartbeats keep compatible proxies from treating an idle stream as dead, and the native `EventSource` client reconnects automatically. No token, prompt, model output, or shell output is placed in the event stream. Disconnecting a browser has no effect on a run.
+
+## Authentication and user scoping
+
+GitHub OAuth remains the only sign-in method. The web layer uses the existing
+GitHub consent flow to prove identity, then `internal/accounts` persists a
+GitHub-linked user and creates a server-side `perpetual_session` cookie. The
+cookie value is a random opaque token; SQLite stores only its SHA-256 hash.
+Sessions have a bounded lifetime, can be revoked on logout, and are checked by
+web middleware before user-scoped workspace routes run.
+
+Each workspace records a `user_id`. The web API lists and gets workspaces with
+`WHERE user_id = ?`, and workspace actions verify ownership before invoking the
+workspace service. Other user-owned tables are scoped the same way as cloud
+tenancy lands. Existing local-only rows keep an empty `user_id` until they are
+claimed or migrated during a later cloud deployment step.
 
 ## Shell execution
 

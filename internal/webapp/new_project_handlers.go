@@ -53,7 +53,9 @@ func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *
 			"GitHub repository was created as "+repository.FullName+", but the working branch must differ from "+baseBranch)
 		return
 	}
+	account, _ := currentAccount(request.Context())
 	value, err := s.createManagedWorkspace(request.Context(), workspace.Create{
+		UserID:     account.ID,
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
 		BaseBranch: baseBranch, Branch: branch, CreateBranch: true,
 		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Saieshwar5/perpetual/internal/accounts"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
@@ -71,6 +72,11 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
+	accountStore, err := accounts.NewStore(database)
+	if err != nil {
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
+		return 1
+	}
 	credentialPath, err := githubapp.DefaultCredentialsPath()
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -98,7 +104,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	events := NewEventBroker()
 	logger := log.New(errorOutput, "perpetual: ", log.LstdFlags)
 	application, err := New(Options{
-		Context: ctx, Store: store, Workspaces: workspaces,
+		Context: ctx, Store: store, Accounts: accountStore, Workspaces: workspaces,
 		GitHub:          github,
 		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
 		Events: events,

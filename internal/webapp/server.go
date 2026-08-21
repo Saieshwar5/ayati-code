@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/Saieshwar5/perpetual/internal/accounts"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
@@ -46,6 +47,7 @@ type workspaceService interface {
 type Server struct {
 	ctx             context.Context
 	store           *workspace.Store
+	accounts        *accounts.Store
 	workspaces      workspaceService
 	github          githubClient
 	credentialsPath string
@@ -58,6 +60,7 @@ type Server struct {
 type Options struct {
 	Context         context.Context
 	Store           *workspace.Store
+	Accounts        *accounts.Store
 	Workspaces      workspaceService
 	GitHub          githubClient
 	CredentialsPath string
@@ -67,8 +70,8 @@ type Options struct {
 }
 
 func New(options Options) (*Server, error) {
-	if options.Store == nil || options.Workspaces == nil {
-		return nil, errors.New("workspace store and service are required")
+	if options.Store == nil || options.Workspaces == nil || options.Accounts == nil {
+		return nil, errors.New("workspace store, account store, and service are required")
 	}
 	if strings.TrimSpace(options.CredentialsPath) == "" || strings.TrimSpace(options.WorkspaceRoot) == "" {
 		return nil, errors.New("credential path and workspace root are required")
@@ -87,10 +90,10 @@ func New(options Options) (*Server, error) {
 		return nil, err
 	}
 	return &Server{
-		ctx: options.Context, store: options.Store, workspaces: options.Workspaces,
-		github: options.GitHub, credentialsPath: options.CredentialsPath,
-		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
-		assets: http.FileServer(http.FS(static)), events: options.Events,
+		ctx: options.Context, store: options.Store, accounts: options.Accounts,
+		workspaces: options.Workspaces, github: options.GitHub,
+		credentialsPath: options.CredentialsPath, workspaceRoot: options.WorkspaceRoot,
+		logger: options.Logger, assets: http.FileServer(http.FS(static)), events: options.Events,
 	}, nil
 }
 
@@ -98,19 +101,20 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)
 	mux.HandleFunc("GET /api/session", s.session)
-	mux.HandleFunc("GET /api/events", s.eventStream)
+	mux.HandleFunc("GET /api/me", s.requireUser(s.me))
+	mux.HandleFunc("GET /api/events", s.requireUser(s.eventStream))
 	mux.HandleFunc("GET /auth/github", s.githubLogin)
 	mux.HandleFunc("GET /auth/github/callback", s.githubCallback)
 	mux.HandleFunc("POST /api/logout", s.mutate(s.logout))
-	mux.HandleFunc("GET /api/repositories", s.repositories)
-	mux.HandleFunc("GET /api/repositories/", s.branches)
-	mux.HandleFunc("GET /api/workspaces", s.listWorkspaces)
-	mux.HandleFunc("GET /api/workspaces/", s.workspaceRead)
-	mux.HandleFunc("POST /api/workspaces", s.mutate(s.createWorkspace))
-	mux.HandleFunc("POST /api/workspaces/new-project", s.mutate(s.createNewProjectWorkspace))
-	mux.HandleFunc("POST /api/workspaces/", s.mutate(s.workspaceAction))
-	mux.HandleFunc("PATCH /api/workspaces/", s.mutate(s.workspaceSessionMutation))
-	mux.HandleFunc("DELETE /api/workspaces/", s.mutate(s.workspaceSessionMutation))
+	mux.HandleFunc("GET /api/repositories", s.requireUser(s.repositories))
+	mux.HandleFunc("GET /api/repositories/", s.requireUser(s.branches))
+	mux.HandleFunc("GET /api/workspaces", s.requireUser(s.listWorkspaces))
+	mux.HandleFunc("GET /api/workspaces/", s.requireUser(s.workspaceRead))
+	mux.HandleFunc("POST /api/workspaces", s.mutate(s.requireUser(s.createWorkspace)))
+	mux.HandleFunc("POST /api/workspaces/new-project", s.mutate(s.requireUser(s.createNewProjectWorkspace)))
+	mux.HandleFunc("POST /api/workspaces/", s.mutate(s.requireUser(s.workspaceAction)))
+	mux.HandleFunc("PATCH /api/workspaces/", s.mutate(s.requireUser(s.workspaceSessionMutation)))
+	mux.HandleFunc("DELETE /api/workspaces/", s.mutate(s.requireUser(s.workspaceSessionMutation)))
 	mux.HandleFunc("GET /", s.index)
 	mux.Handle("GET /assets/", s.assets)
 	return s.recover(mux)

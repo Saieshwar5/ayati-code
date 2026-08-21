@@ -9,6 +9,7 @@ import (
 
 const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
 	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL DEFAULT '',
 	repository TEXT NOT NULL,
 	clone_url TEXT NOT NULL,
 	base_branch TEXT NOT NULL,
@@ -88,6 +89,9 @@ func (s *Store) configure() error {
 	if err := s.migrateRemoveComputeSandbox(context.Background()); err != nil {
 		return err
 	}
+	if err := s.migrateWorkspaceUsers(context.Background()); err != nil {
+		return err
+	}
 	if err := s.migrateRemoveAgentRuns(context.Background()); err != nil {
 		return err
 	}
@@ -101,6 +105,31 @@ func (s *Store) configure() error {
 		return err
 	}
 	return s.recoverInterruptedWork(context.Background())
+}
+
+func (s *Store) migrateWorkspaceUsers(ctx context.Context) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin workspace owner migration: %w", err)
+	}
+	defer tx.Rollback()
+	columns, err := tableColumns(ctx, tx, "workspaces")
+	if err != nil {
+		return err
+	}
+	if !columns["user_id"] {
+		if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN
+			user_id TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("migrate workspace owner: %w", err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS workspaces_user ON workspaces(user_id)`); err != nil {
+		return fmt.Errorf("create workspace owner index: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit workspace owner migration: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) migrateSessions(ctx context.Context) error {

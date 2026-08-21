@@ -11,12 +11,13 @@ import (
 )
 
 func (s *Server) listWorkspaces(writer http.ResponseWriter, request *http.Request) {
+	account, _ := currentAccount(request.Context())
 	var values []workspace.Workspace
 	var err error
 	if request.URL.Query().Get("archived") == "true" {
-		values, err = s.store.ListArchived(request.Context())
+		values, err = s.store.ListArchivedForUser(request.Context(), account.ID)
 	} else {
-		values, err = s.store.List(request.Context())
+		values, err = s.store.ListForUser(request.Context(), account.ID)
 	}
 	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "list workspaces")
@@ -62,7 +63,9 @@ func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Reque
 		s.writeError(writer, http.StatusBadRequest, err.Error())
 		return
 	}
+	account, _ := currentAccount(request.Context())
 	value, err := s.createManagedWorkspace(request.Context(), workspace.Create{
+		UserID:     account.ID,
 		Repository: repository.FullName, CloneURL: repository.CloneURL,
 		BaseBranch: input.BaseBranch, Branch: input.Branch, CreateBranch: input.CreateBranch,
 		Setup: input.Setup, Root: s.workspaceRoot, Environment: input.Environment,
@@ -78,6 +81,9 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 	parts := workspaceParts(request)
 	if len(parts) < 2 {
 		http.NotFound(writer, request)
+		return
+	}
+	if !s.requireOwnedWorkspace(writer, request, parts[0]) {
 		return
 	}
 	if len(parts) == 2 && parts[1] == "sessions" {
@@ -158,7 +164,8 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		if !s.decode(writer, request, &input) {
 			return
 		}
-		value, getErr := s.store.Get(request.Context(), parts[0])
+		account, _ := currentAccount(request.Context())
+		value, getErr := s.store.GetForUser(request.Context(), account.ID, parts[0])
 		if getErr != nil {
 			s.writeError(writer, http.StatusNotFound, "workspace not found")
 			return

@@ -12,7 +12,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/Saieshwar5/perpetual/internal/accounts"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
@@ -148,6 +151,7 @@ func TestHandlerCreatesWorkspaceAndPublishesPullRequest(t *testing.T) {
 func TestHandlerCreatesRenamesAndDeletesWorkspaceSessions(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
+		UserID:     testAccountUserID,
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "perpetual/sessions", Path: filepath.Join(t.TempDir(), "repo"),
 	})
@@ -192,6 +196,7 @@ func TestHandlerCreatesRenamesAndDeletesWorkspaceSessions(t *testing.T) {
 func TestHandlerDeletesWorkspace(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
+		UserID:     testAccountUserID,
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "perpetual/delete", Path: filepath.Join(t.TempDir(), "repo"),
 	})
@@ -210,6 +215,7 @@ func TestHandlerDeletesWorkspace(t *testing.T) {
 func TestHandlerRejectsEnvironmentChangesDuringInitialization(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
+		UserID:     testAccountUserID,
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "perpetual/initializing", Path: filepath.Join(t.TempDir(), "repo"),
 	})
@@ -231,6 +237,26 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
+	accountDatabase, err := appdatabase.Open(filepath.Join(root, "accounts.db"))
+	if err != nil {
+		t.Fatalf("Open account database: %v", err)
+	}
+	accountStore, err := accounts.NewStore(accountDatabase)
+	if err != nil {
+		accountDatabase.Close()
+		t.Fatalf("New account store: %v", err)
+	}
+	t.Cleanup(func() { _ = accountDatabase.Close() })
+	account, err := accountStore.UpsertGitHubUser(context.Background(), 1, "octocat", "Octo Cat", "")
+	if err != nil {
+		t.Fatalf("UpsertGitHubUser: %v", err)
+	}
+	if _, err := accountStore.CreateSession(context.Background(), account.ID,
+		testAccountSessionToken, time.Hour); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	testAccountSessionCookie = testAccountSessionToken
+	testAccountUserID = account.ID
 	workspaces := &fakeWorkspaceService{store: store, initialized: make(chan string, 1)}
 	github := &fakeGitHub{
 		repositories: []githubapp.Repository{{ID: 1, FullName: "owner/project", CloneURL: "https://github.com/owner/project.git", DefaultBranch: "main"}},
@@ -244,7 +270,7 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 		t.Fatalf("SaveCredentials: %v", err)
 	}
 	server, err := New(Options{
-		Store: store, Workspaces: workspaces, GitHub: github,
+		Store: store, Accounts: accountStore, Workspaces: workspaces, GitHub: github,
 		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {
@@ -253,10 +279,30 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	return server.Handler(), store, workspaces, github
 }
 
+const testAccountSessionToken = "test-session-token"
+
+var (
+	testAccountSessionCookie string
+	testAccountUserID        string
+)
+
+func serveGuest(handler http.Handler, method, path, body string, mutation bool) *httptest.ResponseRecorder {
+	request := httptest.NewRequest(method, path, strings.NewReader(body))
+	if mutation {
+		request.Header.Set("X-Perpetual-Request", "1")
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	return response
+}
+
 func serve(handler http.Handler, method, path, body string, mutation bool) *httptest.ResponseRecorder {
 	request := httptest.NewRequest(method, path, strings.NewReader(body))
 	if mutation {
 		request.Header.Set("X-Perpetual-Request", "1")
+	}
+	if testAccountSessionCookie != "" {
+		request.AddCookie(&http.Cookie{Name: accountSessionCookie, Value: testAccountSessionCookie})
 	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, request)
