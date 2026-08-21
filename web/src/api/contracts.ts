@@ -108,6 +108,7 @@ export interface Workspace {
   base_branch: string;
   branch: string;
   create_branch: boolean;
+  environment_version_id?: string;
   preparation_stage: PreparationStage;
   preparation_detail?: string;
   preparation_failed_stage?: PreparationStage;
