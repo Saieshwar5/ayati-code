@@ -31,7 +31,7 @@ type githubClient interface {
 }
 
 type workspaceService interface {
-	Initialize(context.Context, string) error
+	StartPreparation(context.Context, string) error
 	ConfigureProjectRoot(context.Context, string, string) error
 	Stop(context.Context, string) error
 	Resume(context.Context, string) error

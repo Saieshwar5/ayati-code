@@ -118,11 +118,7 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 	var err error
 	switch parts[1] {
 	case "initialize":
-		go func() {
-			if runErr := s.workspaces.Initialize(s.ctx, parts[0]); runErr != nil {
-				s.logger.Printf("initialize workspace %s: %v", parts[0], runErr)
-			}
-		}()
+		err = s.workspaces.StartPreparation(request.Context(), parts[0])
 	case "configure":
 		var input struct {
 			ProjectRoot string `json:"project_root"`
@@ -131,11 +127,7 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 			return
 		}
 		if err = s.workspaces.ConfigureProjectRoot(request.Context(), parts[0], input.ProjectRoot); err == nil {
-			go func() {
-				if runErr := s.workspaces.Initialize(s.ctx, parts[0]); runErr != nil {
-					s.logger.Printf("initialize configured workspace %s: %v", parts[0], runErr)
-				}
-			}()
+			err = s.workspaces.StartPreparation(request.Context(), parts[0])
 		}
 	case "stop":
 		err = s.workspaces.Stop(request.Context(), parts[0])

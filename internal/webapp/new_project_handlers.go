@@ -3,6 +3,7 @@ package webapp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -70,11 +71,9 @@ func (s *Server) createManagedWorkspace(ctx context.Context, input workspace.Cre
 	if err != nil {
 		return workspace.Workspace{}, err
 	}
-	go func() {
-		if err := s.workspaces.Initialize(s.ctx, value.ID); err != nil {
-			s.logger.Printf("initialize workspace %s: %v", value.ID, err)
-		}
-	}()
+	if err := s.workspaces.StartPreparation(ctx, value.ID); err != nil {
+		return workspace.Workspace{}, fmt.Errorf("enqueue workspace preparation: %w", err)
+	}
 	return value, nil
 }
 

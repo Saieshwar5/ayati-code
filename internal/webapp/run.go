@@ -89,6 +89,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: recover workspaces: %v\n", err)
 		return 1
 	}
+	go workspaces.RunWorker(ctx)
 	github, err := optionalGitHub(*clientID, *clientSecret, *callback, *address, *publicURL)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
