@@ -40,6 +40,9 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.store.UpdateStatus(ctx, id, StatusDeleting, ""); err != nil {
 		return fmt.Errorf("mark workspace for deletion: %w", err)
 	}
+	if err := s.runtimeFor().Destroy(ctx, runtimeRef(value)); err != nil {
+		return s.failDeletion(ctx, id, fmt.Errorf("destroy workspace runtime: %w", err))
+	}
 	if err := removeManagedWorkspace(s.root, workspaceDirectory); err != nil {
 		return s.failDeletion(ctx, id, fmt.Errorf("remove workspace files: %w", err))
 	}

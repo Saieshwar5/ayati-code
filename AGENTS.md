@@ -11,6 +11,7 @@ Keep this boundary small. Do not add providers, Postgres, virtual machines, queu
 - `cmd/perpetual/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
 - `internal/exec/`: bounded local shell execution and the shell contract for setup and the planned agent.
+- `internal/workspaceruntime/`: the workspace runtime contract and the local compatibility adapter.
 - `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
 - `internal/workspace/`: SQLite state, lifecycle, sessions and stored conversation messages, deterministic project preparation, trusted Git, review, and publish.
 - `internal/githubapp/`: GitHub user authentication and repository operations.

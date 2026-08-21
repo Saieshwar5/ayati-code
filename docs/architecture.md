@@ -24,6 +24,7 @@ The repository, cache, sessions, and SQLite record survive a normal Stop. Stop m
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
 - `internal/exec` owns bounded local shell execution for setup and agent commands.
+- `internal/workspaceruntime` owns the control-plane/runtime boundary and the local compatibility adapter.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
 - `internal/workspace` owns the SQLite schema, workspace state, deterministic project analysis, trusted host Git operations, preparation, change inspection, and publish flow.
 - `internal/githubapp` owns GitHub user authorization, installed-repository discovery, personal repository creation, branch listing, draft pull requests, and the private credential file.
@@ -83,6 +84,20 @@ On controller startup, any workspace left in `creating` or `initializing` is ato
 Preparation runs dependency setup through the bounded shell contract that the planned agent will reuse. It compares Git status after setup and records any tracked or untracked changes in the project profile so they remain visible for review. `Stop` marks the workspace stopped; `Resume` returns it to ready. Deletion validates that the recorded clone is exactly `<managed-root>/<workspace-id>/repo`, removes the workspace directory including the tool cache, and then deletes the workspace record; foreign-key cascades remove its sessions and messages. Initialization must finish or fail before deletion so clone/setup work cannot recreate files after cleanup.
 
 Environment values use AES-GCM with a random local 256-bit key stored beside the database in a `0600` file. Names and exposure scope are readable metadata; API responses never include values. Mutations are rejected during initialization. Stop preserves values, while workspace deletion removes their rows through the existing foreign-key cascade. This protects against accidental repository, API, and log exposure, not against commands that are intentionally given the values.
+
+## Workspace runtime boundary
+
+The control plane never opens a workspace shell directly. `internal/workspaceruntime`
+defines the `Runtime` contract and a `Ref` that identifies a workspace runtime
+instance. Workspace lifecycle, preparation, review, publish, and the future
+agent all interact with a runtime through this seam instead of constructing a
+host shell themselves.
+
+`NewLocal` provides the compatibility implementation: lifecycle calls are
+idempotent, `OpenShell` creates the private per-workspace home and returns a
+bounded local shell rooted at the workspace repository directory. Cloud-backed
+implementations may replace it behind the same contract, which keeps workspace
+and webapp code independent of the final execution substrate.
 
 ## Agent backend (removed)
 

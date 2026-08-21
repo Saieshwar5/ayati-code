@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/Saieshwar5/perpetual/internal/exec"
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 type gitClient interface {
@@ -18,13 +19,12 @@ type gitClient interface {
 	Output(context.Context, ...string) (string, error)
 }
 
-// shellFactory creates a bounded shell for a workspace command. The factory is
-// injectable so tests can record variables without executing on the host.
-type shellFactory func(variables map[string]string, dir string) (exec.Shell, error)
-
+// Service coordinates workspace lifecycle with the controller's Git and the
+// workspace runtime that executes setup and agent commands. The runtime is the
+// only execution seam; the service never opens a shell directly on the host.
 type Service struct {
 	store    *Store
-	shells   shellFactory
+	runtime  workspaceruntime.Runtime
 	git      gitClient
 	root     string
 	deleteMu sync.Mutex
@@ -46,11 +46,12 @@ func NewService(store *Store, token func() (string, error), root string) (*Servi
 	if err != nil {
 		return nil, err
 	}
-	service := &Service{store: store, git: git, root: filepath.Clean(root)}
-	service.shells = func(variables map[string]string, dir string) (exec.Shell, error) {
-		return exec.New(variables, dir)
-	}
-	return service, nil
+	return &Service{
+		store:   store,
+		git:     git,
+		root:    filepath.Clean(root),
+		runtime: workspaceruntime.NewLocal(),
+	}, nil
 }
 
 func (s *Service) Stop(ctx context.Context, id string) error {
@@ -63,6 +64,9 @@ func (s *Service) Stop(ctx context.Context, id string) error {
 	}
 	if value.Status != StatusReady {
 		return fmt.Errorf("workspace is %s, not ready", value.Status)
+	}
+	if err := s.runtimeFor().Stop(ctx, runtimeRef(value)); err != nil {
+		return fmt.Errorf("stop workspace runtime: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusStopped, "")
 }
@@ -80,6 +84,9 @@ func (s *Service) Resume(ctx context.Context, id string) error {
 	}
 	if value.PreparationStage != PreparationReady {
 		return fmt.Errorf("workspace preparation is %s and cannot be resumed", value.PreparationStage)
+	}
+	if err := s.runtimeFor().Start(ctx, runtimeRef(value)); err != nil {
+		return fmt.Errorf("start workspace runtime: %w", err)
 	}
 	return s.store.UpdateStatus(ctx, id, StatusReady, "")
 }
@@ -105,10 +112,24 @@ func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool
 		return nil, err
 	}
 	environment := shellEnvironment(workspaceCachePath(value.Path), variables)
-	if err := os.MkdirAll(environment["HOME"], 0o700); err != nil {
-		return nil, fmt.Errorf("create shell home: %w", err)
+	return s.runtimeFor().OpenShell(ctx, runtimeRef(value), environment)
+}
+
+// runtimeFor returns the configured workspace runtime, falling back to the
+// local compatibility runtime so a zero-value Service remains usable in tests.
+func (s *Service) runtimeFor() workspaceruntime.Runtime {
+	if s.runtime != nil {
+		return s.runtime
 	}
-	return s.shells(environment, value.Path)
+	return workspaceruntime.NewLocal()
+}
+
+func runtimeRef(value Workspace) workspaceruntime.Ref {
+	return workspaceruntime.Ref{
+		ID:        value.ID,
+		Directory: value.Path,
+		CacheDir:  workspaceCachePath(value.Path),
+	}
 }
 
 func (s *Service) prepareRepository(ctx context.Context, value Workspace) error {

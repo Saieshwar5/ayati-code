@@ -23,9 +23,9 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	shells := &fakeShells{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
+	runtime := &fakeRuntime{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
 	git := &recordingGit{statusResults: []string{"", "?? package-lock.json\n"}}
-	service := &Service{store: store, shells: shells.open, git: git}
+	service := &Service{store: store, runtime: runtime, git: git}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
 	}
@@ -35,8 +35,8 @@ func TestPreparationRecordsUntrackedProjectChanges(t *testing.T) {
 		loaded.PreparationStage != PreparationReady {
 		t.Fatalf("workspace = %#v, error = %v", loaded, loadErr)
 	}
-	if len(shells.variables) != 1 {
-		t.Fatalf("shell variables = %#v", shells.variables)
+	if len(runtime.variables) != 1 {
+		t.Fatalf("runtime variables = %#v", runtime.variables)
 	}
 }
 
@@ -54,8 +54,8 @@ func TestPreparationRecordsTrackedProjectChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	shells := &fakeShells{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
-	service := &Service{store: store, shells: shells.open,
+	runtime := &fakeRuntime{shell: &recordingShell{result: exec.ShellResult{ExitCode: 0}}}
+	service := &Service{store: store, runtime: runtime,
 		git: &recordingGit{statusResults: []string{"", " M package-lock.json\n"}}}
 	if err := service.Initialize(context.Background(), value.ID); err != nil {
 		t.Fatalf("Initialize: %v", err)
@@ -95,9 +95,9 @@ func TestPreparationPausesForProjectSelectionAndContinues(t *testing.T) {
 	}
 	service := &Service{
 		store: store,
-		shells: (&fakeShells{shell: &recordingShell{
+		runtime: &fakeRuntime{shell: &recordingShell{
 			result: exec.ShellResult{ExitCode: 0},
-		}}).open,
+		}},
 		git: &recordingGit{},
 	}
 	err = service.Initialize(context.Background(), value.ID)

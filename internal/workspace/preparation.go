@@ -26,6 +26,9 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := s.store.UpdateStatus(ctx, id, StatusInitializing, ""); err != nil {
 		return err
 	}
+	if err := s.runtimeFor().Start(ctx, runtimeRef(value)); err != nil {
+		return s.fail(ctx, id, fmt.Errorf("start workspace runtime: %w", err))
+	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationCloning,
 		value.Repository+" · "+value.Branch); err != nil {
 		return s.fail(ctx, id, err)
