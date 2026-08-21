@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Saieshwar5/perpetual/internal/accounts"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 )
 
@@ -45,6 +46,7 @@ func TestEventStreamAuthenticatesAndDeliversSessionNotice(t *testing.T) {
 		ctx: ctx, events: broker, github: &fakeGitHub{}, credentialsPath: credentials,
 	}
 	requestContext, stopRequest := context.WithCancel(context.Background())
+	requestContext = context.WithValue(requestContext, accountContextKey{}, accounts.User{ID: "user-1"})
 	request := httptest.NewRequest(http.MethodGet, "/api/events", nil).WithContext(requestContext)
 	response := newStreamResponse()
 	done := make(chan struct{})

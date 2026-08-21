@@ -237,7 +237,7 @@ func writeSnapshotFixture(t *testing.T, root, versionID string) (string, int64) 
 
 func newTestGit(t *testing.T) gitClient {
 	t.Helper()
-	git, err := newGitClient(func() (string, error) { return "", nil })
+	git, err := newGitClient()
 	if err != nil {
 		t.Fatalf("newGitClient: %v", err)
 	}

@@ -82,11 +82,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	token := func() (string, error) {
-		credentials, err := githubapp.LoadCredentials(credentialPath)
-		return credentials.AccessToken, err
-	}
-	workspaces, err := workspace.NewService(store, token, paths.workspaces)
+	workspaces, err := workspace.NewService(store, accountStore, paths.workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1

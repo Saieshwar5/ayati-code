@@ -53,14 +53,20 @@ type AuthSession struct {
 }
 
 type Store struct {
-	db *sql.DB
+	db           *sql.DB
+	databasePath string
+	sealer       *credentialSealer
 }
 
 func NewStore(database *appdatabase.Database) (*Store, error) {
 	if database == nil || database.SQL() == nil {
 		return nil, errors.New("database is required")
 	}
-	store := &Store{db: database.SQL()}
+	sealer, err := newCredentialSealer(database.Path())
+	if err != nil {
+		return nil, err
+	}
+	store := &Store{db: database.SQL(), databasePath: database.Path(), sealer: sealer}
 	if err := store.configure(); err != nil {
 		return nil, err
 	}
@@ -71,6 +77,7 @@ func (s *Store) configure() error {
 	for _, statement := range []string{
 		userSchema,
 		authSessionSchema,
+		githubCredentialSchema,
 		`CREATE INDEX IF NOT EXISTS auth_sessions_user ON auth_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS auth_sessions_hash ON auth_sessions(token_hash)`,
 	} {

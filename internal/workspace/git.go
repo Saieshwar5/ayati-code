@@ -10,33 +10,32 @@ import (
 )
 
 type osGit struct {
-	path  string
-	token func() (string, error)
+	path string
 }
 
-func newGitClient(token func() (string, error)) (gitClient, error) {
+func newGitClient() (gitClient, error) {
 	path, err := exec.LookPath("git")
 	if err != nil {
 		return nil, fmt.Errorf("find git: %w", err)
 	}
-	return osGit{path: path, token: token}, nil
+	return osGit{path: path}, nil
 }
 
 func (g osGit) Run(ctx context.Context, arguments ...string) error {
-	_, err := g.execute(ctx, false, arguments...)
+	_, err := g.execute(ctx, "", arguments...)
 	return err
 }
 
-func (g osGit) AuthenticatedRun(ctx context.Context, arguments ...string) error {
-	_, err := g.execute(ctx, true, arguments...)
+func (g osGit) AuthenticatedRun(ctx context.Context, token string, arguments ...string) error {
+	_, err := g.execute(ctx, token, arguments...)
 	return err
 }
 
 func (g osGit) Output(ctx context.Context, arguments ...string) (string, error) {
-	return g.execute(ctx, false, arguments...)
+	return g.execute(ctx, "", arguments...)
 }
 
-func (g osGit) execute(ctx context.Context, authenticated bool, arguments ...string) (string, error) {
+func (g osGit) execute(ctx context.Context, token string, arguments ...string) (string, error) {
 	settings := []string{
 		"-c", "core.hooksPath=/dev/null",
 		"-c", "credential.helper=",
@@ -50,14 +49,7 @@ func (g osGit) execute(ctx context.Context, authenticated bool, arguments ...str
 		"GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null",
 	)
 	cleanup := func() {}
-	if authenticated {
-		if g.token == nil {
-			return "", fmt.Errorf("GitHub credential is unavailable")
-		}
-		token, err := g.token()
-		if err != nil {
-			return "", fmt.Errorf("load GitHub credential: %w", err)
-		}
+	if strings.TrimSpace(token) != "" {
 		askpass, remove, err := writeAskPass(token)
 		if err != nil {
 			return "", err

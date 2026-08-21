@@ -12,7 +12,7 @@ import (
 )
 
 func (s *Server) createNewProjectWorkspace(writer http.ResponseWriter, request *http.Request) {
-	credentials, ok := s.requireCredentials(writer)
+	credentials, ok := s.requireCredentials(writer, request)
 	if !ok {
 		return
 	}

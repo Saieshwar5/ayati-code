@@ -66,7 +66,8 @@ func (b *EventBroker) subscribe() (<-chan browserEvent, func()) {
 }
 
 func (s *Server) eventStream(writer http.ResponseWriter, request *http.Request) {
-	if _, ok := s.requireCredentials(writer); !ok {
+	if _, ok := currentAccount(request.Context()); !ok {
+		s.writeError(writer, http.StatusUnauthorized, "authentication required")
 		return
 	}
 	flusher, ok := writer.(http.Flusher)
