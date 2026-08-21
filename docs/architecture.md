@@ -145,6 +145,13 @@ execution, which keeps preparation observable and safe across process
 restarts, and gives environment builds and agent runs a shared durable
 execution primitive.
 
+`prepare_workspace` runs workspace initialization, and `build_environment`
+rebuilds or verifies a workspace's bound environment version through the same
+runtime seam. `POST /api/workspaces/{id}/environment/rebuild` enqueues a
+`build_environment` job for a pending or failed version and returns accepted;
+the worker runs dependency setup, saves the profile result, and marks the
+version ready or failed.
+
 ## Agent backend (removed)
 
 The Fireworks-backed agent was removed: `internal/agent`, `internal/chat`,

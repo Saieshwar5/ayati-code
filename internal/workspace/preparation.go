@@ -182,6 +182,45 @@ func (s *Service) runSetup(ctx context.Context, value Workspace, profile *Projec
 	return nil
 }
 
+// executeEnvironmentBuild runs dependency setup for a workspace's bound
+// environment version and records the version as ready or failed. It is the
+// reusable body behind build_environment jobs.
+func (s *Service) executeEnvironmentBuild(ctx context.Context, workspaceID string) error {
+	value, err := s.store.Get(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveWorkspace(value); err != nil {
+		return err
+	}
+	if value.EnvironmentVersionID == "" {
+		return errors.New("workspace is not bound to an environment version")
+	}
+	version, err := s.store.GetEnvironmentVersion(ctx, value.EnvironmentVersionID)
+	if err != nil {
+		return err
+	}
+	if version.State == EnvironmentVersionReady {
+		return nil
+	}
+	profile, err := s.store.ProjectProfile(ctx, workspaceID)
+	if err != nil {
+		return fmt.Errorf("load environment build profile: %w", err)
+	}
+	if profile.SetupCommand != "" {
+		if err := s.runSetup(ctx, value, profile); err != nil {
+			_ = s.store.SetEnvironmentVersionState(ctx, version.ID,
+				EnvironmentVersionFailed, boundedMessage(err.Error()))
+			_ = s.store.SaveProfile(ctx, workspaceID, *profile)
+			return err
+		}
+		if err := s.store.SaveProfile(ctx, workspaceID, *profile); err != nil {
+			return err
+		}
+	}
+	return s.store.SetEnvironmentVersionState(ctx, version.ID, EnvironmentVersionReady, "")
+}
+
 func (s *Service) gitOutput(ctx context.Context, path string, arguments ...string) (string, error) {
 	value, err := s.git.Output(ctx, append([]string{"-C", path}, arguments...)...)
 	return strings.TrimSpace(value), err

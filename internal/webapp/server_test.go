@@ -30,6 +30,10 @@ func (f *fakeWorkspaceService) StartPreparation(ctx context.Context, id string) 
 	return nil
 }
 
+func (f *fakeWorkspaceService) RebuildEnvironment(context.Context, string) error {
+	return nil
+}
+
 func (f *fakeWorkspaceService) ConfigureProjectRoot(ctx context.Context, id, root string) error {
 	return f.store.SelectProjectRoot(ctx, id, root)
 }
