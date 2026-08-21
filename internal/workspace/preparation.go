@@ -60,6 +60,11 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		profile.SetupCommand = value.Setup
 	}
 	profile.CachePath = workspaceCachePath(value.Path)
+	spec, err := BuildEnvironmentSpecAt(value.Path, profile.ProjectRoot)
+	if err != nil {
+		return s.fail(ctx, id, fmt.Errorf("build environment spec: %w", err))
+	}
+	profile.EnvironmentSpec = &spec
 	if err := s.store.UpdateSetup(ctx, id, profile.SetupCommand); err != nil {
 		return s.fail(ctx, id, err)
 	}

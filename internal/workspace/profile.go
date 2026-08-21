@@ -16,23 +16,24 @@ import (
 const maxProjectMetadataBytes = 1 << 20
 
 type ProjectProfile struct {
-	ProjectRoot         string     `json:"project_root"`
-	Languages           []string   `json:"languages"`
-	RuntimeVersions     []string   `json:"runtime_versions"`
-	PackageManagers     []string   `json:"package_managers"`
-	Lockfiles           []string   `json:"lockfiles"`
-	SetupCommand        string     `json:"setup_command"`
-	TestCommand         string     `json:"test_command,omitempty"`
-	LintCommand         string     `json:"lint_command,omitempty"`
-	TypecheckCommand    string     `json:"typecheck_command,omitempty"`
-	BuildCommand        string     `json:"build_command,omitempty"`
-	InstructionsFile    string     `json:"instructions_file,omitempty"`
-	ManifestFingerprint string     `json:"manifest_fingerprint"`
-	BaselineCommit      string     `json:"baseline_commit,omitempty"`
-	SetupResult         string     `json:"setup_result"`
-	BaselineResult      string     `json:"baseline_result"`
-	CachePath           string     `json:"cache_path"`
-	PreparedAt          *time.Time `json:"prepared_at,omitempty"`
+	ProjectRoot         string           `json:"project_root"`
+	Languages           []string         `json:"languages"`
+	RuntimeVersions     []string         `json:"runtime_versions"`
+	PackageManagers     []string         `json:"package_managers"`
+	Lockfiles           []string         `json:"lockfiles"`
+	SetupCommand        string           `json:"setup_command"`
+	TestCommand         string           `json:"test_command,omitempty"`
+	LintCommand         string           `json:"lint_command,omitempty"`
+	TypecheckCommand    string           `json:"typecheck_command,omitempty"`
+	BuildCommand        string           `json:"build_command,omitempty"`
+	InstructionsFile    string           `json:"instructions_file,omitempty"`
+	ManifestFingerprint string           `json:"manifest_fingerprint"`
+	BaselineCommit      string           `json:"baseline_commit,omitempty"`
+	SetupResult         string           `json:"setup_result"`
+	BaselineResult      string           `json:"baseline_result"`
+	CachePath           string           `json:"cache_path"`
+	EnvironmentSpec     *EnvironmentSpec `json:"environment_spec,omitempty"`
+	PreparedAt          *time.Time       `json:"prepared_at,omitempty"`
 }
 
 type nodeManifest struct {

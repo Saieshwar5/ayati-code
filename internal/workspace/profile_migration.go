@@ -23,12 +23,23 @@ const projectProfileSchema = `CREATE TABLE IF NOT EXISTS workspace_profiles (
 	setup_result TEXT NOT NULL,
 	baseline_result TEXT NOT NULL,
 	cache_path TEXT NOT NULL,
+	environment_spec TEXT NOT NULL DEFAULT '',
 	prepared_at TEXT NOT NULL
 )`
 
 func (s *Store) migrateProjectProfiles(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, projectProfileSchema); err != nil {
 		return fmt.Errorf("create workspace profiles: %w", err)
+	}
+	columns, err := databaseColumns(ctx, s.db, "workspace_profiles")
+	if err != nil {
+		return err
+	}
+	if !columns["environment_spec"] {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE workspace_profiles
+			ADD COLUMN environment_spec TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("migrate workspace profile environment spec: %w", err)
+		}
 	}
 	if _, err := s.db.ExecContext(ctx, `PRAGMA user_version = 4`); err != nil {
 		return fmt.Errorf("record workspace profile schema: %w", err)

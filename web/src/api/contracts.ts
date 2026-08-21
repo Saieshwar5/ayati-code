@@ -28,6 +28,33 @@ export interface ProjectCandidate {
   package_managers: string[];
 }
 
+export interface Toolchain {
+  name: string;
+  version?: string;
+  source?: string;
+}
+
+export interface DevService {
+  name: string;
+  version?: string;
+  source?: string;
+}
+
+export interface EnvironmentSpec {
+  project_root: string;
+  toolchains: Toolchain[];
+  package_managers: string[];
+  lockfiles: string[];
+  setup_commands: string[];
+  verify_commands: string[];
+  build_commands: string[];
+  test_commands: string[];
+  services: DevService[];
+  source_files: string[];
+  fingerprint: string;
+  instructions_file?: string;
+}
+
 export interface ProjectProfile {
   project_root: string;
   languages: string[];
@@ -45,6 +72,7 @@ export interface ProjectProfile {
   setup_result: "pending" | "skipped" | "passed" | "failed";
   baseline_result: "pending" | "clean" | "changed" | "dirty";
   cache_path: string;
+  environment_spec?: EnvironmentSpec;
   prepared_at?: string;
 }
 
