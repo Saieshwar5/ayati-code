@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 func (s *Store) migrateEnvironmentVersions(ctx context.Context) error {
@@ -26,10 +27,37 @@ func (s *Store) migrateEnvironmentVersions(ctx context.Context) error {
 			return fmt.Errorf("migrate workspace environment binding: %w", err)
 		}
 	}
+	if err := s.migrateEnvironmentSnapshotColumns(ctx); err != nil {
+		return err
+	}
 	if _, err := s.db.ExecContext(ctx, `PRAGMA user_version = 14`); err != nil {
 		return fmt.Errorf("record environment version schema: %w", err)
 	}
 	return s.backfillEnvironmentVersions(ctx)
+}
+
+func (s *Store) migrateEnvironmentSnapshotColumns(ctx context.Context) error {
+	columns, err := databaseColumns(ctx, s.db, "environment_versions")
+	if err != nil {
+		return err
+	}
+	for _, statement := range []string{
+		`ALTER TABLE environment_versions ADD COLUMN snapshot_type TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE environment_versions ADD COLUMN snapshot_ref TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE environment_versions ADD COLUMN snapshot_manifest TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE environment_versions ADD COLUMN snapshot_bytes INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE environment_versions ADD COLUMN snapshot_created_at TEXT NOT NULL DEFAULT ''`,
+	} {
+		name := strings.TrimSpace(strings.TrimPrefix(statement, "ALTER TABLE environment_versions ADD COLUMN "))
+		name = strings.Fields(name)[0]
+		if columns[name] {
+			continue
+		}
+		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+			return fmt.Errorf("migrate environment version %s: %w", name, err)
+		}
+	}
+	return nil
 }
 
 func (s *Store) backfillEnvironmentVersions(ctx context.Context) error {
