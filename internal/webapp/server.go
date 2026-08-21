@@ -45,36 +45,34 @@ type workspaceService interface {
 }
 
 type Server struct {
-	ctx             context.Context
-	store           *workspace.Store
-	accounts        *accounts.Store
-	workspaces      workspaceService
-	github          githubClient
-	credentialsPath string
-	workspaceRoot   string
-	logger          *log.Logger
-	assets          http.Handler
-	events          *EventBroker
+	ctx           context.Context
+	store         *workspace.Store
+	accounts      *accounts.Store
+	workspaces    workspaceService
+	github        githubClient
+	workspaceRoot string
+	logger        *log.Logger
+	assets        http.Handler
+	events        *EventBroker
 }
 
 type Options struct {
-	Context         context.Context
-	Store           *workspace.Store
-	Accounts        *accounts.Store
-	Workspaces      workspaceService
-	GitHub          githubClient
-	CredentialsPath string
-	WorkspaceRoot   string
-	Logger          *log.Logger
-	Events          *EventBroker
+	Context       context.Context
+	Store         *workspace.Store
+	Accounts      *accounts.Store
+	Workspaces    workspaceService
+	GitHub        githubClient
+	WorkspaceRoot string
+	Logger        *log.Logger
+	Events        *EventBroker
 }
 
 func New(options Options) (*Server, error) {
 	if options.Store == nil || options.Workspaces == nil || options.Accounts == nil {
 		return nil, errors.New("workspace store, account store, and service are required")
 	}
-	if strings.TrimSpace(options.CredentialsPath) == "" || strings.TrimSpace(options.WorkspaceRoot) == "" {
-		return nil, errors.New("credential path and workspace root are required")
+	if strings.TrimSpace(options.WorkspaceRoot) == "" {
+		return nil, errors.New("workspace root is required")
 	}
 	if options.Context == nil {
 		options.Context = context.Background()
@@ -92,8 +90,8 @@ func New(options Options) (*Server, error) {
 	return &Server{
 		ctx: options.Context, store: options.Store, accounts: options.Accounts,
 		workspaces: options.Workspaces, github: options.GitHub,
-		credentialsPath: options.CredentialsPath, workspaceRoot: options.WorkspaceRoot,
-		logger: options.Logger, assets: http.FileServer(http.FS(static)), events: options.Events,
+		workspaceRoot: options.WorkspaceRoot, logger: options.Logger,
+		assets: http.FileServer(http.FS(static)), events: options.Events,
 	}, nil
 }
 
@@ -179,10 +177,6 @@ func (s *Server) decode(writer http.ResponseWriter, request *http.Request, outpu
 		return false
 	}
 	return true
-}
-
-func (s *Server) credentials() (githubapp.Credentials, error) {
-	return githubapp.LoadCredentials(s.credentialsPath)
 }
 
 func (s *Server) writeJSON(writer http.ResponseWriter, status int, value any) {

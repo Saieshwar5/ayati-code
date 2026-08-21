@@ -5,14 +5,12 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/Saieshwar5/perpetual/internal/accounts"
-	"github.com/Saieshwar5/perpetual/internal/githubapp"
 )
 
 func TestEventBrokerKeepsLatestNoticeForSlowSubscriber(t *testing.T) {
@@ -32,18 +30,11 @@ func TestEventBrokerKeepsLatestNoticeForSlowSubscriber(t *testing.T) {
 }
 
 func TestEventStreamAuthenticatesAndDeliversSessionNotice(t *testing.T) {
-	root := t.TempDir()
-	credentials := filepath.Join(root, "github.json")
-	if err := githubapp.SaveCredentials(credentials, githubapp.Credentials{
-		AccessToken: "secret", User: githubapp.User{ID: 1, Login: "octocat"},
-	}); err != nil {
-		t.Fatalf("SaveCredentials: %v", err)
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	broker := NewEventBroker()
 	server := &Server{
-		ctx: ctx, events: broker, github: &fakeGitHub{}, credentialsPath: credentials,
+		ctx: ctx, events: broker, github: &fakeGitHub{},
 	}
 	requestContext, stopRequest := context.WithCancel(context.Background())
 	requestContext = context.WithValue(requestContext, accountContextKey{}, accounts.User{ID: "user-1"})

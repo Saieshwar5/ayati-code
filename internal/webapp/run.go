@@ -77,11 +77,6 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	credentialPath, err := githubapp.DefaultCredentialsPath()
-	if err != nil {
-		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
-		return 1
-	}
 	workspaces, err := workspace.NewService(store, accountStore, paths.workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -92,6 +87,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		return 1
 	}
 	go workspaces.RunWorker(ctx)
+	go runSessionCleanup(ctx, accountStore)
 	github, err := optionalGitHub(*clientID, *clientSecret, *callback, *address, *publicURL)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -101,9 +97,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	logger := log.New(errorOutput, "perpetual: ", log.LstdFlags)
 	application, err := New(Options{
 		Context: ctx, Store: store, Accounts: accountStore, Workspaces: workspaces,
-		GitHub:          github,
-		CredentialsPath: credentialPath, WorkspaceRoot: paths.workspaces, Logger: logger,
-		Events: events,
+		GitHub: github, WorkspaceRoot: paths.workspaces, Logger: logger, Events: events,
 	})
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -244,4 +238,24 @@ func envOr(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// runSessionCleanup periodically removes expired login sessions so the
+// auth_sessions table never grows without bound. It stops with context
+// cancellation and treats cleanup failures as non-fatal.
+func runSessionCleanup(ctx context.Context, store *accounts.Store) {
+	const interval = time.Hour
+	const retention = time.Hour
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, err := store.DeleteExpiredSessions(ctx, time.Now().Add(-retention)); err != nil {
+				continue
+			}
+		}
+	}
 }

@@ -71,23 +71,28 @@ GitHub OAuth remains the only sign-in method. The web layer uses the existing
 GitHub consent flow to prove identity, then `internal/accounts` persists a
 GitHub-linked user and creates a server-side `perpetual_session` cookie. The
 cookie value is a random opaque token; SQLite stores only its SHA-256 hash.
-Sessions have a bounded lifetime, can be revoked on logout, and are checked by
-web middleware before user-scoped workspace routes run.
+Sessions have a bounded lifetime, can be revoked on logout, are checked by
+web middleware before user-scoped workspace routes run, and are periodically
+removed after expiry by a background cleanup loop.
 
 Each workspace records a `user_id`. The web API lists and gets workspaces with
 `WHERE user_id = ?`, and workspace actions verify ownership before invoking the
 workspace service. `workspace_jobs` records the workspace owner, and
 `project_environments` is unique per `user_id`, repository, and project root so
 environment versions never leak across users. Environment lookups join the
-environment owner before returning a version. Existing local-only rows keep an
-empty `user_id` until they are claimed or migrated during a later cloud
-deployment step.
+environment owner before returning a version. Rows that predate ownership
+keep an empty `user_id`. On the very first GitHub login against a pre-tenancy
+database, the web layer claims those rows for that user: workspaces directly,
+jobs through their workspace, and environments through matching workspace
+profiles. The claim is idempotent and only fires when no user existed yet, so
+hosted databases never auto-claim.
 
 The OAuth callback stores the GitHub access token in `github_credentials` for
 that user, encrypted with AES-GCM under a local `github.key` file. The browser
 receives only the opaque `perpetual_session` cookie. Web handlers load the
-current user's encrypted token before calling GitHub. `internal/workspace`
-depends on a small `GitHubTokenProvider` seam rather than the account store;
+current user's encrypted token before calling GitHub; the web layer no longer
+reads or writes a global `github.json` token file. `internal/workspace` depends
+on a small `GitHubTokenProvider` seam rather than the account store;
 `internal/webapp` injects `accounts.Store` so background prepare and publish
 jobs use the token belonging to the workspace owner.
 
