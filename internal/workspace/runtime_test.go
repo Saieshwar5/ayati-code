@@ -166,3 +166,64 @@ func TestServiceRuntimeRefMatchesWorkspacePath(t *testing.T) {
 		t.Fatalf("ref = %#v, want %#v", ref, want)
 	}
 }
+
+type recordingRuntimeProvider struct {
+	cloud workspaceruntime.Runtime
+}
+
+func (p *recordingRuntimeProvider) RuntimeFor(name string) (workspaceruntime.Runtime, error) {
+	switch name {
+	case "", "local":
+		return workspaceruntime.NewLocal(), nil
+	case "cloud":
+		if p.cloud == nil {
+			return nil, errors.New("cloud workspace runtime is not configured")
+		}
+		return p.cloud, nil
+	default:
+		return nil, errors.New("unknown workspace runtime " + name)
+	}
+}
+
+func TestServicePersistsRuntimeStateTransitions(t *testing.T) {
+	store, value := readyWorkspace(t, "perpetual/change", true)
+	runtime := &fakeRuntime{}
+	service := &Service{store: store, runtime: runtime, git: &recordingGit{}}
+	if err := service.Stop(context.Background(), value.ID); err != nil {
+		t.Fatalf("Stop: %v", err)
+	}
+	loaded, err := store.Get(context.Background(), value.ID)
+	if err != nil || loaded.RuntimeState != workspaceruntime.RuntimeStateStopped {
+		t.Fatalf("runtime state after stop = %q, error = %v", loaded.RuntimeState, err)
+	}
+	if err := service.Resume(context.Background(), value.ID); err != nil {
+		t.Fatalf("Resume: %v", err)
+	}
+	loaded, err = store.Get(context.Background(), value.ID)
+	if err != nil || loaded.RuntimeState != workspaceruntime.RuntimeStateRunning {
+		t.Fatalf("runtime state after resume = %q, error = %v", loaded.RuntimeState, err)
+	}
+}
+
+func TestServiceRuntimeProviderSelectsCloudAndFailsWithoutConfig(t *testing.T) {
+	cloud, err := workspaceruntime.NewCloud(workspaceruntime.CloudConfig{
+		Endpoint: "https://runtime.test", Token: "secret",
+	})
+	if err != nil {
+		t.Fatalf("NewCloud: %v", err)
+	}
+	service := &Service{provider: &recordingRuntimeProvider{cloud: cloud}}
+	selected, err := service.runtimeFor(Workspace{RuntimeProvider: "cloud"})
+	if err != nil || selected != cloud {
+		t.Fatalf("selected runtime = %#v, error = %v", selected, err)
+	}
+	local, err := service.runtimeFor(Workspace{})
+	if err != nil || local == nil {
+		t.Fatalf("local runtime = %#v, error = %v", local, err)
+	}
+	unconfigured := &Service{provider: &recordingRuntimeProvider{}}
+	_, err = unconfigured.runtimeFor(Workspace{RuntimeProvider: "cloud"})
+	if err == nil || !strings.Contains(err.Error(), "not configured") {
+		t.Fatalf("unconfigured runtime error = %v", err)
+	}
+}

@@ -12,12 +12,26 @@ import (
 )
 
 // Ref identifies one workspace runtime instance. Directory is the repository
-// root the runtime exposes and CacheDir is the persistent tool-cache root.
+// root the runtime exposes, CacheDir is the persistent tool-cache root, and
+// RuntimeID is the provider-specific instance reference when one exists.
 type Ref struct {
 	ID        string
+	RuntimeID string
 	Directory string
 	CacheDir  string
 }
+
+// RuntimeState is a durable runtime lifecycle state recorded on the workspace.
+// It is independent from workspace status: a ready workspace may have a
+// stopped runtime, and a creating workspace may have a running runtime.
+const (
+	RuntimeStateNotCreated = "not_created"
+	RuntimeStateCreating   = "creating"
+	RuntimeStateRunning    = "running"
+	RuntimeStateStopped    = "stopped"
+	RuntimeStateDestroying = "destroying"
+	RuntimeStateFailed     = "failed"
+)
 
 // Runtime is the contract workspace lifecycle, preparation, review, publish,
 // and the planned agent use to interact with a workspace's isolated runtime.

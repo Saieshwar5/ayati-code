@@ -296,3 +296,20 @@ func TestSessionReportsGitHubUnconfiguredWhenCredentialsMissing(t *testing.T) {
 		t.Fatalf("session body = %s", response.Body.String())
 	}
 }
+
+func TestSelectWorkspaceRuntimeDefaultsToLocal(t *testing.T) {
+	provider, err := selectWorkspaceRuntime("")
+	if err != nil {
+		t.Fatalf("selectWorkspaceRuntime: %v", err)
+	}
+	runtime, err := provider.RuntimeFor("")
+	if err != nil || runtime == nil {
+		t.Fatalf("RuntimeFor empty = %#v, error = %v", runtime, err)
+	}
+	if _, err := selectWorkspaceRuntime("bogus"); err == nil {
+		t.Fatalf("bogus runtime accepted")
+	}
+	if _, err := selectWorkspaceRuntime("cloud"); err == nil {
+		t.Fatalf("cloud accepted without configuration")
+	}
+}

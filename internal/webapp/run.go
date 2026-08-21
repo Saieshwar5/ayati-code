@@ -19,6 +19,7 @@ import (
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 const version = "dev"
@@ -36,6 +37,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	tlsCert := flags.String("tls-cert", os.Getenv("PERPETUAL_TLS_CERT"), "TLS certificate file")
 	tlsKey := flags.String("tls-key", os.Getenv("PERPETUAL_TLS_KEY"), "TLS private key file")
 	accessPassword := flags.String("access-password", os.Getenv("PERPETUAL_ACCESS_PASSWORD"), "optional password gate for remote access")
+	runtime := flags.String("runtime", os.Getenv("PERPETUAL_RUNTIME"), "workspace runtime (local or cloud)")
 	showVersion := flags.Bool("version", false, "print the Perpetual version")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -77,7 +79,12 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	workspaces, err := workspace.NewService(store, accountStore, paths.workspaces)
+	runtimeProvider, runtimeErr := selectWorkspaceRuntime(*runtime)
+	if runtimeErr != nil {
+		fmt.Fprintf(errorOutput, "perpetual: %v\n", runtimeErr)
+		return 1
+	}
+	workspaces, err := workspace.NewService(store, accountStore, runtimeProvider, paths.workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
@@ -257,5 +264,50 @@ func runSessionCleanup(ctx context.Context, store *accounts.Store) {
 				continue
 			}
 		}
+	}
+}
+
+// workspaceRuntimeProvider resolves a workspace's persisted runtime provider
+// name to the runtime implementation, falling back to local for empty values.
+type workspaceRuntimeProvider struct {
+	local workspaceruntime.Runtime
+	cloud workspaceruntime.Runtime
+}
+
+func (p *workspaceRuntimeProvider) RuntimeFor(provider string) (workspaceruntime.Runtime, error) {
+	switch strings.TrimSpace(provider) {
+	case "", "local":
+		return p.local, nil
+	case "cloud":
+		if p.cloud == nil {
+			return nil, errors.New("cloud workspace runtime is not configured")
+		}
+		return p.cloud, nil
+	default:
+		return nil, fmt.Errorf("unknown workspace runtime %q", provider)
+	}
+}
+
+// selectWorkspaceRuntime builds the runtime provider for the configured
+// runtime name. Local is the default; cloud validates its config up front so
+// misconfiguration fails at startup instead of inside a workspace job.
+func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
+	provider := &workspaceRuntimeProvider{local: workspaceruntime.NewLocal()}
+	switch strings.TrimSpace(name) {
+	case "", "local":
+		return provider, nil
+	case "cloud":
+		cloud, err := workspaceruntime.NewCloud(workspaceruntime.CloudConfig{
+			Endpoint: os.Getenv("PERPETUAL_CLOUD_RUNTIME_ENDPOINT"),
+			Token:    os.Getenv("PERPETUAL_CLOUD_RUNTIME_TOKEN"),
+			Pool:     os.Getenv("PERPETUAL_CLOUD_RUNTIME_POOL"),
+		})
+		if err != nil {
+			return nil, err
+		}
+		provider.cloud = cloud
+		return provider, nil
+	default:
+		return nil, fmt.Errorf("workspace runtime %q is not supported", name)
 	}
 }

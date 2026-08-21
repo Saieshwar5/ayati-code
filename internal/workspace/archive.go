@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
 
 func (s *Store) migrateWorkspaceArchive(ctx context.Context) error {
@@ -67,8 +69,15 @@ func (s *Service) Archive(ctx context.Context, id string) error {
 		return errors.New("a session is still running; stop it before archiving the workspace")
 	}
 	if value.Status == StatusReady {
-		if err := s.runtimeFor().Stop(ctx, runtimeRef(value)); err != nil {
+		runtime, err := s.runtimeFor(value)
+		if err != nil {
+			return err
+		}
+		if err := runtime.Stop(ctx, runtimeRef(value)); err != nil {
 			return fmt.Errorf("stop workspace runtime: %w", err)
+		}
+		if err := s.store.UpdateRuntimeState(ctx, id, workspaceruntime.RuntimeStateStopped); err != nil {
+			return fmt.Errorf("record stopped runtime: %w", err)
 		}
 		if err := s.store.UpdateStatus(ctx, id, StatusStopped, ""); err != nil {
 			return err
