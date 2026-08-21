@@ -12,6 +12,7 @@ import (
 func TestHandlerRebuildsBoundEnvironment(t *testing.T) {
 	handler, store, _, _ := testHandler(t)
 	value, err := store.Create(context.Background(), workspace.Create{
+		UserID:     testAccountUserID,
 		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: "main", Path: filepath.Join(t.TempDir(), "repo"),
 	})

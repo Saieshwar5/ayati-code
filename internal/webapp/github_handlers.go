@@ -15,6 +15,15 @@ func (s *Server) session(writer http.ResponseWriter, request *http.Request) {
 		Authenticated    bool            `json:"authenticated"`
 		User             *githubapp.User `json:"user,omitempty"`
 	}{GitHubConfigured: s.github != nil}
+	if account, found, err := s.accountFromRequest(request); err == nil && found {
+		response.Authenticated = true
+		response.User = &githubapp.User{ID: account.GitHubID, Login: account.Login, AvatarURL: account.AvatarURL}
+		s.writeJSON(writer, http.StatusOK, response)
+		return
+	} else if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "load login session")
+		return
+	}
 	if s.github == nil {
 		s.writeJSON(writer, http.StatusOK, response)
 		return
@@ -84,10 +93,33 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		s.writeError(writer, http.StatusInternalServerError, "save GitHub authorization")
 		return
 	}
+	account, err := s.accounts.UpsertGitHubUser(request.Context(), user.ID, user.Login, "", user.AvatarURL)
+	if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "save GitHub account")
+		return
+	}
+	sessionToken, err := randomToken()
+	if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "create login token")
+		return
+	}
+	session, err := s.accounts.CreateSession(request.Context(), account.ID, sessionToken, accountSessionTTL)
+	if err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "create login session")
+		return
+	}
+	setAccountSessionCookie(writer, request, sessionToken, session.ExpiresAt)
 	http.Redirect(writer, request, "/", http.StatusFound)
 }
 
-func (s *Server) logout(writer http.ResponseWriter, _ *http.Request) {
+func (s *Server) logout(writer http.ResponseWriter, request *http.Request) {
+	if cookie, err := request.Cookie(accountSessionCookie); err == nil && cookie.Value != "" {
+		if err := s.accounts.RevokeSession(request.Context(), cookie.Value); err != nil {
+			s.writeError(writer, http.StatusInternalServerError, "revoke login session")
+			return
+		}
+	}
+	clearAccountSessionCookie(writer, request)
 	if err := githubapp.RemoveCredentials(s.credentialsPath); err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "remove GitHub authorization")
 		return

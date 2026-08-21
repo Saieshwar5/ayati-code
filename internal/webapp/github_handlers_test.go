@@ -53,7 +53,7 @@ func TestHandlerRequiresReconnectForExpiredGitHubAuthorization(t *testing.T) {
 		StatusCode: http.StatusUnauthorized,
 		Status:     "401 Unauthorized",
 	}
-	response := serve(handler, http.MethodGet, "/api/session", "", false)
+	response := serveGuest(handler, http.MethodGet, "/api/session", "", false)
 	if response.Code != http.StatusOK ||
 		response.Body.String() != "{\"github_configured\":true,\"authenticated\":false}\n" {
 		t.Fatalf("session status = %d, body = %s", response.Code, response.Body.String())

@@ -18,6 +18,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Saieshwar5/perpetual/internal/accounts"
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 )
 
@@ -267,9 +270,19 @@ func TestSessionReportsGitHubUnconfiguredWhenCredentialsMissing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("optionalGitHub: %v", err)
 	}
+	accountDatabase, accountErr := appdatabase.Open(filepath.Join(root, "accounts.db"))
+	if accountErr != nil {
+		t.Fatalf("Open account database: %v", accountErr)
+	}
+	defer func() { _ = accountDatabase.Close() }()
+	accountStore, accountErr := accounts.NewStore(accountDatabase)
+	if accountErr != nil {
+		t.Fatalf("New account store: %v", accountErr)
+	}
 	server, err := New(Options{
-		Store: store, Workspaces: &fakeWorkspaceService{store: store, initialized: make(chan string, 1)},
-		GitHub: github, CredentialsPath: filepath.Join(root, "github.json"),
+		Store: store, Accounts: accountStore,
+		Workspaces: &fakeWorkspaceService{store: store, initialized: make(chan string, 1)},
+		GitHub:     github, CredentialsPath: filepath.Join(root, "github.json"),
 		WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {

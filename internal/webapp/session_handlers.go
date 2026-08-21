@@ -15,6 +15,9 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 		http.NotFound(writer, request)
 		return
 	}
+	if !s.requireOwnedWorkspace(writer, request, parts[0]) {
+		return
+	}
 	switch {
 	case len(parts) == 2 && parts[1] == "environment":
 		values, err := s.store.ListEnvironment(request.Context(), parts[0])
@@ -71,6 +74,12 @@ func (s *Server) workspaceRead(writer http.ResponseWriter, request *http.Request
 
 func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *http.Request) {
 	parts := workspaceParts(request)
+	if len(parts) == 0 || !s.requireOwnedWorkspace(writer, request, parts[0]) {
+		if len(parts) == 0 {
+			http.NotFound(writer, request)
+		}
+		return
+	}
 	if request.Method == http.MethodDelete && len(parts) == 1 {
 		if err := s.workspaces.Delete(request.Context(), parts[0]); err != nil {
 			s.writeError(writer, http.StatusConflict, err.Error())
@@ -124,7 +133,8 @@ func (s *Server) workspaceSessionMutation(writer http.ResponseWriter, request *h
 }
 
 func (s *Server) requireMutableEnvironment(writer http.ResponseWriter, request *http.Request, id string) bool {
-	value, err := s.store.Get(request.Context(), id)
+	account, _ := currentAccount(request.Context())
+	value, err := s.store.GetForUser(request.Context(), account.ID, id)
 	if errors.Is(err, sql.ErrNoRows) {
 		s.writeError(writer, http.StatusNotFound, "workspace not found")
 		return false
