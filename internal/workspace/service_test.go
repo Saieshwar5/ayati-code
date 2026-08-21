@@ -45,8 +45,8 @@ func (g *recordingGit) Run(_ context.Context, arguments ...string) error {
 	return nil
 }
 
-func (g *recordingGit) AuthenticatedRun(ctx context.Context, arguments ...string) error {
-	return g.Run(ctx, arguments...)
+func (g *recordingGit) AuthenticatedRun(_ context.Context, _ string, arguments ...string) error {
+	return g.Run(context.Background(), arguments...)
 }
 
 func (g *recordingGit) Output(_ context.Context, arguments ...string) (string, error) {

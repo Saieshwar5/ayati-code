@@ -251,6 +251,9 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 	if err != nil {
 		t.Fatalf("UpsertGitHubUser: %v", err)
 	}
+	if err := accountStore.SaveGitHubCredential(context.Background(), account.ID, "secret"); err != nil {
+		t.Fatalf("SaveGitHubCredential: %v", err)
+	}
 	if _, err := accountStore.CreateSession(context.Background(), account.ID,
 		testAccountSessionToken, time.Hour); err != nil {
 		t.Fatalf("CreateSession: %v", err)

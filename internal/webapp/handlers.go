@@ -30,7 +30,7 @@ func (s *Server) listWorkspaces(writer http.ResponseWriter, request *http.Reques
 }
 
 func (s *Server) createWorkspace(writer http.ResponseWriter, request *http.Request) {
-	credentials, ok := s.requireCredentials(writer)
+	credentials, ok := s.requireCredentials(writer, request)
 	if !ok {
 		return
 	}
@@ -152,7 +152,7 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 	case "restore":
 		err = s.workspaces.RestoreArchived(request.Context(), parts[0])
 	case "publish":
-		credentials, ok := s.requireCredentials(writer)
+		credentials, ok := s.requireCredentials(writer, request)
 		if !ok {
 			return
 		}
@@ -230,15 +230,21 @@ func (s *Server) authorizedRepository(
 	return githubapp.Repository{}, errors.New("repository is not authorized")
 }
 
-func (s *Server) requireCredentials(writer http.ResponseWriter) (githubapp.Credentials, bool) {
+func (s *Server) requireCredentials(writer http.ResponseWriter, request *http.Request) (githubapp.Credentials, bool) {
 	if s.github == nil {
 		s.writeError(writer, http.StatusServiceUnavailable, "GitHub App is not configured")
 		return githubapp.Credentials{}, false
 	}
-	credentials, err := s.credentials()
+	account, ok := currentAccount(request.Context())
+	if !ok {
+		s.writeError(writer, http.StatusUnauthorized, "GitHub authentication is required")
+		return githubapp.Credentials{}, false
+	}
+	token, err := s.accounts.GitHubCredential(request.Context(), account.ID)
 	if err != nil {
 		s.writeError(writer, http.StatusUnauthorized, "GitHub authentication is required")
 		return githubapp.Credentials{}, false
 	}
-	return credentials, true
+	return githubapp.Credentials{AccessToken: token,
+		User: githubapp.User{ID: account.GitHubID, Login: account.Login, AvatarURL: account.AvatarURL}}, true
 }

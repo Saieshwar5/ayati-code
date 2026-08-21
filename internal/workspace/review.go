@@ -75,8 +75,12 @@ func (s *Service) Publish(ctx context.Context, id, message, authorName, authorEm
 			return fmt.Errorf("commit changes: %s", shellError(commit))
 		}
 	}
+	token, err := s.tokenForUser(ctx, stored.UserID)
+	if err != nil {
+		return err
+	}
 	refspec := "refs/heads/" + value.Branch + ":refs/heads/" + value.Branch
-	if err := s.git.AuthenticatedRun(ctx, "-C", value.Path, "push", "--no-verify", "--", value.CloneURL, refspec); err != nil {
+	if err := s.git.AuthenticatedRun(ctx, token, "-C", value.Path, "push", "--no-verify", "--", value.CloneURL, refspec); err != nil {
 		return fmt.Errorf("push branch: %w", err)
 	}
 	return nil

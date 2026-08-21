@@ -15,22 +15,29 @@ import (
 
 type gitClient interface {
 	Run(context.Context, ...string) error
-	AuthenticatedRun(context.Context, ...string) error
+	AuthenticatedRun(context.Context, string, ...string) error
 	Output(context.Context, ...string) (string, error)
+}
+
+// GitHubTokenProvider keeps workspace preparation and publishing independent
+// from the account store while still using the owning user's GitHub token.
+type GitHubTokenProvider interface {
+	TokenForUser(context.Context, string) (string, error)
 }
 
 // Service coordinates workspace lifecycle with the controller's Git and the
 // workspace runtime that executes setup and agent commands. The runtime is the
 // only execution seam; the service never opens a shell directly on the host.
 type Service struct {
-	store    *Store
-	runtime  workspaceruntime.Runtime
-	git      gitClient
-	root     string
-	deleteMu sync.Mutex
+	store       *Store
+	runtime     workspaceruntime.Runtime
+	git         gitClient
+	credentials GitHubTokenProvider
+	root        string
+	deleteMu    sync.Mutex
 }
 
-func NewService(store *Store, token func() (string, error), root string) (*Service, error) {
+func NewService(store *Store, credentials GitHubTokenProvider, root string) (*Service, error) {
 	if store == nil {
 		return nil, errors.New("workspace store is required")
 	}
@@ -42,15 +49,16 @@ func NewService(store *Store, token func() (string, error), root string) (*Servi
 	if err != nil {
 		return nil, fmt.Errorf("resolve workspace root: %w", err)
 	}
-	git, err := newGitClient(token)
+	git, err := newGitClient()
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		store:   store,
-		git:     git,
-		root:    filepath.Clean(root),
-		runtime: workspaceruntime.NewLocal(),
+		store:       store,
+		git:         git,
+		credentials: credentials,
+		root:        filepath.Clean(root),
+		runtime:     workspaceruntime.NewLocal(),
 	}, nil
 }
 
@@ -132,6 +140,17 @@ func runtimeRef(value Workspace) workspaceruntime.Ref {
 	}
 }
 
+func (s *Service) tokenForUser(ctx context.Context, userID string) (string, error) {
+	if s.credentials == nil {
+		return "", nil
+	}
+	token, err := s.credentials.TokenForUser(ctx, userID)
+	if err != nil {
+		return "", fmt.Errorf("load GitHub credential for workspace owner: %w", err)
+	}
+	return token, nil
+}
+
 func (s *Service) prepareRepository(ctx context.Context, value Workspace) error {
 	gitDirectory := filepath.Join(value.Path, ".git")
 	if info, err := os.Stat(gitDirectory); err == nil && info.IsDir() {
@@ -151,7 +170,11 @@ func (s *Service) prepareRepository(ctx context.Context, value Workspace) error 
 	if value.CreateBranch {
 		cloneBranch = value.BaseBranch
 	}
-	if err := s.git.AuthenticatedRun(ctx, "clone", "--branch", cloneBranch, "--single-branch", "--", value.CloneURL, value.Path); err != nil {
+	token, err := s.tokenForUser(ctx, value.UserID)
+	if err != nil {
+		return err
+	}
+	if err := s.git.AuthenticatedRun(ctx, token, "clone", "--branch", cloneBranch, "--single-branch", "--", value.CloneURL, value.Path); err != nil {
 		return fmt.Errorf("clone repository: %w", err)
 	}
 	if value.CreateBranch {

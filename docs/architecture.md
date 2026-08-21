@@ -23,7 +23,7 @@ The repository, cache, sessions, and SQLite record survive a normal Stop. Stop m
 - `cmd/perpetual` owns signal handling and starts the web server.
 - `web` owns the React and TypeScript browser interface, its component tests, and the Vite build.
 - `internal/database` owns the shared SQLite connection, file permissions, WAL mode, foreign keys, and busy timeout.
-- `internal/accounts` owns GitHub-linked users and server-side login sessions.
+- `internal/accounts` owns GitHub-linked users, server-side login sessions, and encrypted per-user GitHub credentials.
 - `internal/exec` owns bounded local shell execution for setup and agent commands.
 - `internal/workspaceruntime` owns the control-plane/runtime boundary and the local compatibility adapter.
 - `internal/webapp` owns HTTP routes, the embedded production bundle, local server startup, and component wiring.
@@ -43,6 +43,7 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `workspaces`: user ownership, repository, base and working branches, local path, setup command, lifecycle status, preparation stage/detail, project-root selection, failure, and pull-request identity.
 - `users`: internal ID, unique GitHub ID, login, display name, avatar URL, and timestamps.
 - `auth_sessions`: user-linked sessions storing only a SHA-256 token hash, expiry, revocation state, and timestamps.
+- `github_credentials`: user-linked GitHub access tokens encrypted with AES-GCM and never returned by APIs.
 - `sessions`: workspace-scoped conversations with independent titles, run status, failure, and timestamps.
 - `messages`: ordered conversation messages, including tool calls and tool results, linked to a session.
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
@@ -78,6 +79,14 @@ Each workspace records a `user_id`. The web API lists and gets workspaces with
 workspace service. Other user-owned tables are scoped the same way as cloud
 tenancy lands. Existing local-only rows keep an empty `user_id` until they are
 claimed or migrated during a later cloud deployment step.
+
+The OAuth callback stores the GitHub access token in `github_credentials` for
+that user, encrypted with AES-GCM under a local `github.key` file. The browser
+receives only the opaque `perpetual_session` cookie. Web handlers load the
+current user's encrypted token before calling GitHub. `internal/workspace`
+depends on a small `GitHubTokenProvider` seam rather than the account store;
+`internal/webapp` injects `accounts.Store` so background prepare and publish
+jobs use the token belonging to the workspace owner.
 
 ## Shell execution
 

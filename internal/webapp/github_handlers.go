@@ -15,35 +15,15 @@ func (s *Server) session(writer http.ResponseWriter, request *http.Request) {
 		Authenticated    bool            `json:"authenticated"`
 		User             *githubapp.User `json:"user,omitempty"`
 	}{GitHubConfigured: s.github != nil}
-	if account, found, err := s.accountFromRequest(request); err == nil && found {
-		response.Authenticated = true
-		response.User = &githubapp.User{ID: account.GitHubID, Login: account.Login, AvatarURL: account.AvatarURL}
-		s.writeJSON(writer, http.StatusOK, response)
-		return
-	} else if err != nil {
+	account, found, err := s.accountFromRequest(request)
+	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "load login session")
 		return
 	}
-	if s.github == nil {
-		s.writeJSON(writer, http.StatusOK, response)
-		return
+	if found {
+		response.Authenticated = true
+		response.User = &githubapp.User{ID: account.GitHubID, Login: account.Login, AvatarURL: account.AvatarURL}
 	}
-	credentials, err := s.credentials()
-	if err != nil {
-		s.writeJSON(writer, http.StatusOK, response)
-		return
-	}
-	user, err := s.github.CurrentUser(request.Context(), credentials.AccessToken)
-	if err != nil {
-		if githubAuthorizationExpired(err) {
-			s.writeJSON(writer, http.StatusOK, response)
-			return
-		}
-		s.writeError(writer, http.StatusBadGateway, "validate GitHub authorization")
-		return
-	}
-	response.Authenticated = true
-	response.User = &user
 	s.writeJSON(writer, http.StatusOK, response)
 }
 
@@ -88,14 +68,13 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		s.writeError(writer, http.StatusBadGateway, "load GitHub user")
 		return
 	}
-	credentials := githubapp.Credentials{AccessToken: token, User: user}
-	if err := githubapp.SaveCredentials(s.credentialsPath, credentials); err != nil {
-		s.writeError(writer, http.StatusInternalServerError, "save GitHub authorization")
-		return
-	}
 	account, err := s.accounts.UpsertGitHubUser(request.Context(), user.ID, user.Login, "", user.AvatarURL)
 	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "save GitHub account")
+		return
+	}
+	if err := s.accounts.SaveGitHubCredential(request.Context(), account.ID, token); err != nil {
+		s.writeError(writer, http.StatusInternalServerError, "save GitHub credential")
 		return
 	}
 	sessionToken, err := randomToken()
@@ -128,7 +107,7 @@ func (s *Server) logout(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (s *Server) repositories(writer http.ResponseWriter, request *http.Request) {
-	credentials, ok := s.requireCredentials(writer)
+	credentials, ok := s.requireCredentials(writer, request)
 	if !ok {
 		return
 	}
@@ -141,7 +120,7 @@ func (s *Server) repositories(writer http.ResponseWriter, request *http.Request)
 }
 
 func (s *Server) branches(writer http.ResponseWriter, request *http.Request) {
-	credentials, ok := s.requireCredentials(writer)
+	credentials, ok := s.requireCredentials(writer, request)
 	if !ok {
 		return
 	}
