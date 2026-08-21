@@ -13,6 +13,9 @@ const (
 	// JobKindPrepare is the durable job that runs workspace initialization
 	// (clone, analysis, dependency setup, verification, and finalization).
 	JobKindPrepare = "prepare_workspace"
+	// JobKindBuildEnvironment is the durable job that rebuilds or verifies a
+	// bound environment version through the workspace runtime.
+	JobKindBuildEnvironment = "build_environment"
 
 	JobStateQueued    = "queued"
 	JobStateRunning   = "running"

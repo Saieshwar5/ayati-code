@@ -107,6 +107,10 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/environment/${encodeURIComponent(name)}`, {
       method: "DELETE",
     }),
+  rebuildEnvironment: (workspaceID: string) =>
+    request<void>(`/api/workspaces/${workspaceID}/environment/rebuild`, {
+      method: "POST",
+    }),
   environments: () => request<ComputeEnvironment[]>("/api/environments"),
   createEnvironmentCapacity: (input: CreateComputeEnvironmentInput) =>
     request<ComputeEnvironment>("/api/environments", {

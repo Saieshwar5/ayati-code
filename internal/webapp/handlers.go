@@ -111,6 +111,14 @@ func (s *Server) workspaceAction(writer http.ResponseWriter, request *http.Reque
 		s.writeJSON(writer, http.StatusOK, value)
 		return
 	}
+	if len(parts) == 3 && parts[1] == "environment" && parts[2] == "rebuild" {
+		if err := s.workspaces.RebuildEnvironment(request.Context(), parts[0]); err != nil {
+			s.writeError(writer, http.StatusConflict, err.Error())
+			return
+		}
+		writer.WriteHeader(http.StatusAccepted)
+		return
+	}
 	if len(parts) != 2 {
 		http.NotFound(writer, request)
 		return

@@ -37,6 +37,48 @@ func (s *Service) StartPreparation(ctx context.Context, id string) error {
 	return err
 }
 
+// StartEnvironmentBuild enqueues a durable build_environment job for the
+// workspace's bound environment version. It is idempotent while a build job is
+// already active and refuses to rebuild an already ready version.
+func (s *Service) StartEnvironmentBuild(ctx context.Context, workspaceID string) error {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return errors.New("workspace ID is required")
+	}
+	value, err := s.store.Get(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	if err := requireActiveWorkspace(value); err != nil {
+		return err
+	}
+	if value.EnvironmentVersionID == "" {
+		return errors.New("workspace is not bound to an environment version")
+	}
+	version, err := s.store.GetEnvironmentVersion(ctx, value.EnvironmentVersionID)
+	if err != nil {
+		return err
+	}
+	if version.State == EnvironmentVersionReady {
+		return errors.New("environment version is already ready")
+	}
+	active, err := s.store.HasActiveJob(ctx, workspaceID, JobKindBuildEnvironment)
+	if err != nil {
+		return err
+	}
+	if active {
+		return nil
+	}
+	_, err = s.store.CreateJob(ctx, workspaceID, JobKindBuildEnvironment)
+	return err
+}
+
+// RebuildEnvironment exposes the durable build_environment enqueue path to
+// the web layer.
+func (s *Service) RebuildEnvironment(ctx context.Context, id string) error {
+	return s.StartEnvironmentBuild(ctx, id)
+}
+
 // RunNextJob claims and executes one queued workspace job. It returns
 // ErrNoJobs when the queue is empty and nil after a job completes, because job
 // execution failures are recorded on the job for the user to inspect and retry.
@@ -77,6 +119,8 @@ func (s *Service) executeJob(ctx context.Context, job Job) error {
 	switch job.Kind {
 	case JobKindPrepare:
 		runErr = s.Initialize(ctx, job.WorkspaceID)
+	case JobKindBuildEnvironment:
+		runErr = s.executeEnvironmentBuild(ctx, job.WorkspaceID)
 	default:
 		runErr = fmt.Errorf("unknown job kind %q", job.Kind)
 	}
