@@ -198,17 +198,19 @@ func randomToken() (string, error) {
 	return hex.EncodeToString(value[:]), nil
 }
 
-func setStateCookie(writer http.ResponseWriter, value string) {
+func setStateCookie(writer http.ResponseWriter, request *http.Request, value string) {
 	http.SetCookie(writer, &http.Cookie{
 		Name: "perpetual_github_state", Value: value, Path: "/auth/github/callback",
 		MaxAge: 600, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure: request.TLS != nil,
 	})
 }
 
-func clearStateCookie(writer http.ResponseWriter) {
+func clearStateCookie(writer http.ResponseWriter, request *http.Request) {
 	http.SetCookie(writer, &http.Cookie{
 		Name: "perpetual_github_state", Path: "/auth/github/callback", MaxAge: -1,
 		HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		Secure: request.TLS != nil,
 	})
 }
 

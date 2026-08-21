@@ -2,6 +2,7 @@ package webapp
 
 import (
 	"context"
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -89,5 +90,24 @@ func TestGitHubLoginUsesCallbackOriginForStateCookie(t *testing.T) {
 	}
 	if cookie := response.Header().Get("Set-Cookie"); !strings.Contains(cookie, "perpetual_github_state=") {
 		t.Fatalf("state cookie = %q", cookie)
+	}
+}
+
+func TestGitHubLoginStateCookieIsSecureOverTLS(t *testing.T) {
+	handler, _, _, _ := testHandler(t)
+	request, err := http.NewRequest(http.MethodGet,
+		"http://127.0.0.1:8080/auth/github", nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+	request.TLS = &tls.ConnectionState{}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusFound {
+		t.Fatalf("status = %d", response.Code)
+	}
+	cookie := response.Header().Get("Set-Cookie")
+	if !strings.Contains(cookie, "perpetual_github_state=") || !strings.Contains(cookie, "Secure") {
+		t.Fatalf("state cookie over TLS = %q", cookie)
 	}
 }
