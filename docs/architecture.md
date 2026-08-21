@@ -131,6 +131,19 @@ workspace binds to it, setup runs, and the version is marked ready on success or
 failed on error. This keeps the environment identity separate from branches and
 sessions and gives the next build-job work a natural reuse target.
 
+## Environment snapshot reuse
+
+Successful `build_environment` jobs capture the project's ignored and untracked
+setup outputs (for example `node_modules`, `.venv`, `vendor`, build directories)
+into a managed `environment-snapshots/{version-id}` directory. The snapshot
+manifest is stored on the environment version.
+
+When `prepare_workspace` finds a ready version with a usable snapshot, it
+restores the snapshot into the workspace and skips dependency setup, recording
+`SetupResult = "restored"`. If no snapshot exists or restoration fails, it falls
+back to running setup normally. Snapshots live only under the managed data root,
+exclude `.git` and symlinks, and are bounded to one gibibyte.
+
 ## Durable workspace jobs
 
 Workspace preparation is enqueued as a durable job instead of being started

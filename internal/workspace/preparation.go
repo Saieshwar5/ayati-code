@@ -132,9 +132,20 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		profilePreparationDetail(profile)); err != nil {
 		return s.fail(ctx, id, err)
 	}
-	if err := s.runSetup(ctx, value, &profile); err != nil {
-		_ = s.store.SaveProfile(ctx, id, profile)
-		return s.fail(ctx, id, err)
+	restored := false
+	if usableEnvironmentSnapshot(existing) {
+		if err := s.restoreWorkspaceSnapshot(ctx, value, existing); err == nil {
+			profile.SetupResult = "restored"
+			if err := s.store.SaveProfile(ctx, id, profile); err == nil {
+				restored = true
+			}
+		}
+	}
+	if !restored {
+		if err := s.runSetup(ctx, value, &profile); err != nil {
+			_ = s.store.SaveProfile(ctx, id, profile)
+			return s.fail(ctx, id, err)
+		}
 	}
 	if err := s.finalizePreparedWorkspace(ctx, value, &profile, before); err != nil {
 		return s.fail(ctx, id, err)
@@ -234,6 +245,11 @@ func (s *Service) executeEnvironmentBuild(ctx context.Context, workspaceID strin
 	}
 	if err := s.store.SaveProfile(ctx, workspaceID, *profile); err != nil {
 		return err
+	}
+	if snapshot, captureErr := s.captureWorkspaceSnapshot(ctx, value, version.ID); captureErr == nil &&
+		len(snapshot.Manifest) > 0 {
+		_ = s.store.SetEnvironmentVersionSnapshot(ctx, version.ID, snapshot.Type,
+			snapshot.Ref, snapshot.Manifest, snapshot.Bytes)
 	}
 	if err := s.store.SetEnvironmentVersionState(ctx, version.ID,
 		EnvironmentVersionReady, ""); err != nil {

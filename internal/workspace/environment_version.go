@@ -14,6 +14,8 @@ const (
 	EnvironmentVersionPending = "pending"
 	EnvironmentVersionReady   = "ready"
 	EnvironmentVersionFailed  = "failed"
+
+	SnapshotTypeLocalCopy = "local_copy"
 )
 
 // Environment is the stable identity for a repository project root. It stays
@@ -39,6 +41,11 @@ type EnvironmentVersion struct {
 	ArtifactRef       string
 	CacheRef          string
 	Error             string
+	SnapshotType      string
+	SnapshotRef       string
+	SnapshotManifest  []string
+	SnapshotBytes     int64
+	SnapshotCreatedAt time.Time
 	ReadyAt           time.Time
 	CreatedAt         time.Time
 }
@@ -62,6 +69,11 @@ const environmentVersionsSchema = `CREATE TABLE IF NOT EXISTS environment_versio
 	artifact_ref TEXT NOT NULL DEFAULT '',
 	cache_ref TEXT NOT NULL DEFAULT '',
 	error TEXT NOT NULL DEFAULT '',
+	snapshot_type TEXT NOT NULL DEFAULT '',
+	snapshot_ref TEXT NOT NULL DEFAULT '',
+	snapshot_manifest TEXT NOT NULL DEFAULT '',
+	snapshot_bytes INTEGER NOT NULL DEFAULT 0,
+	snapshot_created_at TEXT NOT NULL DEFAULT '',
 	ready_at TEXT NOT NULL DEFAULT '',
 	created_at TEXT NOT NULL
 )`
@@ -113,7 +125,8 @@ func (s *Store) FindReadyEnvironmentVersion(
 	ctx context.Context, environmentID, fingerprint string,
 ) (EnvironmentVersion, bool, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT id, environment_id, version, source_fingerprint,
-		spec, state, artifact_ref, cache_ref, error, ready_at, created_at
+		spec, state, artifact_ref, cache_ref, error, snapshot_type, snapshot_ref,
+		snapshot_manifest, snapshot_bytes, snapshot_created_at, ready_at, created_at
 		FROM environment_versions WHERE environment_id = ? AND source_fingerprint = ?
 		AND state = ? ORDER BY version DESC LIMIT 1`,
 		strings.TrimSpace(environmentID), strings.TrimSpace(fingerprint), EnvironmentVersionReady)
@@ -191,30 +204,58 @@ func (s *Store) SetEnvironmentVersionState(ctx context.Context, id, state, messa
 	return requireOneRow(result)
 }
 
+func (s *Store) SetEnvironmentVersionSnapshot(
+	ctx context.Context, id, snapshotType, snapshotRef string, manifest []string, snapshotBytes int64,
+) error {
+	encoded, err := json.Marshal(nonNilStrings(manifest))
+	if err != nil {
+		return fmt.Errorf("encode environment snapshot manifest: %w", err)
+	}
+	now := formatTime(time.Now().UTC())
+	result, err := s.db.ExecContext(ctx, `UPDATE environment_versions SET
+		snapshot_type = ?, snapshot_ref = ?, snapshot_manifest = ?, snapshot_bytes = ?,
+		snapshot_created_at = ? WHERE id = ?`,
+		strings.TrimSpace(snapshotType), strings.TrimSpace(snapshotRef), string(encoded),
+		snapshotBytes, now, strings.TrimSpace(id))
+	if err != nil {
+		return fmt.Errorf("set environment version snapshot: %w", err)
+	}
+	return requireOneRow(result)
+}
+
 func (s *Store) GetEnvironmentVersion(ctx context.Context, id string) (EnvironmentVersion, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT id, environment_id, version, source_fingerprint,
-		spec, state, artifact_ref, cache_ref, error, ready_at, created_at
+		spec, state, artifact_ref, cache_ref, error, snapshot_type, snapshot_ref,
+		snapshot_manifest, snapshot_bytes, snapshot_created_at, ready_at, created_at
 		FROM environment_versions WHERE id = ?`, strings.TrimSpace(id))
 	return scanEnvironmentVersion(row)
 }
 
 func scanEnvironmentVersion(row scanner) (EnvironmentVersion, error) {
 	var value EnvironmentVersion
-	var specJSON, readyAt, createdAt string
+	var specJSON, manifestJSON, snapshotCreatedAt, readyAt, createdAt string
 	err := row.Scan(&value.ID, &value.EnvironmentID, &value.Version, &value.SourceFingerprint,
 		&specJSON, &value.State, &value.ArtifactRef, &value.CacheRef, &value.Error,
-		&readyAt, &createdAt)
+		&value.SnapshotType, &value.SnapshotRef, &manifestJSON, &value.SnapshotBytes,
+		&snapshotCreatedAt, &readyAt, &createdAt)
 	if err != nil {
 		return EnvironmentVersion{}, err
 	}
 	if err := json.Unmarshal([]byte(specJSON), &value.Spec); err != nil {
 		return EnvironmentVersion{}, fmt.Errorf("decode environment version spec: %w", err)
 	}
+	if manifestJSON != "" {
+		if err := json.Unmarshal([]byte(manifestJSON), &value.SnapshotManifest); err != nil {
+			return EnvironmentVersion{}, fmt.Errorf("decode environment version snapshot manifest: %w", err)
+		}
+	}
 	for _, pair := range []struct {
 		encoded string
 		target  *time.Time
 	}{
-		{readyAt, &value.ReadyAt}, {createdAt, &value.CreatedAt},
+		{snapshotCreatedAt, &value.SnapshotCreatedAt},
+		{readyAt, &value.ReadyAt},
+		{createdAt, &value.CreatedAt},
 	} {
 		if pair.encoded == "" {
 			continue
