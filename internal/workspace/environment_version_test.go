@@ -16,15 +16,15 @@ func TestStoreCreatesAndFindsEnvironmentVersions(t *testing.T) {
 		t.Fatalf("Open: %v", err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}
-	again, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	again, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil || again.ID != environment.ID {
 		t.Fatalf("duplicate environment = %#v, error = %v", again, err)
 	}
-	other, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", "apps/web")
+	other, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", "apps/web")
 	if err != nil || other.ID == environment.ID {
 		t.Fatalf("different root environment = %#v, error = %v", other, err)
 	}
@@ -43,7 +43,7 @@ func TestStoreCreatesAndFindsEnvironmentVersions(t *testing.T) {
 		t.Fatalf("SetEnvironmentVersionState: %v", err)
 	}
 	found, ok, err := store.FindReadyEnvironmentVersion(context.Background(),
-		environment.ID, "fingerprint-a")
+		"user-a", environment.ID, "fingerprint-a")
 	if err != nil || !ok || found.ID != version.ID {
 		t.Fatalf("ready version = %#v, ok = %v, error = %v", found, ok, err)
 	}
@@ -67,7 +67,7 @@ func TestStoreBindsWorkspaceToEnvironmentVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}
@@ -206,7 +206,8 @@ func environmentProjectWorkspace(t *testing.T, store *Store, name string) Worksp
 		t.Fatalf("MkdirAll .git: %v", err)
 	}
 	value, err := store.Create(context.Background(), Create{
-		Repository: "owner/project", CloneURL: "https://github.com/owner/project.git",
+		UserID: "user-a", Repository: "owner/project",
+		CloneURL:   "https://github.com/owner/project.git",
 		BaseBranch: "main", Branch: name, Path: path,
 	})
 	if err != nil {

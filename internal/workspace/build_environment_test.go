@@ -122,7 +122,7 @@ func boundEnvironmentBuildWorkspace(
 ) (Workspace, EnvironmentVersion) {
 	t.Helper()
 	value := environmentProjectWorkspace(t, store, "build")
-	environment, err := store.FindOrCreateEnvironment(context.Background(), "owner/project", ".")
+	environment, err := store.FindOrCreateEnvironment(context.Background(), "user-a", "owner/project", ".")
 	if err != nil {
 		t.Fatalf("FindOrCreateEnvironment: %v", err)
 	}

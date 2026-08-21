@@ -48,8 +48,8 @@ SQLite uses WAL mode, foreign keys, a five-second busy timeout, and one database
 - `messages`: ordered conversation messages, including tool calls and tool results, linked to a session.
 - The removed `agent_runs` table was dropped by a schema migration; sessions and stored messages are preserved for the future agent.
 - `workspace_environment`: encrypted workspace-scoped values, variable names, setup exposure, and timestamps.
-- `workspace_jobs`: durable workspace operations with queued/running/succeeded/failed/canceled state, attempts, lease owner, expiration, and recorded error.
-- `project_environments`: stable environment identity per repository + project root.
+- `workspace_jobs`: durable workspace operations with owner, queued/running/succeeded/failed/canceled state, attempts, lease owner, expiration, and recorded error.
+- `project_environments`: stable environment identity per user + repository + project root.
 - `environment_versions`: source-fingerprinted environment builds with pending/ready/failed state, the environment spec, artifact/cache references, and build error.
 - `workspace_profiles`: project root, languages, runtimes, package managers, lockfiles, resolved commands, manifest fingerprint, clean Git baseline, cache identity, preparation results, and the latest deterministic `EnvironmentSpec`. It never stores secret values.
 
@@ -76,9 +76,12 @@ web middleware before user-scoped workspace routes run.
 
 Each workspace records a `user_id`. The web API lists and gets workspaces with
 `WHERE user_id = ?`, and workspace actions verify ownership before invoking the
-workspace service. Other user-owned tables are scoped the same way as cloud
-tenancy lands. Existing local-only rows keep an empty `user_id` until they are
-claimed or migrated during a later cloud deployment step.
+workspace service. `workspace_jobs` records the workspace owner, and
+`project_environments` is unique per `user_id`, repository, and project root so
+environment versions never leak across users. Environment lookups join the
+environment owner before returning a version. Existing local-only rows keep an
+empty `user_id` until they are claimed or migrated during a later cloud
+deployment step.
 
 The OAuth callback stores the GitHub access token in `github_credentials` for
 that user, encrypted with AES-GCM under a local `github.key` file. The browser

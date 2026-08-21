@@ -81,13 +81,13 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 		_ = s.store.SaveProfile(ctx, id, profile)
 		return s.fail(ctx, id, errors.New("repository is not clean before dependency setup: "+boundedMessage(before)))
 	}
-	environment, err := s.store.FindOrCreateEnvironment(ctx, value.Repository, profile.ProjectRoot)
+	environment, err := s.store.FindOrCreateEnvironment(ctx, value.UserID, value.Repository, profile.ProjectRoot)
 	if err != nil {
 		return s.fail(ctx, id, fmt.Errorf("record project environment: %w", err))
 	}
 	var environmentVersionID string
 	createdEnvironment := false
-	existing, found, err := s.store.FindReadyEnvironmentVersion(ctx, environment.ID, spec.Fingerprint)
+	existing, found, err := s.store.FindReadyEnvironmentVersion(ctx, value.UserID, environment.ID, spec.Fingerprint)
 	if err != nil {
 		return s.fail(ctx, id, fmt.Errorf("find reusable environment: %w", err))
 	}

@@ -37,6 +37,7 @@ var jobStates = map[string]bool{
 // claims queued jobs and records their outcome; browser requests only enqueue.
 type Job struct {
 	ID             string
+	UserID         string
 	WorkspaceID    string
 	Kind           string
 	State          string
@@ -54,6 +55,7 @@ type Job struct {
 
 const workspaceJobSchema = `CREATE TABLE IF NOT EXISTS workspace_jobs (
 	id TEXT PRIMARY KEY,
+	user_id TEXT NOT NULL DEFAULT '',
 	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
 	kind TEXT NOT NULL,
 	state TEXT NOT NULL,
@@ -73,9 +75,20 @@ func (s *Store) migrateWorkspaceJobs(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, workspaceJobSchema); err != nil {
 		return fmt.Errorf("create workspace jobs: %w", err)
 	}
+	columns, err := databaseColumns(ctx, s.db, "workspace_jobs")
+	if err != nil {
+		return err
+	}
+	if !columns["user_id"] {
+		if _, err := s.db.ExecContext(ctx, `ALTER TABLE workspace_jobs ADD COLUMN
+			user_id TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("migrate workspace job owner: %w", err)
+		}
+	}
 	for _, statement := range []string{
 		`CREATE INDEX IF NOT EXISTS workspace_jobs_claim ON workspace_jobs(state, created_at)`,
 		`CREATE INDEX IF NOT EXISTS workspace_jobs_workspace ON workspace_jobs(workspace_id, state)`,
+		`CREATE INDEX IF NOT EXISTS workspace_jobs_user ON workspace_jobs(user_id)`,
 	} {
 		if _, err := s.db.ExecContext(ctx, statement); err != nil {
 			return fmt.Errorf("create workspace job index: %w", err)
@@ -92,19 +105,25 @@ func (s *Store) CreateJob(ctx context.Context, workspaceID, kind string) (Job, e
 	if workspaceID == "" || kind == "" {
 		return Job{}, errors.New("workspace ID and job kind are required")
 	}
+	var userID string
+	if err := s.db.QueryRowContext(ctx, `SELECT user_id FROM workspaces WHERE id = ?`,
+		workspaceID).Scan(&userID); err != nil {
+		return Job{}, fmt.Errorf("resolve workspace job owner: %w", err)
+	}
 	id, err := newID()
 	if err != nil {
 		return Job{}, err
 	}
 	now := time.Now().UTC()
 	value := Job{
-		ID: id, WorkspaceID: workspaceID, Kind: kind, State: JobStateQueued,
+		ID: id, UserID: userID, WorkspaceID: workspaceID, Kind: kind, State: JobStateQueued,
 		MaxAttempts: 1, CreatedAt: now, UpdatedAt: now,
 	}
 	_, err = s.db.ExecContext(ctx, `INSERT INTO workspace_jobs (
-		id, workspace_id, kind, state, attempts, max_attempts, payload, created_at, updated_at
-	) VALUES (?, ?, ?, ?, 0, ?, '', ?, ?)`, value.ID, value.WorkspaceID, value.Kind,
-		value.State, value.MaxAttempts, formatTime(value.CreatedAt), formatTime(value.UpdatedAt))
+		id, user_id, workspace_id, kind, state, attempts, max_attempts, payload, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, 0, ?, '', ?, ?)`, value.ID, value.UserID,
+		value.WorkspaceID, value.Kind, value.State, value.MaxAttempts,
+		formatTime(value.CreatedAt), formatTime(value.UpdatedAt))
 	if err != nil {
 		return Job{}, fmt.Errorf("create workspace job: %w", err)
 	}
@@ -126,7 +145,7 @@ func (s *Store) HasActiveJob(ctx context.Context, workspaceID, kind string) (boo
 }
 
 func (s *Store) Jobs(ctx context.Context, workspaceID string) ([]Job, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, workspace_id, kind, state, attempts,
+	rows, err := s.db.QueryContext(ctx, `SELECT id, user_id, workspace_id, kind, state, attempts,
 		max_attempts, lease_owner, lease_expires_at, payload, error, created_at, updated_at,
 		started_at, finished_at FROM workspace_jobs WHERE workspace_id = ? ORDER BY created_at`,
 		strings.TrimSpace(workspaceID))
@@ -153,7 +172,7 @@ func (s *Store) ClaimNextJob(ctx context.Context) (Job, error) {
 	}
 	defer tx.Rollback()
 	var value Job
-	if err := scanJobRow(tx.QueryRowContext(ctx, `SELECT id, workspace_id, kind, state, attempts,
+	if err := scanJobRow(tx.QueryRowContext(ctx, `SELECT id, user_id, workspace_id, kind, state, attempts,
 		max_attempts, lease_owner, lease_expires_at, payload, error, created_at, updated_at,
 		started_at, finished_at FROM workspace_jobs WHERE state = ? ORDER BY created_at LIMIT 1`,
 		JobStateQueued), &value); err != nil {
@@ -218,7 +237,7 @@ func scanJob(row scanner) (Job, error) {
 
 func scanJobRow(row scanner, value *Job) error {
 	var leaseExpiresAt, createdAt, updatedAt, startedAt, finishedAt string
-	err := row.Scan(&value.ID, &value.WorkspaceID, &value.Kind, &value.State,
+	err := row.Scan(&value.ID, &value.UserID, &value.WorkspaceID, &value.Kind, &value.State,
 		&value.Attempts, &value.MaxAttempts, &value.LeaseOwner, &leaseExpiresAt,
 		&value.Payload, &value.Error, &createdAt, &updatedAt, &startedAt, &finishedAt)
 	if err != nil {
