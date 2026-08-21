@@ -266,15 +266,9 @@ func testHandler(t *testing.T) (http.Handler, *workspace.Store, *fakeWorkspaceSe
 		branches:     []githubapp.Branch{{Name: "main"}, {Name: "feature/existing"}},
 		pull:         githubapp.PullRequest{Number: 7, HTMLURL: "https://github.com/owner/project/pull/7"},
 	}
-	credentials := filepath.Join(root, "github.json")
-	if err := githubapp.SaveCredentials(credentials, githubapp.Credentials{
-		AccessToken: "secret", User: githubapp.User{ID: 1, Login: "octocat"},
-	}); err != nil {
-		t.Fatalf("SaveCredentials: %v", err)
-	}
 	server, err := New(Options{
 		Store: store, Accounts: accountStore, Workspaces: workspaces, GitHub: github,
-		CredentialsPath: credentials, WorkspaceRoot: filepath.Join(root, "workspaces"),
+		WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {
 		t.Fatalf("New: %v", err)

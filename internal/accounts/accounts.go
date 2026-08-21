@@ -123,6 +123,16 @@ func (s *Store) UserByGitHubID(ctx context.Context, githubID int64) (User, error
 	return user, nil
 }
 
+// UserCount reports how many application users exist, used to decide whether
+// this GitHub sign-in is the first login on a pre-tenancy database.
+func (s *Store) UserCount(ctx context.Context) (int64, error) {
+	var count int64
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users`).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count users: %w", err)
+	}
+	return count, nil
+}
+
 // CreateSession stores a hash of token and returns the session record. The raw
 // token is only returned to the caller in the opaque session cookie.
 func (s *Store) CreateSession(ctx context.Context, userID, token string, ttl time.Duration) (AuthSession, error) {

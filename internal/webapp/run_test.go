@@ -281,8 +281,8 @@ func TestSessionReportsGitHubUnconfiguredWhenCredentialsMissing(t *testing.T) {
 	}
 	server, err := New(Options{
 		Store: store, Accounts: accountStore,
-		Workspaces: &fakeWorkspaceService{store: store, initialized: make(chan string, 1)},
-		GitHub:     github, CredentialsPath: filepath.Join(root, "github.json"),
+		Workspaces:    &fakeWorkspaceService{store: store, initialized: make(chan string, 1)},
+		GitHub:        github,
 		WorkspaceRoot: filepath.Join(root, "workspaces"),
 	})
 	if err != nil {

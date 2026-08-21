@@ -68,6 +68,7 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 		s.writeError(writer, http.StatusBadGateway, "load GitHub user")
 		return
 	}
+	before, _ := s.accounts.UserCount(request.Context())
 	account, err := s.accounts.UpsertGitHubUser(request.Context(), user.ID, user.Login, "", user.AvatarURL)
 	if err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "save GitHub account")
@@ -76,6 +77,11 @@ func (s *Server) githubCallback(writer http.ResponseWriter, request *http.Reques
 	if err := s.accounts.SaveGitHubCredential(request.Context(), account.ID, token); err != nil {
 		s.writeError(writer, http.StatusInternalServerError, "save GitHub credential")
 		return
+	}
+	if before == 0 {
+		if _, claimErr := s.store.ClaimLegacyRows(request.Context(), account.ID); claimErr != nil {
+			s.logger.Printf("claim legacy rows: %v", claimErr)
+		}
 	}
 	sessionToken, err := randomToken()
 	if err != nil {
@@ -99,10 +105,6 @@ func (s *Server) logout(writer http.ResponseWriter, request *http.Request) {
 		}
 	}
 	clearAccountSessionCookie(writer, request)
-	if err := githubapp.RemoveCredentials(s.credentialsPath); err != nil {
-		s.writeError(writer, http.StatusInternalServerError, "remove GitHub authorization")
-		return
-	}
 	writer.WriteHeader(http.StatusNoContent)
 }
 
