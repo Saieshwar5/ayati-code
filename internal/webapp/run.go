@@ -94,6 +94,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", runtimeErr)
 		return 1
 	}
+	startLambdaReconcile(ctx, runtimeProvider)
 	workspaces, err := workspace.NewService(store, accountStore, runtimeProvider, paths.workspaces)
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
@@ -381,4 +382,33 @@ func newLambdaRuntime(store *workspace.Store) (workspaceruntime.Runtime, error) 
 		return nil, err
 	}
 	return lambdaruntime.NewLambda(manager, store)
+}
+
+// startLambdaReconcile periodically reconciles durable Lambda microVM records
+// when the lambda runtime is selected. Local mode has nothing to reconcile.
+func startLambdaReconcile(ctx context.Context, provider workspace.RuntimeProvider) {
+	if provider == nil {
+		return
+	}
+	runtime, err := provider.RuntimeFor("lambda")
+	if err != nil {
+		return
+	}
+	reconciler, ok := runtime.(workspaceruntime.Reconciler)
+	if !ok {
+		return
+	}
+	go func() {
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			_ = reconciler.Reconcile(ctx)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(5 * time.Minute):
+			}
+		}
+	}()
 }
