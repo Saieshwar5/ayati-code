@@ -275,3 +275,14 @@ func scanEnvironmentVersion(row scanner) (EnvironmentVersion, error) {
 	}
 	return value, nil
 }
+
+// SetEnvironmentVersionArtifact records the provider artifact reference (for
+// example a Lambda image) for an environment version.
+func (s *Store) SetEnvironmentVersionArtifact(ctx context.Context, id, artifactRef string) error {
+	_, err := s.execContext(ctx, `UPDATE environment_versions SET artifact_ref = ?
+		WHERE id = ?`, strings.TrimSpace(artifactRef), strings.TrimSpace(id))
+	if err != nil {
+		return fmt.Errorf("set environment version artifact: %w", err)
+	}
+	return nil
+}

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 )
 
 const dockerfileTemplate = `FROM public.ecr.aws/lambda/microvms:al2023-minimal
@@ -52,12 +53,15 @@ func (b *ImageBuilder) Build(ctx context.Context) (ImageRef, error) {
 	if err := b.S3.Put(ctx, b.Bucket, key, bytes.NewReader(zipData), int64(len(zipData))); err != nil {
 		return ImageRef{}, fmt.Errorf("upload agent zip: %w", err)
 	}
-	return b.API.CreateMicrovmImage(ctx, ImageBuildInput{
+	if _, err := b.API.CreateMicrovmImage(ctx, ImageBuildInput{
 		Name:         b.Name,
 		S3URI:        "s3://" + b.Bucket + "/" + key,
 		BuildRoleARN: b.BuildRoleARN,
 		BaseImageARN: b.BaseImageARN,
-	})
+	}); err != nil {
+		return ImageRef{}, fmt.Errorf("create microvm image: %w", err)
+	}
+	return b.waitForImage(ctx)
 }
 
 func buildAgentZip(agentBinary []byte) ([]byte, error) {
@@ -83,4 +87,27 @@ func buildAgentZip(agentBinary []byte) ([]byte, error) {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
+}
+
+// waitForImage polls the image state until CREATED/UPDATED or a failure. The
+// poll is bounded so a broken build fails the durable job instead of hanging.
+func (b *ImageBuilder) waitForImage(ctx context.Context) (ImageRef, error) {
+	const attempts = 60 // 60 * 5s = 5 min cap
+	for attempt := 0; attempt < attempts; attempt++ {
+		ref, err := b.API.GetMicrovmImage(ctx)
+		if err == nil {
+			switch ref.State {
+			case "CREATED", "UPDATED":
+				return ref, nil
+			case "CREATE_FAILED", "UPDATE_FAILED", "DELETE_FAILED":
+				return ImageRef{}, fmt.Errorf("microvm image build failed: %s", ref.State)
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return ImageRef{}, ctx.Err()
+		case <-time.After(5 * time.Second):
+		}
+	}
+	return ImageRef{}, fmt.Errorf("timed out waiting for microvm image build")
 }

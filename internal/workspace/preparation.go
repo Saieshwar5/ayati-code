@@ -237,6 +237,9 @@ func (s *Service) executeEnvironmentBuild(ctx context.Context, workspaceID strin
 	if version.State == EnvironmentVersionReady {
 		return nil
 	}
+	if value.RuntimeProvider == "lambda" && s.imageBuilder != nil {
+		return s.buildLambdaImage(ctx, value, version)
+	}
 	profile, err := s.store.ProjectProfile(ctx, workspaceID)
 	if err != nil {
 		return fmt.Errorf("load environment build profile: %w", err)
@@ -307,4 +310,23 @@ func shellEnvironment(cachePath string, values map[string]string) map[string]str
 	result["CARGO_TARGET_DIR"] = filepath.Join(cachePath, "rust-target")
 	result["PYTHONDONTWRITEBYTECODE"] = "1"
 	return result
+}
+
+// buildLambdaImage builds/reuses a Lambda MicroVM image for the workspace and
+// records the image reference on the bound environment version.
+func (s *Service) buildLambdaImage(ctx context.Context, value Workspace, version EnvironmentVersion) error {
+	image, err := s.imageBuilder.Build(ctx)
+	if err != nil {
+		_ = s.store.SetEnvironmentVersionState(ctx, version.ID,
+			EnvironmentVersionFailed, boundedMessage(err.Error()))
+		return err
+	}
+	artifact := "lambda:" + image.ImageARN + ":" + image.Version
+	if err := s.store.SetEnvironmentVersionArtifact(ctx, version.ID, artifact); err != nil {
+		return err
+	}
+	if err := s.store.SetEnvironmentVersionState(ctx, version.ID, EnvironmentVersionReady, ""); err != nil {
+		return err
+	}
+	return nil
 }

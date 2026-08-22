@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Saieshwar5/perpetual/internal/environments"
 	"github.com/Saieshwar5/perpetual/internal/exec"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
@@ -31,17 +32,24 @@ type RuntimeProvider interface {
 	RuntimeFor(provider string) (workspaceruntime.Runtime, error)
 }
 
+// ImageBuilder builds and waits for a Lambda MicroVM image. Implied by
+// environments.ImageBuilder; injected only for lambda workspaces.
+type ImageBuilder interface {
+	Build(context.Context) (environments.ImageRef, error)
+}
+
 // Service coordinates workspace lifecycle with the controller's Git and the
 // workspace runtime that executes setup and agent commands. The runtime is the
 // only execution seam; the service never opens a shell directly on the host.
 type Service struct {
-	store       *Store
-	runtime     workspaceruntime.Runtime
-	provider    RuntimeProvider
-	git         gitClient
-	credentials GitHubTokenProvider
-	root        string
-	deleteMu    sync.Mutex
+	store        *Store
+	runtime      workspaceruntime.Runtime
+	provider     RuntimeProvider
+	imageBuilder ImageBuilder
+	git          gitClient
+	credentials  GitHubTokenProvider
+	root         string
+	deleteMu     sync.Mutex
 }
 
 func NewService(store *Store, credentials GitHubTokenProvider, provider RuntimeProvider, root string) (*Service, error) {
@@ -147,6 +155,11 @@ func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool
 		return nil, err
 	}
 	return runtime.OpenShell(ctx, runtimeRef(value), environment)
+}
+
+// SetImageBuilder injects the Lambda image builder used by lambda workspaces.
+func (s *Service) SetImageBuilder(builder ImageBuilder) {
+	s.imageBuilder = builder
 }
 
 // runtimeFor returns the runtime selected for value's provider, falling back
