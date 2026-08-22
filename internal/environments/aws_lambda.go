@@ -3,6 +3,7 @@ package environments
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -95,10 +96,46 @@ func stringPointer(value string) *string {
 	return aws.String(value)
 }
 
-func (a *AWSLambdaAPI) CreateMicrovmImage(_ context.Context) (ImageRef, error) {
-	return ImageRef{}, fmt.Errorf("lambda image build not implemented by adapter yet")
+func (a *AWSLambdaAPI) CreateMicrovmImage(ctx context.Context, input ImageBuildInput) (ImageRef, error) {
+	out, err := a.client.CreateMicrovmImage(ctx, &mvms.CreateMicrovmImageInput{
+		Name:         aws.String(input.Name),
+		BaseImageArn: aws.String(input.BaseImageARN),
+		BuildRoleArn: aws.String(input.BuildRoleARN),
+		CodeArtifact: &types.CodeArtifactMemberUri{Value: input.S3URI},
+		Hooks: &types.Hooks{
+			Port: aws.Int32(9000),
+			MicrovmHooks: &types.MicrovmHooks{
+				Run:       types.HookStateEnabled,
+				Suspend:   types.HookStateEnabled,
+				Resume:    types.HookStateEnabled,
+				Terminate: types.HookStateEnabled,
+			},
+			MicrovmImageHooks: &types.MicrovmImageHooks{
+				Ready:    types.HookStateEnabled,
+				Validate: types.HookStateDisabled,
+			},
+		},
+	})
+	if err != nil {
+		return ImageRef{}, fmt.Errorf("create microvm image: %w", err)
+	}
+	return ImageRef{
+		ImageARN: aws.ToString(out.ImageArn),
+		State:    string(out.State),
+	}, nil
 }
 
-func (a *AWSLambdaAPI) GetMicrovmImage(_ context.Context) (ImageRef, error) {
-	return ImageRef{}, fmt.Errorf("lambda image lookup not implemented by adapter yet")
+func (a *AWSLambdaAPI) GetMicrovmImage(ctx context.Context) (ImageRef, error) {
+	identifier := os.Getenv("PERPETUAL_LAMBDA_IMAGE_ARN")
+	if identifier == "" {
+		return ImageRef{}, fmt.Errorf("PERPETUAL_LAMBDA_IMAGE_ARN is required for image lookup")
+	}
+	out, err := a.client.GetMicrovmImage(ctx, &mvms.GetMicrovmImageInput{ImageIdentifier: aws.String(identifier)})
+	if err != nil {
+		return ImageRef{}, fmt.Errorf("get microvm image: %w", err)
+	}
+	return ImageRef{
+		ImageARN: aws.ToString(out.ImageArn),
+		State:    string(out.State),
+	}, nil
 }
