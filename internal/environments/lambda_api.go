@@ -40,6 +40,7 @@ type ImageBuildInput struct {
 type API interface {
 	CreateMicrovmImage(context.Context, ImageBuildInput) (ImageRef, error)
 	GetMicrovmImage(context.Context) (ImageRef, error)
+	DeleteMicrovmImageVersion(context.Context, string, string) error
 	RunMicrovm(context.Context, RunMicrovmInput) (Instance, error)
 	AuthToken(context.Context, string) (string, error)
 	SuspendMicrovm(context.Context, string) error

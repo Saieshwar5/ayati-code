@@ -18,6 +18,8 @@ type pushAPI struct{ endpoint string }
 func (p pushAPI) CreateMicrovmImage(_ context.Context, _ environments.ImageBuildInput) (environments.ImageRef, error) {
 	return environments.ImageRef{}, nil
 }
+func (p pushAPI) DeleteMicrovmImageVersion(_ context.Context, _ string, _ string) error { return nil }
+
 func (p pushAPI) GetMicrovmImage(_ context.Context) (environments.ImageRef, error) {
 	return environments.ImageRef{}, nil
 }
@@ -28,6 +30,7 @@ func (p pushAPI) AuthToken(_ context.Context, _ string) (string, error) { return
 func (p pushAPI) SuspendMicrovm(_ context.Context, _ string) error      { return nil }
 func (p pushAPI) ResumeMicrovm(_ context.Context, _ string) error       { return nil }
 func (p pushAPI) TerminateMicrovm(_ context.Context, _ string) error    { return nil }
+
 func (p pushAPI) GetMicrovm(_ context.Context, _ string) (environments.Instance, error) {
 	return environments.Instance{MicrovmID: "vm-1", Endpoint: p.endpoint, State: "RUNNING"}, nil
 }
