@@ -4,8 +4,11 @@ package workspace
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
@@ -105,5 +108,90 @@ func TestWorkspaceStorePostgres(t *testing.T) {
 	}
 	if err := store.FinishJob(ctx, job.ID, "succeeded", ""); err != nil {
 		t.Fatalf("FinishJob: %v", err)
+	}
+}
+
+// TestPostgresWorkersClaimDistinctJobs verifies that several worker goroutines
+// never claim the same job when Postgres SKIP LOCKED is used.
+func TestPostgresWorkersClaimDistinctJobs(t *testing.T) {
+	dsn := os.Getenv("PERPETUAL_TEST_POSTGRES_URL")
+	if dsn == "" {
+		t.Skip("set PERPETUAL_TEST_POSTGRES_URL to run the Postgres integration test")
+	}
+	ctx := context.Background()
+	database, err := appdatabase.OpenConfigured(ctx, appdatabase.Config{
+		Provider: appdatabase.ProviderPostgres,
+		URL:      dsn,
+	})
+	if err != nil {
+		t.Fatalf("OpenConfigured: %v", err)
+	}
+	defer database.Close()
+
+	store, err := NewStore(database)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+
+	workspace, err := store.Create(ctx, Create{
+		UserID:     "worker-test-user",
+		Repository: "owner/jobs",
+		CloneURL:   "https://github.com/owner/jobs.git",
+		BaseBranch: "main",
+		Branch:     "main",
+		Path:       filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create workspace: %v", err)
+	}
+
+	const jobCount = 6
+	expected := make(map[string]bool, jobCount)
+	for i := 0; i < jobCount; i++ {
+		job, err := store.CreateJob(ctx, workspace.ID, "prepare_workspace")
+		if err != nil {
+			t.Fatalf("CreateJob %d: %v", i, err)
+		}
+		expected[job.ID] = true
+	}
+
+	var (
+		mu      sync.Mutex
+		claimed = make(map[string]bool)
+		errs    = make(chan error, 4)
+		wg      sync.WaitGroup
+	)
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				job, err := store.ClaimNextJob(ctx)
+				if err != nil {
+					if errors.Is(err, sql.ErrNoRows) {
+						return
+					}
+					errs <- err
+					return
+				}
+				mu.Lock()
+				claimed[job.ID] = true
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("claim error: %v", err)
+	}
+	if len(claimed) != jobCount {
+		t.Fatalf("claimed %d jobs, expected %d", len(claimed), jobCount)
+	}
+	for id := range expected {
+		if !claimed[id] {
+			t.Fatalf("job %s was never claimed", id)
+		}
 	}
 }

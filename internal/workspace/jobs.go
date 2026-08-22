@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 )
 
 const (
@@ -172,10 +174,16 @@ func (s *Store) ClaimNextJob(ctx context.Context) (Job, error) {
 	}
 	defer tx.Rollback()
 	var value Job
-	if err := scanJobRow(s.queryRowTx(ctx, tx, `SELECT id, user_id, workspace_id, kind, state, attempts,
+	claimQuery := `SELECT id, user_id, workspace_id, kind, state, attempts,
 		max_attempts, lease_owner, lease_expires_at, payload, error, created_at, updated_at,
-		started_at, finished_at FROM workspace_jobs WHERE state = ? ORDER BY created_at LIMIT 1`,
-		JobStateQueued), &value); err != nil {
+		started_at, finished_at FROM workspace_jobs WHERE state = ? ORDER BY created_at LIMIT 1`
+	if s.dialect == appdatabase.ProviderPostgres {
+		// Postgres locking clauses come after LIMIT/OFFSET. SKIP LOCKED lets
+		// multiple worker replicas claim distinct rows without waiting on rows
+		// another worker has already locked.
+		claimQuery += ` FOR UPDATE SKIP LOCKED`
+	}
+	if err := scanJobRow(s.queryRowTx(ctx, tx, claimQuery, JobStateQueued), &value); err != nil {
 		return Job{}, err
 	}
 	result, err := s.execTx(ctx, tx, `UPDATE workspace_jobs SET state = ?, attempts = attempts + 1,
@@ -218,6 +226,19 @@ func (s *Store) FinishJob(ctx context.Context, id, state, message string) error 
 
 func (s *Store) RecoverJobs(ctx context.Context) error {
 	now := formatTime(time.Now().UTC())
+	if s.dialect == appdatabase.ProviderPostgres {
+		// With multiple workers, only rows whose lease has expired are
+		// interrupted. Live workers keep their leases by heartbeat.
+		_, err := s.execContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
+			finished_at = ?, updated_at = ? WHERE state IN (?, ?)
+			AND lease_expires_at != '' AND lease_expires_at <= ?`,
+			JobStateFailed, interruptedJobMessage, now, now,
+			JobStateQueued, JobStateRunning, now)
+		if err != nil {
+			return fmt.Errorf("recover workspace jobs: %w", err)
+		}
+		return nil
+	}
 	_, err := s.execContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
 		finished_at = ?, updated_at = ? WHERE state IN (?, ?)`,
 		JobStateFailed, interruptedJobMessage, now, now, JobStateQueued, JobStateRunning)
