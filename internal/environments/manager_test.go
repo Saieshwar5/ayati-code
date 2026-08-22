@@ -12,7 +12,7 @@ type fakeAPI struct {
 	endpoint string
 }
 
-func (f *fakeAPI) CreateMicrovmImage(_ context.Context) (ImageRef, error) {
+func (f *fakeAPI) CreateMicrovmImage(_ context.Context, _ ImageBuildInput) (ImageRef, error) {
 	return ImageRef{ImageARN: "arn:image", Version: "1.0", State: "CREATED"}, nil
 }
 

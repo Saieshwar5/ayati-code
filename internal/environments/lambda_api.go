@@ -27,10 +27,18 @@ type ImageRef struct {
 	State    string
 }
 
+// ImageBuildInput carries the fields CreateMicrovmImage needs.
+type ImageBuildInput struct {
+	Name         string
+	S3URI        string
+	BuildRoleARN string
+	BaseImageARN string
+}
+
 // API abstracts the Lambda MicroVMs control plane. The AWS adapter uses the
 // Go SDK; tests use a fake implementation.
 type API interface {
-	CreateMicrovmImage(context.Context) (ImageRef, error)
+	CreateMicrovmImage(context.Context, ImageBuildInput) (ImageRef, error)
 	GetMicrovmImage(context.Context) (ImageRef, error)
 	RunMicrovm(context.Context, RunMicrovmInput) (Instance, error)
 	AuthToken(context.Context, string) (string, error)

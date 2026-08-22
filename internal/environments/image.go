@@ -52,7 +52,12 @@ func (b *ImageBuilder) Build(ctx context.Context) (ImageRef, error) {
 	if err := b.S3.Put(ctx, b.Bucket, key, bytes.NewReader(zipData), int64(len(zipData))); err != nil {
 		return ImageRef{}, fmt.Errorf("upload agent zip: %w", err)
 	}
-	return b.API.CreateMicrovmImage(ctx)
+	return b.API.CreateMicrovmImage(ctx, ImageBuildInput{
+		Name:         b.Name,
+		S3URI:        "s3://" + b.Bucket + "/" + key,
+		BuildRoleARN: b.BuildRoleARN,
+		BaseImageARN: b.BaseImageARN,
+	})
 }
 
 func buildAgentZip(agentBinary []byte) ([]byte, error) {
