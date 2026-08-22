@@ -100,6 +100,11 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
+	if strings.TrimSpace(*runtime) == "lambda" {
+		if err := wireLambdaImageBuilder(workspaces); err != nil {
+			log.Printf("perpetual: lambda image builder unavailable: %v", err)
+		}
+	}
 	if err := workspaces.Recover(ctx); err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: recover workspaces: %v\n", err)
 		return 1
@@ -411,4 +416,41 @@ func startLambdaReconcile(ctx context.Context, provider workspace.RuntimeProvide
 			}
 		}
 	}()
+}
+
+// wireLambdaImageBuilder injects the production microVM image builder into the
+// workspace service when the lambda runtime is selected. PERPETUAL_LAMBDA_AGENT_BINARY
+// must point at the compiled vmagent binary.
+func wireLambdaImageBuilder(workspaces *workspace.Service) error {
+	config := environments.LoadLambdaConfig()
+	if config.Region == "" {
+		return fmt.Errorf("PERPETUAL_AWS_REGION is required for lambda image builds")
+	}
+	agentPath := os.Getenv("PERPETUAL_LAMBDA_AGENT_BINARY")
+	if agentPath == "" {
+		return fmt.Errorf("PERPETUAL_LAMBDA_AGENT_BINARY is required for lambda image builds")
+	}
+	agentBinary, err := os.ReadFile(agentPath)
+	if err != nil {
+		return fmt.Errorf("read vmagent binary: %w", err)
+	}
+	api, err := environments.NewAWSLambdaAPI(config.Region)
+	if err != nil {
+		return err
+	}
+	s3, err := environments.NewS3(config.Region)
+	if err != nil {
+		return err
+	}
+	builder := &environments.ImageBuilder{
+		Name:         os.Getenv("PERPETUAL_LAMBDA_IMAGE_NAME"),
+		Bucket:       config.S3Bucket,
+		BuildRoleARN: config.BuildRoleARN,
+		BaseImageARN: os.Getenv("PERPETUAL_AWS_BASE_IMAGE_ARN"),
+		AgentBinary:  agentBinary,
+		API:          api,
+		S3:           s3,
+	}
+	workspaces.SetImageBuilder(builder)
+	return nil
 }
