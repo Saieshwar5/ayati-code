@@ -20,9 +20,18 @@ type Instance struct {
 	ImageARN  string
 }
 
+// ImageRef identifies a built microVM image version.
+type ImageRef struct {
+	ImageARN string
+	Version  string
+	State    string
+}
+
 // API abstracts the Lambda MicroVMs control plane. The AWS adapter uses the
 // Go SDK; tests use a fake implementation.
 type API interface {
+	CreateMicrovmImage(context.Context) (ImageRef, error)
+	GetMicrovmImage(context.Context) (ImageRef, error)
 	RunMicrovm(context.Context, RunMicrovmInput) (Instance, error)
 	AuthToken(context.Context, string) (string, error)
 	SuspendMicrovm(context.Context, string) error
