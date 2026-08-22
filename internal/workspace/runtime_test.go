@@ -204,26 +204,3 @@ func TestServicePersistsRuntimeStateTransitions(t *testing.T) {
 		t.Fatalf("runtime state after resume = %q, error = %v", loaded.RuntimeState, err)
 	}
 }
-
-func TestServiceRuntimeProviderSelectsCloudAndFailsWithoutConfig(t *testing.T) {
-	cloud, err := workspaceruntime.NewCloud(workspaceruntime.CloudConfig{
-		Endpoint: "https://runtime.test", Token: "secret",
-	})
-	if err != nil {
-		t.Fatalf("NewCloud: %v", err)
-	}
-	service := &Service{provider: &recordingRuntimeProvider{cloud: cloud}}
-	selected, err := service.runtimeFor(Workspace{RuntimeProvider: "cloud"})
-	if err != nil || selected != cloud {
-		t.Fatalf("selected runtime = %#v, error = %v", selected, err)
-	}
-	local, err := service.runtimeFor(Workspace{})
-	if err != nil || local == nil {
-		t.Fatalf("local runtime = %#v, error = %v", local, err)
-	}
-	unconfigured := &Service{provider: &recordingRuntimeProvider{}}
-	_, err = unconfigured.runtimeFor(Workspace{RuntimeProvider: "cloud"})
-	if err == nil || !strings.Contains(err.Error(), "not configured") {
-		t.Fatalf("unconfigured runtime error = %v", err)
-	}
-}

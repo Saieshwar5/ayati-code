@@ -126,7 +126,7 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
       setSendingSessionID(sessionID);
       let sent = false;
       try {
-        await api.sendMessage(workspaceID, sessionID, text.trim());
+        await api.enqueueRun(workspaceID, sessionID, text.trim());
         sent = true;
         await refreshRun();
       } catch (error) {
@@ -151,7 +151,7 @@ export function useWorkspaceDetail(options: UseWorkspaceDetailOptions) {
     setStoppingSessionID(sessionID);
     setMessageError("");
     try {
-      await api.cancelRun(workspaceID, sessionID, session.active_run_id);
+      await api.runAction(session.active_run_id, "stop");
       await refreshRun();
       return true;
     } catch (error) {

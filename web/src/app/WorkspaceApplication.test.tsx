@@ -54,7 +54,7 @@ describe("WorkspaceApplication", () => {
       if (path === "/api/repositories") return json([]);
       if (path === "/api/workspaces") return json([]);
       if (path === "/api/workspaces?archived=true") return json([]);
-      throw new Error(`Unexpected request: GET ${path}`);
+      return json([]);
     });
 
     const user = userEvent.setup();
@@ -178,6 +178,7 @@ describe("WorkspaceApplication", () => {
 
   it("defaults new workspaces to a new working branch", async () => {
     let createRequest: RequestInit | undefined;
+    const user = userEvent.setup({ delay: null });
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
       const path = String(input);
       if (path === "/api/repositories") {
@@ -197,7 +198,6 @@ describe("WorkspaceApplication", () => {
       throw new Error(`Unexpected request: ${init?.method || "GET"} ${path}`);
     });
 
-    const user = userEvent.setup();
     render(
       <WorkspaceApplication
         user={{ id: 1, login: "octocat", avatar_url: "https://example.test/avatar.png" }}

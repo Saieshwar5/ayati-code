@@ -6,7 +6,6 @@ import type { WorkspaceController } from "../app/useWorkspaceController";
 import { EnvironmentPanel } from "../inspector/EnvironmentPanel";
 import { PublishPanel } from "../inspector/PublishPanel";
 import { WorkspaceProfilePanel } from "../inspector/WorkspaceProfilePanel";
-import { WorkspaceCapacity } from "./WorkspaceCapacity";
 import { countChangedFiles, WorkspaceChangesReview } from "./WorkspaceChangesReview";
 import { WorkspaceReadiness } from "./WorkspaceReadiness";
 import { WorkspaceTasksPanel, type WorkspaceTask } from "./WorkspaceTasksPanel";
@@ -18,7 +17,6 @@ interface WorkspaceOverviewProps {
   tasks: WorkspaceTask[];
   onBack: () => void;
   onOpenConversation: () => void;
-  onManageEnvironments: () => void;
   onCreateTask: (markdown: string) => void;
   onUpdateTask: (task: WorkspaceTask) => void;
   onDeleteTask: (taskID: string) => void;
@@ -93,7 +91,6 @@ export function WorkspaceOverview(props: WorkspaceOverviewProps) {
         </div>
         <div className="workspace-header-state">
           <span className={`status ${workspace.status}`}>{statusLabel(workspace.status)}</span>
-          <WorkspaceCapacity workspace={workspace} onManage={props.onManageEnvironments} />
           <button className="primary workspace-conversation-action" type="button" disabled={!conversationReady} onClick={props.onOpenConversation}>
             {props.sessions.length ? "Continue conversation" : "Open conversation"}
           </button>

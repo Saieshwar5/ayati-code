@@ -3,7 +3,6 @@ import type { User } from "../api/contracts";
 import { api } from "../api/client";
 import { ChatPane } from "../chat/ChatPane";
 import { RunTimeline } from "../run/RunTimeline";
-import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { useServerEvents } from "../hooks/useServerEvents";
 import { Sidebar } from "../workspaces/Sidebar";
@@ -151,7 +150,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               tasks={tasksByWorkspace[workspace.id] || []}
               onBack={() => navigate("/workspaces")}
               onOpenConversation={() => navigate(workspaceConversationPath(workspace.id))}
-              onManageEnvironments={() => navigate("/environments")}
               onCreateTask={(markdown) => createTask(workspace.id, markdown)}
               onUpdateTask={(task) => updateTask(workspace.id, task)}
               onDeleteTask={(taskID) => deleteTask(workspace.id, taskID)}
@@ -185,11 +183,6 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
             </div>
           ) : route.page === "workspace-conversation" && workspace ? (
             <LoadingPage title="Opening conversation…" />
-          ) : route.page === "environments" ? (
-            <EnvironmentsPage
-              workspaces={controller.workspaces}
-              onOpenWorkspace={(id) => navigate(workspacePath(id))}
-            />
           ) : (
             <LoadingPage title={workspaceID ? "Workspace not found" : "Conversation not found"} error />
           )}
