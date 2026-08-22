@@ -22,12 +22,12 @@ func (s *Store) AppendMessage(ctx context.Context, sessionID string, message Mes
 		return fmt.Errorf("encode session message: %w", err)
 	}
 	now := time.Now().UTC()
-	_, err = s.db.ExecContext(ctx, `INSERT INTO messages (session_id, payload, created_at)
+	_, err = s.execContext(ctx, `INSERT INTO messages (session_id, payload, created_at)
 		VALUES (?, ?, ?)`, strings.TrimSpace(sessionID), string(payload), formatTime(now))
 	if err != nil {
 		return fmt.Errorf("append session message: %w", err)
 	}
-	if _, err := s.db.ExecContext(ctx, `UPDATE sessions SET updated_at = ? WHERE id = ?`,
+	if _, err := s.execContext(ctx, `UPDATE sessions SET updated_at = ? WHERE id = ?`,
 		formatTime(now), strings.TrimSpace(sessionID)); err != nil {
 		return fmt.Errorf("touch session: %w", err)
 	}
@@ -37,7 +37,7 @@ func (s *Store) AppendMessage(ctx context.Context, sessionID string, message Mes
 func (s *Store) ConversationMessages(
 	ctx context.Context, sessionID string,
 ) ([]ConversationMessage, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, payload, created_at FROM messages
+	rows, err := s.queryContext(ctx, `SELECT id, payload, created_at FROM messages
 		WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, fmt.Errorf("load conversation messages: %w", err)
@@ -64,7 +64,7 @@ func (s *Store) ConversationMessages(
 }
 
 func (s *Store) Messages(ctx context.Context, sessionID string) ([]Message, error) {
-	rows, err := s.db.QueryContext(ctx,
+	rows, err := s.queryContext(ctx,
 		`SELECT payload FROM messages WHERE session_id = ? ORDER BY id`, strings.TrimSpace(sessionID))
 	if err != nil {
 		return nil, fmt.Errorf("load session messages: %w", err)

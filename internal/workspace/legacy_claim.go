@@ -33,7 +33,7 @@ func (s *Store) ClaimLegacyRows(ctx context.Context, userID string) (LegacyClaim
 }
 
 func withLegacyClaim(ctx context.Context, s *Store, userID string, claim *LegacyClaim) error {
-	workspaces, err := s.db.ExecContext(ctx, `UPDATE workspaces SET user_id = ?
+	workspaces, err := s.execContext(ctx, `UPDATE workspaces SET user_id = ?
 		WHERE user_id = ''`, userID)
 	if err != nil {
 		return fmt.Errorf("claim legacy workspaces: %w", err)
@@ -42,7 +42,7 @@ func withLegacyClaim(ctx context.Context, s *Store, userID string, claim *Legacy
 		claim.Workspaces = affected
 	}
 
-	jobs, err := s.db.ExecContext(ctx, `UPDATE workspace_jobs SET user_id = ?
+	jobs, err := s.execContext(ctx, `UPDATE workspace_jobs SET user_id = ?
 		WHERE user_id = ''
 		AND EXISTS (SELECT 1 FROM workspaces WHERE workspaces.id = workspace_jobs.workspace_id
 			AND workspaces.user_id = ?)`, userID, userID)
@@ -53,7 +53,7 @@ func withLegacyClaim(ctx context.Context, s *Store, userID string, claim *Legacy
 		claim.Jobs = affected
 	}
 
-	environments, err := s.db.ExecContext(ctx, `UPDATE project_environments SET user_id = ?
+	environments, err := s.execContext(ctx, `UPDATE project_environments SET user_id = ?
 		WHERE user_id = ''
 		AND EXISTS (SELECT 1 FROM workspaces w
 			JOIN workspace_profiles wp ON wp.workspace_id = w.id

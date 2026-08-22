@@ -10,7 +10,7 @@ const interruptedPreparationMessage = "Workspace preparation was interrupted whe
 
 func (s *Store) recoverInterruptedWork(ctx context.Context) error {
 	now := formatTime(time.Now().UTC())
-	_, err := s.db.ExecContext(ctx, `UPDATE workspaces SET
+	_, err := s.execContext(ctx, `UPDATE workspaces SET
 		status = ?, error = ?,
 		preparation_failed_stage = preparation_stage,
 		preparation_stage = ?, preparation_detail = ?, updated_at = ?

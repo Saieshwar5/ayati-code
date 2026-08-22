@@ -38,7 +38,7 @@ func (s *Store) SaveProfile(ctx context.Context, workspaceID string, profile Pro
 		}
 		environmentSpec = string(encoded)
 	}
-	result, err := s.db.ExecContext(ctx, `INSERT INTO workspace_profiles (
+	result, err := s.execContext(ctx, `INSERT INTO workspace_profiles (
 		workspace_id, project_root, languages, runtime_versions, package_managers, lockfiles,
 		setup_command, test_command, lint_command, typecheck_command, build_command,
 		instructions_file, manifest_fingerprint, baseline_commit, setup_result,
@@ -72,7 +72,7 @@ func (s *Store) SaveProfile(ctx context.Context, workspaceID string, profile Pro
 }
 
 func (s *Store) ProjectProfile(ctx context.Context, workspaceID string) (*ProjectProfile, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT project_root, languages, runtime_versions,
+	row := s.queryRowContext(ctx, `SELECT project_root, languages, runtime_versions,
 		package_managers, lockfiles, setup_command, test_command, lint_command,
 		typecheck_command, build_command, instructions_file, manifest_fingerprint,
 		baseline_commit, setup_result, baseline_result, cache_path, environment_spec,

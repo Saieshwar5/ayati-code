@@ -89,7 +89,7 @@ func (s *Store) FindOrCreateEnvironment(
 	}
 	var value Environment
 	var createdAt, updatedAt string
-	err := s.db.QueryRowContext(ctx, `SELECT id, user_id, repository, project_root,
+	err := s.queryRowContext(ctx, `SELECT id, user_id, repository, project_root,
 		created_at, updated_at FROM project_environments
 		WHERE user_id = ? AND repository = ? AND project_root = ?`, userID, repository, projectRoot).
 		Scan(&value.ID, &value.UserID, &value.Repository, &value.ProjectRoot, &createdAt, &updatedAt)
@@ -113,7 +113,7 @@ func (s *Store) FindOrCreateEnvironment(
 		return Environment{}, err
 	}
 	now := time.Now().UTC()
-	_, err = s.db.ExecContext(ctx, `INSERT INTO project_environments (id, user_id, repository, project_root,
+	_, err = s.execContext(ctx, `INSERT INTO project_environments (id, user_id, repository, project_root,
 		created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
 		id, userID, repository, projectRoot, formatTime(now), formatTime(now))
 	if err != nil {
@@ -128,7 +128,7 @@ func (s *Store) FindOrCreateEnvironment(
 func (s *Store) FindReadyEnvironmentVersion(
 	ctx context.Context, userID, environmentID, fingerprint string,
 ) (EnvironmentVersion, bool, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT v.id, v.environment_id, v.version, v.source_fingerprint,
+	row := s.queryRowContext(ctx, `SELECT v.id, v.environment_id, v.version, v.source_fingerprint,
 		v.spec, v.state, v.artifact_ref, v.cache_ref, v.error, v.snapshot_type, v.snapshot_ref,
 		v.snapshot_manifest, v.snapshot_bytes, v.snapshot_created_at, v.ready_at, v.created_at
 		FROM environment_versions v
@@ -159,7 +159,7 @@ func (s *Store) CreateEnvironmentVersion(
 		return EnvironmentVersion{}, fmt.Errorf("encode environment version spec: %w", err)
 	}
 	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM environment_versions
+	if err := s.queryRowContext(ctx, `SELECT COUNT(*) FROM environment_versions
 		WHERE environment_id = ?`, environmentID).Scan(&count); err != nil {
 		return EnvironmentVersion{}, fmt.Errorf("count environment versions: %w", err)
 	}
@@ -173,7 +173,7 @@ func (s *Store) CreateEnvironmentVersion(
 		SourceFingerprint: fingerprint, Spec: spec, State: EnvironmentVersionPending,
 		CacheRef: strings.TrimSpace(cacheRef), CreatedAt: now,
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO environment_versions (
+	_, err = s.execContext(ctx, `INSERT INTO environment_versions (
 		id, environment_id, version, source_fingerprint, spec, state, artifact_ref,
 		cache_ref, created_at
 	) VALUES (?, ?, ?, ?, ?, ?, '', ?, ?)`, value.ID, value.EnvironmentID,
@@ -186,7 +186,7 @@ func (s *Store) CreateEnvironmentVersion(
 }
 
 func (s *Store) BindWorkspaceEnvironment(ctx context.Context, workspaceID, versionID string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET environment_version_id = ?
+	result, err := s.execContext(ctx, `UPDATE workspaces SET environment_version_id = ?
 		WHERE id = ?`, strings.TrimSpace(versionID), strings.TrimSpace(workspaceID))
 	if err != nil {
 		return fmt.Errorf("bind workspace environment: %w", err)
@@ -202,7 +202,7 @@ func (s *Store) SetEnvironmentVersionState(ctx context.Context, id, state, messa
 	if state == EnvironmentVersionReady {
 		readyAt = formatTime(time.Now().UTC())
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE environment_versions SET state = ?,
+	result, err := s.execContext(ctx, `UPDATE environment_versions SET state = ?,
 		error = ?, ready_at = ? WHERE id = ?`, state, strings.TrimSpace(message),
 		readyAt, strings.TrimSpace(id))
 	if err != nil {
@@ -219,7 +219,7 @@ func (s *Store) SetEnvironmentVersionSnapshot(
 		return fmt.Errorf("encode environment snapshot manifest: %w", err)
 	}
 	now := formatTime(time.Now().UTC())
-	result, err := s.db.ExecContext(ctx, `UPDATE environment_versions SET
+	result, err := s.execContext(ctx, `UPDATE environment_versions SET
 		snapshot_type = ?, snapshot_ref = ?, snapshot_manifest = ?, snapshot_bytes = ?,
 		snapshot_created_at = ? WHERE id = ?`,
 		strings.TrimSpace(snapshotType), strings.TrimSpace(snapshotRef), string(encoded),
@@ -231,7 +231,7 @@ func (s *Store) SetEnvironmentVersionSnapshot(
 }
 
 func (s *Store) GetEnvironmentVersion(ctx context.Context, id string) (EnvironmentVersion, error) {
-	row := s.db.QueryRowContext(ctx, `SELECT id, environment_id, version, source_fingerprint,
+	row := s.queryRowContext(ctx, `SELECT id, environment_id, version, source_fingerprint,
 		spec, state, artifact_ref, cache_ref, error, snapshot_type, snapshot_ref,
 		snapshot_manifest, snapshot_bytes, snapshot_created_at, ready_at, created_at
 		FROM environment_versions WHERE id = ?`, strings.TrimSpace(id))

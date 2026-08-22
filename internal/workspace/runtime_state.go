@@ -25,7 +25,7 @@ func (s *Store) UpdateRuntimeState(ctx context.Context, id, state string) error 
 	if !runtimeStates[state] {
 		return fmt.Errorf("invalid runtime state %q", state)
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET
+	result, err := s.execContext(ctx, `UPDATE workspaces SET
 		runtime_state = ?, runtime_updated_at = ? WHERE id = ?`,
 		state, formatTime(time.Now().UTC()), strings.TrimSpace(id))
 	if err != nil {
