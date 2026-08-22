@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 )
 
 const (
@@ -19,12 +21,22 @@ const (
 	githubCredentialKeyName  = "github.key"
 )
 
-const githubCredentialSchema = `CREATE TABLE IF NOT EXISTS github_credentials (
-	user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-	ciphertext BLOB NOT NULL,
-	nonce BLOB NOT NULL,
-	updated_at TEXT NOT NULL
-)`
+func githubCredentialSchema(dialect appdatabase.Provider) string {
+	if dialect == appdatabase.ProviderPostgres {
+		return `CREATE TABLE IF NOT EXISTS github_credentials (
+			user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+			ciphertext BYTEA NOT NULL,
+			nonce BYTEA NOT NULL,
+			updated_at TEXT NOT NULL
+		)`
+	}
+	return `CREATE TABLE IF NOT EXISTS github_credentials (
+		user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+		ciphertext BLOB NOT NULL,
+		nonce BLOB NOT NULL,
+		updated_at TEXT NOT NULL
+	)`
+}
 
 type credentialSealer struct{ aead cipher.AEAD }
 
@@ -112,7 +124,7 @@ func (s *Store) SaveGitHubCredential(ctx context.Context, userID, accessToken st
 	}
 	result, err := s.db.ExecContext(ctx, `INSERT INTO github_credentials
 		(user_id, ciphertext, nonce, updated_at)
-		VALUES (?, ?, ?, ?)
+		VALUES (`+s.ph(1)+`, `+s.ph(2)+`, `+s.ph(3)+`, `+s.ph(4)+`)
 		ON CONFLICT(user_id) DO UPDATE SET ciphertext = excluded.ciphertext,
 		nonce = excluded.nonce, updated_at = excluded.updated_at`,
 		userID, ciphertext, nonce, formatTime(time.Now().UTC()))
@@ -124,7 +136,7 @@ func (s *Store) SaveGitHubCredential(ctx context.Context, userID, accessToken st
 
 func (s *Store) GitHubCredential(ctx context.Context, userID string) (string, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT ciphertext, nonce
-		FROM github_credentials WHERE user_id = ?`, strings.TrimSpace(userID))
+		FROM github_credentials WHERE user_id = `+s.ph(1), strings.TrimSpace(userID))
 	var ciphertext, nonce []byte
 	if err := row.Scan(&ciphertext, &nonce); err != nil {
 		return "", err
@@ -142,7 +154,7 @@ func (s *Store) RemoveGitHubCredential(ctx context.Context, userID string) error
 	if userID == "" {
 		return nil
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM github_credentials WHERE user_id = ?`, userID); err != nil {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM github_credentials WHERE user_id = `+s.ph(1), userID); err != nil {
 		return fmt.Errorf("remove GitHub credential: %w", err)
 	}
 	return nil

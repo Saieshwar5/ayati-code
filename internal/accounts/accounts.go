@@ -2,12 +2,15 @@ package accounts
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -55,6 +58,7 @@ type AuthSession struct {
 type Store struct {
 	db           *sql.DB
 	databasePath string
+	dialect      appdatabase.Provider
 	sealer       *credentialSealer
 }
 
@@ -62,25 +66,40 @@ func NewStore(database *appdatabase.Database) (*Store, error) {
 	if database == nil || database.SQL() == nil {
 		return nil, errors.New("database is required")
 	}
-	sealer, err := newCredentialSealer(database.Path())
+	sealer, err := newCredentialSealerForDatabase(database)
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: database.SQL(), databasePath: database.Path(), sealer: sealer}
+	store := &Store{
+		db:           database.SQL(),
+		databasePath: database.Path(),
+		dialect:      database.Provider(),
+		sealer:       sealer,
+	}
 	if err := store.configure(); err != nil {
 		return nil, err
 	}
 	return store, nil
 }
 
+// ph returns the placeholder for the active dialect. SQLite uses "?" for all
+// positions; Postgres uses numbered "$N" placeholders.
+func (s *Store) ph(position int) string {
+	if s.dialect == appdatabase.ProviderPostgres {
+		return fmt.Sprintf("$%d", position)
+	}
+	return "?"
+}
+
 func (s *Store) configure() error {
-	for _, statement := range []string{
+	schemas := []string{
 		userSchema,
 		authSessionSchema,
-		githubCredentialSchema,
+		githubCredentialSchema(s.dialect),
 		`CREATE INDEX IF NOT EXISTS auth_sessions_user ON auth_sessions(user_id)`,
 		`CREATE INDEX IF NOT EXISTS auth_sessions_hash ON auth_sessions(token_hash)`,
-	} {
+	}
+	for _, statement := range schemas {
 		if _, err := s.db.Exec(statement); err != nil {
 			return fmt.Errorf("initialize account schema: %w", err)
 		}
@@ -100,7 +119,7 @@ func (s *Store) UpsertGitHubUser(
 	now := time.Now().UTC()
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO users (
 		id, github_id, login, name, avatar_url, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, ?, ?)
+	) VALUES (`+s.ph(1)+`, `+s.ph(2)+`, `+s.ph(3)+`, `+s.ph(4)+`, `+s.ph(5)+`, `+s.ph(6)+`, `+s.ph(7)+`)
 	ON CONFLICT(github_id) DO UPDATE SET
 		login = excluded.login,
 		name = excluded.name,
@@ -115,7 +134,7 @@ func (s *Store) UpsertGitHubUser(
 
 func (s *Store) UserByGitHubID(ctx context.Context, githubID int64) (User, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT id, github_id, login, name, avatar_url,
-		created_at, updated_at FROM users WHERE github_id = ?`, githubID)
+		created_at, updated_at FROM users WHERE github_id = `+s.ph(1), githubID)
 	user, err := scanUser(row)
 	if err != nil {
 		return User{}, err
@@ -149,7 +168,7 @@ func (s *Store) CreateSession(ctx context.Context, userID, token string, ttl tim
 	}
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO auth_sessions (
 		id, user_id, token_hash, created_at, expires_at
-	) VALUES (?, ?, ?, ?, ?)`,
+	) VALUES (`+s.ph(1)+`, `+s.ph(2)+`, `+s.ph(3)+`, `+s.ph(4)+`, `+s.ph(5)+`)`,
 		session.ID, session.UserID, hashToken(token), formatTime(session.CreatedAt),
 		formatTime(session.ExpiresAt)); err != nil {
 		return AuthSession{}, fmt.Errorf("create auth session: %w", err)
@@ -168,7 +187,7 @@ func (s *Store) UserBySessionToken(ctx context.Context, token string) (User, boo
 		u.created_at, u.updated_at
 		FROM auth_sessions AS s
 		JOIN users AS u ON u.id = s.user_id
-		WHERE s.token_hash = ? AND s.revoked_at = '' AND s.expires_at > ?
+		WHERE s.token_hash = `+s.ph(1)+` AND s.revoked_at = '' AND s.expires_at > `+s.ph(2)+`
 		LIMIT 1`, hashToken(token), formatTime(time.Now().UTC()))
 	user, err := scanUser(row)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -187,15 +206,15 @@ func (s *Store) RevokeSession(ctx context.Context, token string) error {
 	if token == "" {
 		return nil
 	}
-	if _, err := s.db.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at = ?
-		WHERE token_hash = ? AND revoked_at = ''`, formatTime(time.Now().UTC()), hashToken(token)); err != nil {
+	if _, err := s.db.ExecContext(ctx, `UPDATE auth_sessions SET revoked_at = `+s.ph(1)+`
+		WHERE token_hash = `+s.ph(2)+` AND revoked_at = ''`, formatTime(time.Now().UTC()), hashToken(token)); err != nil {
 		return fmt.Errorf("revoke auth session: %w", err)
 	}
 	return nil
 }
 
 func (s *Store) DeleteExpiredSessions(ctx context.Context, olderThan time.Time) (int64, error) {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE expires_at <= ?`,
+	result, err := s.db.ExecContext(ctx, `DELETE FROM auth_sessions WHERE expires_at <= `+s.ph(1),
 		formatTime(olderThan.UTC()))
 	if err != nil {
 		return 0, fmt.Errorf("delete expired auth sessions: %w", err)
@@ -242,4 +261,41 @@ func scanUser(row *sql.Row) (User, error) {
 		return User{}, fmt.Errorf("decode user update time: %w", err)
 	}
 	return value, nil
+}
+
+// newCredentialSealerForDatabase returns the credential sealer appropriate for
+// the provider. SQLite keeps the local file key; Postgres uses an explicitly
+// configured key so integration tests and future KMS integration work without
+// a local file. PERPETUAL_ENCRYPTION_KEY must be 32 bytes of hex when set;
+// otherwise a random development key is generated (valid for the process only).
+func newCredentialSealerForDatabase(database *appdatabase.Database) (*credentialSealer, error) {
+	if database.Provider() == appdatabase.ProviderPostgres {
+		key := make([]byte, githubCredentialKeyBytes)
+		configured := strings.TrimSpace(os.Getenv("PERPETUAL_ENCRYPTION_KEY"))
+		if configured != "" {
+			decoded, err := hex.DecodeString(configured)
+			if err != nil || len(decoded) != githubCredentialKeyBytes {
+				return nil, errors.New("PERPETUAL_ENCRYPTION_KEY must be 32 bytes of hex")
+			}
+			copy(key, decoded)
+		} else {
+			if _, err := rand.Read(key); err != nil {
+				return nil, fmt.Errorf("generate GitHub credential key: %w", err)
+			}
+		}
+		return newCredentialSealerFromKey(key)
+	}
+	return newCredentialSealer(database.Path())
+}
+
+func newCredentialSealerFromKey(key []byte) (*credentialSealer, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("create GitHub credential cipher: %w", err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("create GitHub credential sealer: %w", err)
+	}
+	return &credentialSealer{aead: aead}, nil
 }
