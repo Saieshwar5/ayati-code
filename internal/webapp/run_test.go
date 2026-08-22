@@ -310,6 +310,6 @@ func TestSelectWorkspaceRuntimeDefaultsToLocal(t *testing.T) {
 		t.Fatalf("bogus runtime accepted")
 	}
 	if _, err := selectWorkspaceRuntime("cloud"); err == nil {
-		t.Fatalf("cloud accepted without configuration")
+		t.Fatalf("legacy cloud runtime accepted")
 	}
 }

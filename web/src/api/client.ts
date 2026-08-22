@@ -1,5 +1,4 @@
 import type {
-  AgentRun,
   Branch,
   Changes,
   CreateNewProjectInput,
@@ -15,8 +14,6 @@ import type {
   Workspace,
   WorkspaceSession,
 } from "./contracts";
-import type { ComputeEnvironment, CreateComputeEnvironmentInput } from "./environment-contracts";
-
 export class ApiError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -87,15 +84,6 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}`, { method: "DELETE" }),
   messages: (workspaceID: string, sessionID: string) =>
     request<Message[]>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/messages`),
-  sendMessage: (workspaceID: string, sessionID: string, text: string) =>
-    request<AgentRun>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/messages`, {
-      method: "POST",
-      body: JSON.stringify({ text }),
-    }),
-  cancelRun: (workspaceID: string, sessionID: string, runID: string) =>
-    request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/runs/${runID}/cancel`, {
-      method: "POST",
-    }),
   enqueueRun: (workspaceID: string, sessionID: string, prompt: string) =>
     request<Run>(`/api/workspaces/${workspaceID}/runs`, {
       method: "POST",
@@ -124,17 +112,6 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/environment/rebuild`, {
       method: "POST",
     }),
-  environments: () => request<ComputeEnvironment[]>("/api/environments"),
-  createEnvironmentCapacity: (input: CreateComputeEnvironmentInput) =>
-    request<ComputeEnvironment>("/api/environments", {
-      method: "POST", body: JSON.stringify(input),
-    }),
-  repairEnvironmentCapacity: (id: string) =>
-    request<ComputeEnvironment>(`/api/environments/${encodeURIComponent(id)}/repair`, {
-      method: "POST",
-    }),
-  deleteEnvironmentCapacity: (id: string) =>
-    request<void>(`/api/environments/${encodeURIComponent(id)}`, { method: "DELETE" }),
   publish: (workspaceID: string, input: PublishInput) =>
     request<Workspace>(`/api/workspaces/${workspaceID}/publish`, {
       method: "POST",

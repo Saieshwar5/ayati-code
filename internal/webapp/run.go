@@ -43,7 +43,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	tlsCert := flags.String("tls-cert", os.Getenv("PERPETUAL_TLS_CERT"), "TLS certificate file")
 	tlsKey := flags.String("tls-key", os.Getenv("PERPETUAL_TLS_KEY"), "TLS private key file")
 	accessPassword := flags.String("access-password", os.Getenv("PERPETUAL_ACCESS_PASSWORD"), "optional password gate for remote access")
-	runtime := flags.String("runtime", os.Getenv("PERPETUAL_RUNTIME"), "workspace runtime (local or cloud)")
+	runtime := flags.String("runtime", os.Getenv("PERPETUAL_RUNTIME"), "workspace runtime (local or lambda)")
 	showVersion := flags.Bool("version", false, "print the Perpetual version")
 	if err := flags.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -291,7 +291,6 @@ func runSessionCleanup(ctx context.Context, store *accounts.Store) {
 // name to the runtime implementation, falling back to local for empty values.
 type workspaceRuntimeProvider struct {
 	local  workspaceruntime.Runtime
-	cloud  workspaceruntime.Runtime
 	lambda workspaceruntime.Runtime
 }
 
@@ -299,11 +298,6 @@ func (p *workspaceRuntimeProvider) RuntimeFor(provider string) (workspaceruntime
 	switch strings.TrimSpace(provider) {
 	case "", "local":
 		return p.local, nil
-	case "cloud":
-		if p.cloud == nil {
-			return nil, errors.New("cloud workspace runtime is not configured")
-		}
-		return p.cloud, nil
 	case "lambda":
 		if p.lambda == nil {
 			return nil, errors.New("lambda workspace runtime is not configured")
@@ -321,17 +315,6 @@ func selectWorkspaceRuntime(name string, stores ...*workspace.Store) (workspace.
 	provider := &workspaceRuntimeProvider{local: workspaceruntime.NewLocal()}
 	switch strings.TrimSpace(name) {
 	case "", "local":
-		return provider, nil
-	case "cloud":
-		cloud, err := workspaceruntime.NewCloud(workspaceruntime.CloudConfig{
-			Endpoint: os.Getenv("PERPETUAL_CLOUD_RUNTIME_ENDPOINT"),
-			Token:    os.Getenv("PERPETUAL_CLOUD_RUNTIME_TOKEN"),
-			Pool:     os.Getenv("PERPETUAL_CLOUD_RUNTIME_POOL"),
-		})
-		if err != nil {
-			return nil, err
-		}
-		provider.cloud = cloud
 		return provider, nil
 	case "lambda":
 		var store *workspace.Store

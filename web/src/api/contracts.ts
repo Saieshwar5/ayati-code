@@ -143,17 +143,7 @@ export interface WorkspaceSession {
   updated_at: string;
 }
 
-export interface AgentRun {
-  id: string;
-  workspace_id: string;
-  session_id: string;
-  status: "accepted" | "running" | "completed" | "failed" | "canceled" | "interrupted";
-  error?: string;
-  created_at: string;
-  started_at?: string;
-  finished_at?: string;
-  updated_at: string;
-}
+
 
 export interface ToolCall {
   id: string;
