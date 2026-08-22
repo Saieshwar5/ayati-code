@@ -292,3 +292,16 @@ func (s *Store) RecoverRuns(ctx context.Context) error {
 	}
 	return nil
 }
+
+// ContinueRun moves a waiting execution room back to the queue so a worker
+// claims it again with the user's latest input.
+func (s *Store) ContinueRun(ctx context.Context, runID string) error {
+	now := formatTime(time.Now().UTC())
+	_, err := s.execContext(ctx, `UPDATE agent_runs SET state = ?, updated_at = ?
+		WHERE id = ? AND state = ?`,
+		RunQueued, now, strings.TrimSpace(runID), RunWaitingUser)
+	if err != nil {
+		return fmt.Errorf("continue execution room: %w", err)
+	}
+	return nil
+}

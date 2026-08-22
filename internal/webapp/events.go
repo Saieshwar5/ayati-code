@@ -15,6 +15,7 @@ type browserEvent struct {
 	WorkspaceID string `json:"workspace_id,omitempty"`
 	SessionID   string `json:"session_id,omitempty"`
 	RunID       string `json:"run_id,omitempty"`
+	State       string `json:"state,omitempty"`
 }
 
 // EventBroker fans small invalidation notices out to connected browsers.
@@ -31,6 +32,13 @@ func NewEventBroker() *EventBroker {
 func (b *EventBroker) SessionChanged(workspaceID, sessionID, runID string) {
 	b.publish(browserEvent{
 		Type: "session.changed", WorkspaceID: workspaceID, SessionID: sessionID, RunID: runID,
+	})
+}
+
+// RunChanged fans a run state transition notice out to connected browsers.
+func (b *EventBroker) RunChanged(workspaceID, sessionID, runID, state string) {
+	b.publish(browserEvent{
+		Type: "run.changed", WorkspaceID: workspaceID, SessionID: sessionID, RunID: runID, State: state,
 	})
 }
 
