@@ -464,6 +464,10 @@ func (s lambdaRepoSyncer) Push(ctx context.Context, workspaceID, tree string) er
 	return s.runtime.PushRepo(ctx, workspaceID, tree)
 }
 
+func (s lambdaRepoSyncer) Pull(ctx context.Context, workspaceID, scratch string) error {
+	return s.runtime.PullRepo(ctx, workspaceID, scratch)
+}
+
 // wireLambdaRepoSync exposes the lambda runtime to the workspace service so
 // preparation can push the repo into microVMs. Local mode stays unaffected.
 func wireLambdaRepoSync(provider workspace.RuntimeProvider, service *workspace.Service) {

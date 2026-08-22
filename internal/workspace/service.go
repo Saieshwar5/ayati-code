@@ -42,6 +42,7 @@ type ImageBuilder interface {
 // for lambda microVM instances). Nil for local-only controllers.
 type RepoSyncer interface {
 	Push(ctx context.Context, workspaceID, tree string) error
+	Pull(ctx context.Context, workspaceID, scratch string) error
 }
 
 // Service coordinates workspace lifecycle with the controller's Git and the
