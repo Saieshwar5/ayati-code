@@ -92,3 +92,8 @@ func (m *Manager) authToken(ctx context.Context, microvmID string) (string, erro
 	m.mu.Unlock()
 	return token, nil
 }
+
+// Get returns the current AWS state for a microVM instance.
+func (m *Manager) Get(ctx context.Context, microvmID string) (Instance, error) {
+	return m.api.GetMicrovm(ctx, microvmID)
+}

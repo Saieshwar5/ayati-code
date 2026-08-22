@@ -109,3 +109,33 @@ func toRuntimeInstance(workspaceID string, instance environments.Instance) works
 		State:       instance.State,
 	}
 }
+
+// Reconcile syncs persisted Lambda instance records with AWS state. Records
+// whose microVM is terminated/failed or no longer visible are removed; live
+// ones are refreshed to the provider-reported state.
+func (r *LambdaRuntime) Reconcile(ctx context.Context) error {
+	records, err := r.store.ListRuntimeInstances(ctx)
+	if err != nil {
+		return err
+	}
+	for _, record := range records {
+		if record.Provider != "lambda" {
+			continue
+		}
+		instance, err := r.manager.Get(ctx, record.InstanceID)
+		if err != nil {
+			_ = r.store.DeleteRuntimeInstance(ctx, record.WorkspaceID)
+			continue
+		}
+		switch instance.State {
+		case "TERMINATED", "FAILED":
+			_ = r.store.DeleteRuntimeInstance(ctx, record.WorkspaceID)
+		default:
+			record.State = instance.State
+			if err := r.store.SaveRuntimeInstance(ctx, record); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
