@@ -85,13 +85,13 @@ func createSession(
 }
 
 func (s *Store) GetSession(ctx context.Context, workspaceID, sessionID string) (Session, error) {
-	row := s.db.QueryRowContext(ctx, selectSession+` WHERE workspace_id = ? AND id = ?`,
+	row := s.queryRowContext(ctx, selectSession+` WHERE workspace_id = ? AND id = ?`,
 		strings.TrimSpace(workspaceID), strings.TrimSpace(sessionID))
 	return scanSession(row)
 }
 
 func (s *Store) ListSessions(ctx context.Context, workspaceID string) ([]Session, error) {
-	rows, err := s.db.QueryContext(ctx, selectSession+` WHERE workspace_id = ? ORDER BY updated_at DESC`,
+	rows, err := s.queryContext(ctx, selectSession+` WHERE workspace_id = ? ORDER BY updated_at DESC`,
 		strings.TrimSpace(workspaceID))
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -113,7 +113,7 @@ func (s *Store) UpdateSessionStatus(ctx context.Context, id, status, message str
 		return fmt.Errorf("invalid session status %q", status)
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx,
+	result, err := s.execContext(ctx,
 		`UPDATE sessions SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
 		status, strings.TrimSpace(message), formatTime(now), strings.TrimSpace(id))
 	if err != nil {
@@ -131,7 +131,7 @@ func (s *Store) RenameSession(ctx context.Context, workspaceID, id, title string
 		return Session{}, errors.New("session title is required")
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `UPDATE sessions SET title = ?, updated_at = ?
+	result, err := s.execContext(ctx, `UPDATE sessions SET title = ?, updated_at = ?
 		WHERE workspace_id = ? AND id = ?`, title, formatTime(now),
 		strings.TrimSpace(workspaceID), strings.TrimSpace(id))
 	if err != nil {
@@ -152,7 +152,7 @@ func (s *Store) TitleSessionFromMessage(ctx context.Context, id, message string)
 		return nil
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `UPDATE sessions SET title = ?, updated_at = ?
+	result, err := s.execContext(ctx, `UPDATE sessions SET title = ?, updated_at = ?
 		WHERE id = ? AND title = 'New session'`, title, formatTime(now), strings.TrimSpace(id))
 	if err != nil {
 		return err
@@ -172,14 +172,14 @@ func (s *Store) DeleteSession(ctx context.Context, workspaceID, id string) error
 		return errors.New("cannot delete a running session")
 	}
 	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions WHERE workspace_id = ?`,
+	if err := s.queryRowContext(ctx, `SELECT COUNT(*) FROM sessions WHERE workspace_id = ?`,
 		strings.TrimSpace(workspaceID)).Scan(&count); err != nil {
 		return fmt.Errorf("count workspace sessions: %w", err)
 	}
 	if count <= 1 {
 		return errors.New("a workspace must keep at least one session")
 	}
-	result, err := s.db.ExecContext(ctx, `DELETE FROM sessions WHERE workspace_id = ? AND id = ?`,
+	result, err := s.execContext(ctx, `DELETE FROM sessions WHERE workspace_id = ? AND id = ?`,
 		strings.TrimSpace(workspaceID), strings.TrimSpace(id))
 	if err != nil {
 		return fmt.Errorf("delete session: %w", err)
@@ -192,7 +192,7 @@ func (s *Store) DeleteSession(ctx context.Context, workspaceID, id string) error
 
 func (s *Store) HasWorkingSession(ctx context.Context, workspaceID string) (bool, error) {
 	var count int
-	err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sessions
+	err := s.queryRowContext(ctx, `SELECT COUNT(*) FROM sessions
 		WHERE workspace_id = ? AND status = ?`, strings.TrimSpace(workspaceID), SessionStatusWorking).Scan(&count)
 	return count != 0, err
 }
@@ -225,7 +225,7 @@ func requireOneRow(result sql.Result) error {
 }
 
 func (s *Store) touchWorkspace(ctx context.Context, workspaceID string, now time.Time) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET updated_at = ? WHERE id = ?`,
+	result, err := s.execContext(ctx, `UPDATE workspaces SET updated_at = ? WHERE id = ?`,
 		formatTime(now), strings.TrimSpace(workspaceID))
 	if err != nil {
 		return fmt.Errorf("touch workspace: %w", err)
@@ -234,7 +234,7 @@ func (s *Store) touchWorkspace(ctx context.Context, workspaceID string, now time
 }
 
 func (s *Store) touchWorkspaceForSession(ctx context.Context, sessionID string, now time.Time) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET updated_at = ?
+	result, err := s.execContext(ctx, `UPDATE workspaces SET updated_at = ?
 		WHERE id = (SELECT workspace_id FROM sessions WHERE id = ?)`,
 		formatTime(now), strings.TrimSpace(sessionID))
 	if err != nil {

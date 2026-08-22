@@ -17,19 +17,19 @@ func (s *Store) migrateWorkspaceArchive(ctx context.Context) error {
 		return err
 	}
 	if !columns["archived_at"] {
-		if _, err := s.db.ExecContext(ctx,
+		if _, err := s.execContext(ctx,
 			`ALTER TABLE workspaces ADD COLUMN archived_at TEXT NOT NULL DEFAULT ''`); err != nil {
 			return fmt.Errorf("migrate workspace archive: %w", err)
 		}
 	}
-	if _, err := s.db.ExecContext(ctx, `PRAGMA user_version = 6`); err != nil {
+	if err := s.setSchemaVersion(ctx, 6); err != nil {
 		return fmt.Errorf("record workspace archive migration: %w", err)
 	}
 	return nil
 }
 
 func (s *Store) Archive(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET archived_at = ?, updated_at = ?
+	result, err := s.execContext(ctx, `UPDATE workspaces SET archived_at = ?, updated_at = ?
 		WHERE id = ? AND archived_at = ''`, formatTime(time.Now().UTC()),
 		formatTime(time.Now().UTC()), strings.TrimSpace(id))
 	if err != nil {
@@ -39,7 +39,7 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 }
 
 func (s *Store) Restore(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET archived_at = '', updated_at = ?
+	result, err := s.execContext(ctx, `UPDATE workspaces SET archived_at = '', updated_at = ?
 		WHERE id = ? AND archived_at != ''`, formatTime(time.Now().UTC()), strings.TrimSpace(id))
 	if err != nil {
 		return fmt.Errorf("restore workspace: %w", err)

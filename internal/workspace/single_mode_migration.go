@@ -19,11 +19,11 @@ func (s *Store) migrateSingleWorkspaceMode(ctx context.Context) error {
 		if !columns[column] {
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces DROP COLUMN `+column); err != nil {
+		if _, err := s.execTx(ctx, tx, `ALTER TABLE workspaces DROP COLUMN `+column); err != nil {
 			return fmt.Errorf("remove workspace %s: %w", column, err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `PRAGMA user_version = 10`); err != nil {
+	if err := s.setSchemaVersionTx(ctx, tx, 10); err != nil {
 		return fmt.Errorf("record single workspace mode migration: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

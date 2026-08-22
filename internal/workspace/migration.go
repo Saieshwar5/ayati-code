@@ -8,66 +8,9 @@ import (
 	"time"
 )
 
-const workspaceSchema = `CREATE TABLE IF NOT EXISTS workspaces (
-	id TEXT PRIMARY KEY,
-	user_id TEXT NOT NULL DEFAULT '',
-	runtime_provider TEXT NOT NULL DEFAULT 'local',
-	runtime_ref TEXT NOT NULL DEFAULT '',
-	runtime_state TEXT NOT NULL DEFAULT 'not_created',
-	runtime_updated_at TEXT NOT NULL DEFAULT '',
-	repository TEXT NOT NULL,
-	clone_url TEXT NOT NULL,
-	base_branch TEXT NOT NULL,
-	branch TEXT NOT NULL,
-	create_branch INTEGER NOT NULL,
-	environment_version_id TEXT NOT NULL DEFAULT '',
-	preparation_stage TEXT NOT NULL DEFAULT 'pending',
-	preparation_detail TEXT NOT NULL DEFAULT '',
-	preparation_failed_stage TEXT NOT NULL DEFAULT '',
-	selected_project_root TEXT NOT NULL DEFAULT '',
-	configuration_candidates TEXT NOT NULL DEFAULT '[]',
-	setup_command TEXT NOT NULL,
-	path TEXT NOT NULL UNIQUE,
-	status TEXT NOT NULL,
-	error TEXT NOT NULL DEFAULT '',
-	pull_request_number INTEGER NOT NULL DEFAULT 0,
-	pull_request_url TEXT NOT NULL DEFAULT '',
-	archived_at TEXT NOT NULL DEFAULT '',
-	created_at TEXT NOT NULL,
-	updated_at TEXT NOT NULL
-)`
-
-const sessionSchema = `CREATE TABLE IF NOT EXISTS sessions (
-	id TEXT PRIMARY KEY,
-	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-	title TEXT NOT NULL,
-	status TEXT NOT NULL,
-	error TEXT NOT NULL DEFAULT '',
-	created_at TEXT NOT NULL,
-	updated_at TEXT NOT NULL
-)`
-
-const messageSchema = `CREATE TABLE IF NOT EXISTS messages (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-	payload TEXT NOT NULL,
-	created_at TEXT NOT NULL
-)`
-
-const environmentSchema = `CREATE TABLE IF NOT EXISTS workspace_environment (
-	workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
-	name TEXT NOT NULL,
-	ciphertext BLOB NOT NULL,
-	nonce BLOB NOT NULL,
-	expose_during_setup INTEGER NOT NULL DEFAULT 0,
-	created_at TEXT NOT NULL,
-	updated_at TEXT NOT NULL,
-	PRIMARY KEY (workspace_id, name)
-)`
-
 func (s *Store) configure() error {
 	for _, statement := range []string{
-		workspaceSchema, environmentSchema,
+		workspaceSchema, environmentSchema(s.dialect),
 	} {
 		if _, err := s.db.Exec(statement); err != nil {
 			return fmt.Errorf("initialize database: %w", err)
@@ -126,12 +69,12 @@ func (s *Store) migrateWorkspaceUsers(ctx context.Context) error {
 		return err
 	}
 	if !columns["user_id"] {
-		if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces ADD COLUMN
+		if _, err := s.execTx(ctx, tx, `ALTER TABLE workspaces ADD COLUMN
 			user_id TEXT NOT NULL DEFAULT ''`); err != nil {
 			return fmt.Errorf("migrate workspace owner: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS workspaces_user ON workspaces(user_id)`); err != nil {
+	if _, err := s.execTx(ctx, tx, `CREATE INDEX IF NOT EXISTS workspaces_user ON workspaces(user_id)`); err != nil {
 		return fmt.Errorf("create workspace owner index: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -160,15 +103,15 @@ func (s *Store) migrateWorkspaceRuntimeColumns(ctx context.Context) error {
 		if columns[name] {
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
+		if _, err := s.execTx(ctx, tx, statement); err != nil {
 			return fmt.Errorf("migrate workspace runtime %s: %w", name, err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE workspaces SET runtime_provider = 'local'
+	if _, err := s.execTx(ctx, tx, `UPDATE workspaces SET runtime_provider = 'local'
 		WHERE runtime_provider = ''`); err != nil {
 		return fmt.Errorf("default workspace runtime provider: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE workspaces SET runtime_state = 'not_created'
+	if _, err := s.execTx(ctx, tx, `UPDATE workspaces SET runtime_state = 'not_created'
 		WHERE runtime_state = ''`); err != nil {
 		return fmt.Errorf("default workspace runtime state: %w", err)
 	}
@@ -184,10 +127,10 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 		return fmt.Errorf("begin session migration: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, sessionSchema); err != nil {
+	if _, err := s.execTx(ctx, tx, sessionSchema); err != nil {
 		return fmt.Errorf("create sessions table: %w", err)
 	}
-	if err := seedWorkspaceSessions(ctx, tx); err != nil {
+	if err := s.seedWorkspaceSessions(ctx, tx); err != nil {
 		return err
 	}
 	columns, err := tableColumns(ctx, tx, s.database.Dialect(), "messages")
@@ -196,11 +139,11 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 	}
 	switch {
 	case len(columns) == 0:
-		if _, err := tx.ExecContext(ctx, messageSchema); err != nil {
+		if _, err := s.execTx(ctx, tx, messageSchema(s.dialect)); err != nil {
 			return fmt.Errorf("create messages table: %w", err)
 		}
 	case columns["workspace_id"]:
-		if err := migrateWorkspaceMessages(ctx, tx); err != nil {
+		if err := s.migrateWorkspaceMessages(ctx, tx); err != nil {
 			return err
 		}
 	case !columns["session_id"]:
@@ -210,20 +153,20 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS sessions_workspace_updated ON sessions(workspace_id, updated_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS messages_session ON messages(session_id, id)`,
 	} {
-		if _, err := tx.ExecContext(ctx, statement); err != nil {
+		if _, err := s.execTx(ctx, tx, statement); err != nil {
 			return fmt.Errorf("create session index: %w", err)
 		}
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE sessions SET status = ?,
+	if _, err := s.execTx(ctx, tx, `UPDATE sessions SET status = ?,
 		error = 'Agent run interrupted when Perpetual restarted', updated_at = ? WHERE status = ?`,
 		SessionStatusFailed, formatTime(time.Now().UTC()), SessionStatusWorking); err != nil {
 		return fmt.Errorf("recover interrupted sessions: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `UPDATE workspaces SET status = ?, error = ''
+	if _, err := s.execTx(ctx, tx, `UPDATE workspaces SET status = ?, error = ''
 		WHERE status IN ('working', 'agent_failed', 'review', 'pull_request_open', 'done')`, StatusReady); err != nil {
 		return fmt.Errorf("normalize workspace status: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `PRAGMA user_version = 2`); err != nil {
+	if err := s.setSchemaVersionTx(ctx, tx, 2); err != nil {
 		return fmt.Errorf("record schema version: %w", err)
 	}
 	if err := tx.Commit(); err != nil {
@@ -236,8 +179,8 @@ type legacyWorkspace struct {
 	id, status, message, createdAt, updatedAt string
 }
 
-func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
-	rows, err := tx.QueryContext(ctx, `SELECT id, status, error, created_at, updated_at FROM workspaces
+func (s *Store) seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
+	rows, err := s.queryTx(ctx, tx, `SELECT id, status, error, created_at, updated_at FROM workspaces
 		WHERE NOT EXISTS (SELECT 1 FROM sessions WHERE sessions.workspace_id = workspaces.id)`)
 	if err != nil {
 		return fmt.Errorf("find workspaces without sessions: %w", err)
@@ -265,7 +208,7 @@ func seedWorkspaceSessions(ctx context.Context, tx *sql.Tx) error {
 		}
 		status, message := migratedSessionStatus(value.status, value.message)
 		if status != SessionStatusIdle {
-			if _, err := tx.ExecContext(ctx, `UPDATE sessions SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
+			if _, err := s.execTx(ctx, tx, `UPDATE sessions SET status = ?, error = ?, updated_at = ? WHERE id = ?`,
 				status, message, value.updatedAt, session.ID); err != nil {
 				return fmt.Errorf("migrate session status: %w", err)
 			}
@@ -287,35 +230,30 @@ func migratedSessionStatus(status, message string) (string, string) {
 	}
 }
 
-func migrateWorkspaceMessages(ctx context.Context, tx *sql.Tx) error {
+func (s *Store) migrateWorkspaceMessages(ctx context.Context, tx *sql.Tx) error {
 	var before int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages`).Scan(&before); err != nil {
+	if err := s.queryRowTx(ctx, tx, `SELECT COUNT(*) FROM messages`).Scan(&before); err != nil {
 		return fmt.Errorf("count legacy messages: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `CREATE TABLE messages_v1 (
-		id INTEGER PRIMARY KEY AUTOINCREMENT,
-		session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
-		payload TEXT NOT NULL,
-		created_at TEXT NOT NULL
-	)`); err != nil {
+	if _, err := s.execTx(ctx, tx, migratedMessagesSchema(s.dialect)); err != nil {
 		return fmt.Errorf("create migrated messages table: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO messages_v1 (id, session_id, payload, created_at)
+	if _, err := s.execTx(ctx, tx, `INSERT INTO messages_v1 (id, session_id, payload, created_at)
 		SELECT messages.id, sessions.id, messages.payload, messages.created_at
 		FROM messages JOIN sessions ON sessions.workspace_id = messages.workspace_id`); err != nil {
 		return fmt.Errorf("migrate workspace messages: %w", err)
 	}
 	var after int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM messages_v1`).Scan(&after); err != nil {
+	if err := s.queryRowTx(ctx, tx, `SELECT COUNT(*) FROM messages_v1`).Scan(&after); err != nil {
 		return fmt.Errorf("count migrated messages: %w", err)
 	}
 	if before != after {
 		return fmt.Errorf("migrate workspace messages: copied %d of %d", after, before)
 	}
-	if _, err := tx.ExecContext(ctx, `DROP TABLE messages`); err != nil {
+	if _, err := s.execTx(ctx, tx, `DROP TABLE messages`); err != nil {
 		return fmt.Errorf("remove legacy messages table: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE messages_v1 RENAME TO messages`); err != nil {
+	if _, err := s.execTx(ctx, tx, `ALTER TABLE messages_v1 RENAME TO messages`); err != nil {
 		return fmt.Errorf("install migrated messages table: %w", err)
 	}
 	return nil

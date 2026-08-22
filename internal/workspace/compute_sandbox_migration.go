@@ -3,6 +3,8 @@ package workspace
 import (
 	"context"
 	"fmt"
+
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 )
 
 // workspacesWithoutSandbox is the current workspace table shape after the
@@ -43,18 +45,23 @@ func (s *Store) migrateRemoveComputeSandbox(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	for _, statement := range []string{
-		`DROP TRIGGER IF EXISTS environments_prevent_active_delete`,
-		`DROP TRIGGER IF EXISTS workspaces_prevent_active_lease_delete`,
+	statements := []string{
 		`DROP TABLE IF EXISTS environment_leases`,
 		`DROP TABLE IF EXISTS environments`,
-	} {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+	}
+	if s.dialect != appdatabase.ProviderPostgres {
+		statements = append(statements,
+			`DROP TRIGGER IF EXISTS environments_prevent_active_delete`,
+			`DROP TRIGGER IF EXISTS workspaces_prevent_active_lease_delete`,
+		)
+	}
+	for _, statement := range statements {
+		if _, err := s.execContext(ctx, statement); err != nil {
 			return fmt.Errorf("remove compute environment schema: %w", err)
 		}
 	}
 	if !columns["sandbox_name"] {
-		if _, err := s.db.ExecContext(ctx, `PRAGMA user_version = 11`); err != nil {
+		if err := s.setSchemaVersion(ctx, 11); err != nil {
 			return fmt.Errorf("record compute environment removal: %w", err)
 		}
 		return nil
@@ -62,29 +69,31 @@ func (s *Store) migrateRemoveComputeSandbox(ctx context.Context) error {
 	// The rebuild drops and recreates the parent workspaces table. Foreign-key
 	// cascades would delete child sessions and messages, so enforce the rebuild
 	// with constraints temporarily suspended on this single-threaded connection.
-	if _, err := s.db.ExecContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
-		return fmt.Errorf("suspend foreign keys for workspace rebuild: %w", err)
+	if s.dialect != appdatabase.ProviderPostgres {
+		if _, err := s.execContext(ctx, `PRAGMA foreign_keys = OFF`); err != nil {
+			return fmt.Errorf("suspend foreign keys for workspace rebuild: %w", err)
+		}
+		defer func() { _, _ = s.db.Exec(`PRAGMA foreign_keys = ON`) }()
 	}
-	defer func() { _, _ = s.db.Exec(`PRAGMA foreign_keys = ON`) }()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin compute environment removal: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, workspacesWithoutSandbox); err != nil {
+	if _, err := s.execTx(ctx, tx, workspacesWithoutSandbox); err != nil {
 		return fmt.Errorf("create workspace table without sandbox: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO workspaces_v11 (`+workspaceColumnsWithoutSandbox+`)
+	if _, err := s.execTx(ctx, tx, `INSERT INTO workspaces_v11 (`+workspaceColumnsWithoutSandbox+`)
 		SELECT `+workspaceColumnsWithoutSandbox+` FROM workspaces`); err != nil {
 		return fmt.Errorf("copy workspaces without sandbox: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DROP TABLE workspaces`); err != nil {
+	if _, err := s.execTx(ctx, tx, `DROP TABLE workspaces`); err != nil {
 		return fmt.Errorf("remove legacy workspaces table: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `ALTER TABLE workspaces_v11 RENAME TO workspaces`); err != nil {
+	if _, err := s.execTx(ctx, tx, `ALTER TABLE workspaces_v11 RENAME TO workspaces`); err != nil {
 		return fmt.Errorf("install workspace table without sandbox: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `PRAGMA user_version = 11`); err != nil {
+	if err := s.setSchemaVersionTx(ctx, tx, 11); err != nil {
 		return fmt.Errorf("record compute environment removal: %w", err)
 	}
 	if err := tx.Commit(); err != nil {

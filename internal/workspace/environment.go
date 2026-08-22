@@ -6,12 +6,15 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	"time"
 )
 
@@ -62,6 +65,42 @@ func newEnvironmentSealer(databasePath string, requireExistingKey bool) (*enviro
 		}
 		copy(key, value)
 	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("create environment cipher: %w", err)
+	}
+	aead, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("create environment sealer: %w", err)
+	}
+	return &environmentSealer{aead: aead}, nil
+}
+
+// newEnvironmentSealerForDatabase returns the environment sealer for the
+// active provider. SQLite keeps the local environment.key file; Postgres uses
+// PERPETUAL_ENCRYPTION_KEY (32 bytes hex) when set, otherwise a random
+// development key valid for the process only.
+func newEnvironmentSealerForDatabase(database *appdatabase.Database, requireExistingKey bool) (*environmentSealer, error) {
+	if database.Provider() == appdatabase.ProviderPostgres {
+		key := make([]byte, environmentKeyBytes)
+		configured := strings.TrimSpace(os.Getenv("PERPETUAL_ENCRYPTION_KEY"))
+		if configured != "" {
+			decoded, err := hex.DecodeString(configured)
+			if err != nil || len(decoded) != environmentKeyBytes {
+				return nil, errors.New("PERPETUAL_ENCRYPTION_KEY must be 32 bytes of hex")
+			}
+			copy(key, decoded)
+		} else {
+			if _, err := rand.Read(key); err != nil {
+				return nil, fmt.Errorf("generate environment key: %w", err)
+			}
+		}
+		return newEnvironmentSealerFromKey(key)
+	}
+	return newEnvironmentSealer(database.Path(), requireExistingKey)
+}
+
+func newEnvironmentSealerFromKey(key []byte) (*environmentSealer, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("create environment cipher: %w", err)
@@ -188,7 +227,7 @@ func (s *Store) insertEnvironment(
 		if err != nil {
 			return err
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO workspace_environment
+		_, err = s.execTx(ctx, tx, `INSERT INTO workspace_environment
 			(workspace_id, name, ciphertext, nonce, expose_during_setup, created_at, updated_at)
 			VALUES (?, ?, ?, ?, ?, ?, ?)`, workspaceID, input.Name, ciphertext, nonce,
 			input.ExposeDuringSetup, formatTime(now), formatTime(now))
@@ -204,11 +243,11 @@ func (s *Store) UpsertEnvironment(ctx context.Context, workspaceID string, input
 		return EnvironmentVariable{}, err
 	}
 	var count int
-	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM workspace_environment WHERE workspace_id = ?`, workspaceID).Scan(&count); err != nil {
+	if err := s.queryRowContext(ctx, `SELECT COUNT(*) FROM workspace_environment WHERE workspace_id = ?`, workspaceID).Scan(&count); err != nil {
 		return EnvironmentVariable{}, fmt.Errorf("count environment variables: %w", err)
 	}
 	var exists int
-	_ = s.db.QueryRowContext(ctx, `SELECT 1 FROM workspace_environment WHERE workspace_id = ? AND name = ?`, workspaceID, input.Name).Scan(&exists)
+	_ = s.queryRowContext(ctx, `SELECT 1 FROM workspace_environment WHERE workspace_id = ? AND name = ?`, workspaceID, input.Name).Scan(&exists)
 	if exists == 0 && count >= maxEnvironmentCount {
 		return EnvironmentVariable{}, fmt.Errorf("a workspace may contain at most %d environment variables", maxEnvironmentCount)
 	}
@@ -217,7 +256,7 @@ func (s *Store) UpsertEnvironment(ctx context.Context, workspaceID string, input
 		return EnvironmentVariable{}, err
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `INSERT INTO workspace_environment
+	result, err := s.execContext(ctx, `INSERT INTO workspace_environment
 		(workspace_id, name, ciphertext, nonce, expose_during_setup, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(workspace_id, name) DO UPDATE SET ciphertext = excluded.ciphertext,
@@ -235,7 +274,7 @@ func (s *Store) UpsertEnvironment(ctx context.Context, workspaceID string, input
 }
 
 func (s *Store) ListEnvironment(ctx context.Context, workspaceID string) ([]EnvironmentVariable, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT name, expose_during_setup, updated_at
+	rows, err := s.queryContext(ctx, `SELECT name, expose_during_setup, updated_at
 		FROM workspace_environment WHERE workspace_id = ? ORDER BY name`, strings.TrimSpace(workspaceID))
 	if err != nil {
 		return nil, fmt.Errorf("list environment variables: %w", err)
@@ -263,7 +302,7 @@ func (s *Store) EnvironmentValues(ctx context.Context, workspaceID string, setup
 	if setupOnly {
 		query += ` AND expose_during_setup = 1`
 	}
-	rows, err := s.db.QueryContext(ctx, query, strings.TrimSpace(workspaceID))
+	rows, err := s.queryContext(ctx, query, strings.TrimSpace(workspaceID))
 	if err != nil {
 		return nil, fmt.Errorf("load environment variables: %w", err)
 	}
@@ -285,7 +324,7 @@ func (s *Store) EnvironmentValues(ctx context.Context, workspaceID string, setup
 }
 
 func (s *Store) DeleteEnvironment(ctx context.Context, workspaceID, name string) error {
-	result, err := s.db.ExecContext(ctx, `DELETE FROM workspace_environment WHERE workspace_id = ? AND name = ?`,
+	result, err := s.execContext(ctx, `DELETE FROM workspace_environment WHERE workspace_id = ? AND name = ?`,
 		strings.TrimSpace(workspaceID), strings.TrimSpace(name))
 	if err != nil {
 		return fmt.Errorf("delete environment variable: %w", err)

@@ -78,6 +78,7 @@ type Create struct {
 
 type Store struct {
 	db       *sql.DB
+	dialect  appdatabase.Provider
 	sealer   *environmentSealer
 	database *appdatabase.Database
 }
@@ -113,11 +114,11 @@ func NewStore(database *appdatabase.Database) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("inspect database version: %w", err)
 	}
-	sealer, err := newEnvironmentSealer(database.Path(), schemaVersion >= 2)
+	sealer, err := newEnvironmentSealerForDatabase(database, schemaVersion >= 2)
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: db, sealer: sealer, database: database}
+	store := &Store{db: db, dialect: database.Provider(), sealer: sealer, database: database}
 	if err := store.configure(); err != nil {
 		return nil, err
 	}
@@ -176,7 +177,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 		return Workspace{}, fmt.Errorf("begin workspace creation: %w", err)
 	}
 	defer tx.Rollback()
-	_, err = tx.ExecContext(ctx, `INSERT INTO workspaces (
+	_, err = s.execTx(ctx, tx, `INSERT INTO workspaces (
 		id, user_id, runtime_provider, runtime_ref, runtime_state, runtime_updated_at,
 		repository, clone_url, base_branch, branch, create_branch, setup_command, path,
 		status, error, pull_request_number, pull_request_url, created_at, updated_at
@@ -202,7 +203,7 @@ func (s *Store) Create(ctx context.Context, input Create) (Workspace, error) {
 }
 
 func (s *Store) Get(ctx context.Context, id string) (Workspace, error) {
-	row := s.db.QueryRowContext(ctx, selectWorkspace+` WHERE id = ?`, strings.TrimSpace(id))
+	row := s.queryRowContext(ctx, selectWorkspace+` WHERE id = ?`, strings.TrimSpace(id))
 	value, err := scanWorkspace(row)
 	if err == nil {
 		err = s.attachProfile(ctx, &value)
@@ -211,7 +212,7 @@ func (s *Store) Get(ctx context.Context, id string) (Workspace, error) {
 }
 
 func (s *Store) List(ctx context.Context) ([]Workspace, error) {
-	rows, err := s.db.QueryContext(ctx, selectWorkspace+` WHERE archived_at = '' ORDER BY updated_at DESC`)
+	rows, err := s.queryContext(ctx, selectWorkspace+` WHERE archived_at = '' ORDER BY updated_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces: %w", err)
 	}
@@ -247,7 +248,7 @@ func (s *Store) ListArchivedForUser(ctx context.Context, userID string) ([]Works
 }
 
 func (s *Store) listWhere(ctx context.Context, where string, args ...any) ([]Workspace, error) {
-	rows, err := s.db.QueryContext(ctx, selectWorkspace+where, args...)
+	rows, err := s.queryContext(ctx, selectWorkspace+where, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list workspaces: %w", err)
 	}
@@ -275,7 +276,7 @@ func (s *Store) listWhere(ctx context.Context, where string, args ...any) ([]Wor
 }
 
 func (s *Store) GetForUser(ctx context.Context, userID, id string) (Workspace, error) {
-	row := s.db.QueryRowContext(ctx, selectWorkspace+` WHERE id = ? AND user_id = ?`,
+	row := s.queryRowContext(ctx, selectWorkspace+` WHERE id = ? AND user_id = ?`,
 		strings.TrimSpace(id), strings.TrimSpace(userID))
 	value, err := scanWorkspace(row)
 	if err == nil {
@@ -285,7 +286,7 @@ func (s *Store) GetForUser(ctx context.Context, userID, id string) (Workspace, e
 }
 
 func (s *Store) ListArchived(ctx context.Context) ([]Workspace, error) {
-	rows, err := s.db.QueryContext(ctx, selectWorkspace+` WHERE archived_at != '' ORDER BY archived_at DESC`)
+	rows, err := s.queryContext(ctx, selectWorkspace+` WHERE archived_at != '' ORDER BY archived_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("list archived workspaces: %w", err)
 	}

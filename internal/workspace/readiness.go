@@ -38,7 +38,7 @@ func (s *Store) UpdatePreparation(ctx context.Context, id, stage, detail string)
 	if !preparationStages[stage] {
 		return fmt.Errorf("invalid preparation stage %q", stage)
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET preparation_stage = ?,
+	result, err := s.execContext(ctx, `UPDATE workspaces SET preparation_stage = ?,
 		preparation_detail = ?, preparation_failed_stage = '', updated_at = ? WHERE id = ?`, stage, strings.TrimSpace(detail),
 		formatTime(time.Now().UTC()), strings.TrimSpace(id))
 	if err != nil {
@@ -57,7 +57,7 @@ func (s *Store) RequireProjectSelection(
 	if err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET status = ?, error = '',
+	result, err := s.execContext(ctx, `UPDATE workspaces SET status = ?, error = '',
 		preparation_stage = ?, preparation_detail = ?, configuration_candidates = ?,
 		preparation_failed_stage = '', selected_project_root = '', updated_at = ? WHERE id = ?`,
 		StatusNeedsConfiguration, PreparationNeedsConfiguration,
@@ -76,7 +76,7 @@ func (s *Store) SelectProjectRoot(ctx context.Context, id, root string) error {
 	if root == "" {
 		return errors.New("project root is required")
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET selected_project_root = ?,
+	result, err := s.execContext(ctx, `UPDATE workspaces SET selected_project_root = ?,
 		status = ?, error = '', preparation_stage = ?, preparation_detail = '',
 		preparation_failed_stage = '', updated_at = ?
 		WHERE id = ?`, root, StatusCreating, PreparationPending, formatTime(time.Now().UTC()), id)
@@ -90,7 +90,7 @@ func (s *Store) SelectProjectRoot(ctx context.Context, id, root string) error {
 }
 
 func (s *Store) FailPreparation(ctx context.Context, id, message string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET status = ?, error = ?,
+	result, err := s.execContext(ctx, `UPDATE workspaces SET status = ?, error = ?,
 		preparation_failed_stage = preparation_stage, preparation_stage = ?,
 		preparation_detail = ?, updated_at = ? WHERE id = ?`,
 		StatusInitializationFailed, strings.TrimSpace(message), PreparationFailed,
@@ -105,7 +105,7 @@ func (s *Store) FailPreparation(ctx context.Context, id, message string) error {
 }
 
 func (s *Store) CompletePreparation(ctx context.Context, id string) error {
-	result, err := s.db.ExecContext(ctx, `UPDATE workspaces SET status = ?, error = '',
+	result, err := s.execContext(ctx, `UPDATE workspaces SET status = ?, error = '',
 		preparation_stage = ?, preparation_detail = ?, preparation_failed_stage = '',
 		configuration_candidates = '[]',
 		updated_at = ? WHERE id = ?`, StatusReady, PreparationReady, "Workspace ready",

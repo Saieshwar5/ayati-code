@@ -72,7 +72,7 @@ const workspaceJobSchema = `CREATE TABLE IF NOT EXISTS workspace_jobs (
 )`
 
 func (s *Store) migrateWorkspaceJobs(ctx context.Context) error {
-	if _, err := s.db.ExecContext(ctx, workspaceJobSchema); err != nil {
+	if _, err := s.execContext(ctx, workspaceJobSchema); err != nil {
 		return fmt.Errorf("create workspace jobs: %w", err)
 	}
 	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspace_jobs")
@@ -80,7 +80,7 @@ func (s *Store) migrateWorkspaceJobs(ctx context.Context) error {
 		return err
 	}
 	if !columns["user_id"] {
-		if _, err := s.db.ExecContext(ctx, `ALTER TABLE workspace_jobs ADD COLUMN
+		if _, err := s.execContext(ctx, `ALTER TABLE workspace_jobs ADD COLUMN
 			user_id TEXT NOT NULL DEFAULT ''`); err != nil {
 			return fmt.Errorf("migrate workspace job owner: %w", err)
 		}
@@ -90,11 +90,11 @@ func (s *Store) migrateWorkspaceJobs(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS workspace_jobs_workspace ON workspace_jobs(workspace_id, state)`,
 		`CREATE INDEX IF NOT EXISTS workspace_jobs_user ON workspace_jobs(user_id)`,
 	} {
-		if _, err := s.db.ExecContext(ctx, statement); err != nil {
+		if _, err := s.execContext(ctx, statement); err != nil {
 			return fmt.Errorf("create workspace job index: %w", err)
 		}
 	}
-	if _, err := s.db.ExecContext(ctx, `PRAGMA user_version = 13`); err != nil {
+	if err := s.setSchemaVersion(ctx, 13); err != nil {
 		return fmt.Errorf("record workspace job schema: %w", err)
 	}
 	return nil
@@ -106,7 +106,7 @@ func (s *Store) CreateJob(ctx context.Context, workspaceID, kind string) (Job, e
 		return Job{}, errors.New("workspace ID and job kind are required")
 	}
 	var userID string
-	if err := s.db.QueryRowContext(ctx, `SELECT user_id FROM workspaces WHERE id = ?`,
+	if err := s.queryRowContext(ctx, `SELECT user_id FROM workspaces WHERE id = ?`,
 		workspaceID).Scan(&userID); err != nil {
 		return Job{}, fmt.Errorf("resolve workspace job owner: %w", err)
 	}
@@ -119,7 +119,7 @@ func (s *Store) CreateJob(ctx context.Context, workspaceID, kind string) (Job, e
 		ID: id, UserID: userID, WorkspaceID: workspaceID, Kind: kind, State: JobStateQueued,
 		MaxAttempts: 1, CreatedAt: now, UpdatedAt: now,
 	}
-	_, err = s.db.ExecContext(ctx, `INSERT INTO workspace_jobs (
+	_, err = s.execContext(ctx, `INSERT INTO workspace_jobs (
 		id, user_id, workspace_id, kind, state, attempts, max_attempts, payload, created_at, updated_at
 	) VALUES (?, ?, ?, ?, ?, 0, ?, '', ?, ?)`, value.ID, value.UserID,
 		value.WorkspaceID, value.Kind, value.State, value.MaxAttempts,
@@ -132,7 +132,7 @@ func (s *Store) CreateJob(ctx context.Context, workspaceID, kind string) (Job, e
 
 func (s *Store) HasActiveJob(ctx context.Context, workspaceID, kind string) (bool, error) {
 	var exists int
-	err := s.db.QueryRowContext(ctx, `SELECT 1 FROM workspace_jobs
+	err := s.queryRowContext(ctx, `SELECT 1 FROM workspace_jobs
 		WHERE workspace_id = ? AND kind = ? AND state IN (?, ?) LIMIT 1`,
 		strings.TrimSpace(workspaceID), strings.TrimSpace(kind), JobStateQueued, JobStateRunning).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -145,7 +145,7 @@ func (s *Store) HasActiveJob(ctx context.Context, workspaceID, kind string) (boo
 }
 
 func (s *Store) Jobs(ctx context.Context, workspaceID string) ([]Job, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, user_id, workspace_id, kind, state, attempts,
+	rows, err := s.queryContext(ctx, `SELECT id, user_id, workspace_id, kind, state, attempts,
 		max_attempts, lease_owner, lease_expires_at, payload, error, created_at, updated_at,
 		started_at, finished_at FROM workspace_jobs WHERE workspace_id = ? ORDER BY created_at`,
 		strings.TrimSpace(workspaceID))
@@ -172,13 +172,13 @@ func (s *Store) ClaimNextJob(ctx context.Context) (Job, error) {
 	}
 	defer tx.Rollback()
 	var value Job
-	if err := scanJobRow(tx.QueryRowContext(ctx, `SELECT id, user_id, workspace_id, kind, state, attempts,
+	if err := scanJobRow(s.queryRowTx(ctx, tx, `SELECT id, user_id, workspace_id, kind, state, attempts,
 		max_attempts, lease_owner, lease_expires_at, payload, error, created_at, updated_at,
 		started_at, finished_at FROM workspace_jobs WHERE state = ? ORDER BY created_at LIMIT 1`,
 		JobStateQueued), &value); err != nil {
 		return Job{}, err
 	}
-	result, err := tx.ExecContext(ctx, `UPDATE workspace_jobs SET state = ?, attempts = attempts + 1,
+	result, err := s.execTx(ctx, tx, `UPDATE workspace_jobs SET state = ?, attempts = attempts + 1,
 		lease_owner = ?, lease_expires_at = ?, started_at = ?, updated_at = ?
 		WHERE id = ? AND state = ?`, JobStateRunning, jobLeaseOwner,
 		formatTime(now.Add(jobLeaseDuration)), formatTime(now), formatTime(now),
@@ -206,7 +206,7 @@ func (s *Store) FinishJob(ctx context.Context, id, state, message string) error 
 		return fmt.Errorf("invalid job state %q", state)
 	}
 	now := time.Now().UTC()
-	result, err := s.db.ExecContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
+	result, err := s.execContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
 		finished_at = ?, updated_at = ? WHERE id = ? AND state = ?`,
 		state, strings.TrimSpace(message), formatTime(now), formatTime(now),
 		strings.TrimSpace(id), JobStateRunning)
@@ -218,7 +218,7 @@ func (s *Store) FinishJob(ctx context.Context, id, state, message string) error 
 
 func (s *Store) RecoverJobs(ctx context.Context) error {
 	now := formatTime(time.Now().UTC())
-	_, err := s.db.ExecContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
+	_, err := s.execContext(ctx, `UPDATE workspace_jobs SET state = ?, error = ?,
 		finished_at = ?, updated_at = ? WHERE state IN (?, ?)`,
 		JobStateFailed, interruptedJobMessage, now, now, JobStateQueued, JobStateRunning)
 	if err != nil {
