@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: perpetual
+          POSTGRES_USER: perpetual
+          POSTGRES_PASSWORD: perpetual
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U perpetual"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GOCACHE: /tmp/perpetual-gocache
+      PERPETUAL_TEST_POSTGRES_URL: postgres://perpetual:perpetual@127.0.0.1:5432/perpetual?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Go tests
+        run: go test -buildvcs=false ./...
+      - name: Postgres integration tests
+        run: go test -buildvcs=false -tags integration ./internal/workspace ./internal/accounts
+      - name: Vet
+        run: go vet -buildvcs=false ./...
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Web install
+        run: cd web && npm ci
+      - name: Web check
+        run: cd web && npm run check
