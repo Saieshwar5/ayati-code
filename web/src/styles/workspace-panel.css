@@ -105,3 +105,12 @@
   min-height: 0;
   flex: 1;
 }
+
+.run-prompt {
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(128,128,128,0.25);
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

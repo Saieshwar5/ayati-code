@@ -40,6 +40,7 @@ type Run struct {
 	State          string    `json:"state"`
 	StepCursor     int64     `json:"step_cursor"`
 	MaxSteps       int64     `json:"max_steps"`
+	Prompt         string    `json:"prompt,omitempty"`
 	DeadlineAt     time.Time `json:"deadline_at"`
 	LeaseOwner     string    `json:"lease_owner,omitempty"`
 	LeaseExpiresAt time.Time `json:"lease_expires_at,omitempty"`
@@ -80,6 +81,7 @@ type EnqueueRunInput struct {
 	UserID      string
 	WorkspaceID string
 	SessionID   string
+	Prompt      string
 	MaxSteps    int64
 	Deadline    time.Time
 }
@@ -92,6 +94,7 @@ const runsSchema = `CREATE TABLE IF NOT EXISTS agent_runs (
 	state TEXT NOT NULL,
 	step_cursor INTEGER NOT NULL DEFAULT 0,
 	max_steps INTEGER NOT NULL DEFAULT 200,
+	prompt TEXT NOT NULL DEFAULT '',
 	deadline_at TEXT NOT NULL DEFAULT '',
 	lease_owner TEXT NOT NULL DEFAULT '',
 	lease_expires_at TEXT NOT NULL DEFAULT '',
@@ -165,15 +168,16 @@ func (s *Store) EnqueueRun(ctx context.Context, input EnqueueRunInput) (Run, err
 	value := Run{
 		ID: id, UserID: input.UserID, WorkspaceID: input.WorkspaceID,
 		SessionID: input.SessionID, State: RunQueued, MaxSteps: input.MaxSteps,
+		Prompt:     strings.TrimSpace(input.Prompt),
 		DeadlineAt: input.Deadline, CreatedAt: now, UpdatedAt: now,
 	}
 	if _, err := s.execContext(ctx, `INSERT INTO agent_runs (
 		id, user_id, workspace_id, session_id, state, step_cursor, max_steps,
-		deadline_at, created_at, updated_at
-	) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`,
+		prompt, deadline_at, created_at, updated_at
+	) VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?)`,
 		value.ID, value.UserID, value.WorkspaceID, value.SessionID, value.State,
-		value.MaxSteps, formatTime(value.DeadlineAt), formatTime(value.CreatedAt),
-		formatTime(value.UpdatedAt)); err != nil {
+		value.MaxSteps, strings.TrimSpace(input.Prompt), formatTime(value.DeadlineAt),
+		formatTime(value.CreatedAt), formatTime(value.UpdatedAt)); err != nil {
 		return Run{}, fmt.Errorf("enqueue execution room: %w", err)
 	}
 	return value, nil
@@ -182,7 +186,7 @@ func (s *Store) EnqueueRun(ctx context.Context, input EnqueueRunInput) (Run, err
 // GetRun returns one run by ID.
 func (s *Store) GetRun(ctx context.Context, id string) (Run, error) {
 	row := s.queryRowContext(ctx, `SELECT id, user_id, workspace_id, session_id, state,
-		step_cursor, max_steps, deadline_at, lease_owner, lease_expires_at,
+		step_cursor, max_steps, prompt, deadline_at, lease_owner, lease_expires_at,
 		heartbeat_at, current_command, result, error, created_at, updated_at,
 		started_at, finished_at FROM agent_runs WHERE id = ?`, strings.TrimSpace(id))
 	return scanRun(row)
@@ -191,7 +195,7 @@ func (s *Store) GetRun(ctx context.Context, id string) (Run, error) {
 // RunsForWorkspace lists runs for one workspace ordered newest first.
 func (s *Store) RunsForWorkspace(ctx context.Context, workspaceID string) ([]Run, error) {
 	rows, err := s.queryContext(ctx, `SELECT id, user_id, workspace_id, session_id, state,
-		step_cursor, max_steps, deadline_at, lease_owner, lease_expires_at,
+		step_cursor, max_steps, prompt, deadline_at, lease_owner, lease_expires_at,
 		heartbeat_at, current_command, result, error, created_at, updated_at,
 		started_at, finished_at FROM agent_runs WHERE workspace_id = ?
 		ORDER BY created_at DESC`, strings.TrimSpace(workspaceID))
@@ -218,7 +222,7 @@ func scanRunRow(row scanner) (Run, error) {
 	var value Run
 	var deadlineAt, leaseExpiresAt, heartbeatAt, createdAt, updatedAt, startedAt, finishedAt string
 	err := row.Scan(&value.ID, &value.UserID, &value.WorkspaceID, &value.SessionID,
-		&value.State, &value.StepCursor, &value.MaxSteps, &deadlineAt,
+		&value.State, &value.StepCursor, &value.MaxSteps, &value.Prompt, &deadlineAt,
 		&value.LeaseOwner, &leaseExpiresAt, &heartbeatAt, &value.CurrentCommand,
 		&value.Result, &value.Error, &createdAt, &updatedAt, &startedAt, &finishedAt)
 	if err != nil {

@@ -96,6 +96,11 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/runs/${runID}/cancel`, {
       method: "POST",
     }),
+  enqueueRun: (workspaceID: string, sessionID: string, prompt: string) =>
+    request<Run>(`/api/workspaces/${workspaceID}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionID, prompt }),
+    }),
   runs: (workspaceID: string) =>
     request<Run[]>(`/api/workspaces/${workspaceID}/runs`),
   runSteps: (runID: string) =>
