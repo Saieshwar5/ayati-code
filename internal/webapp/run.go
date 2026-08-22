@@ -17,6 +17,7 @@ import (
 
 	"github.com/Saieshwar5/perpetual/internal/accounts"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	"github.com/Saieshwar5/perpetual/internal/environments"
 	"github.com/Saieshwar5/perpetual/internal/execution"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/model"
@@ -279,8 +280,9 @@ func runSessionCleanup(ctx context.Context, store *accounts.Store) {
 // workspaceRuntimeProvider resolves a workspace's persisted runtime provider
 // name to the runtime implementation, falling back to local for empty values.
 type workspaceRuntimeProvider struct {
-	local workspaceruntime.Runtime
-	cloud workspaceruntime.Runtime
+	local  workspaceruntime.Runtime
+	cloud  workspaceruntime.Runtime
+	lambda workspaceruntime.Runtime
 }
 
 func (p *workspaceRuntimeProvider) RuntimeFor(provider string) (workspaceruntime.Runtime, error) {
@@ -292,6 +294,11 @@ func (p *workspaceRuntimeProvider) RuntimeFor(provider string) (workspaceruntime
 			return nil, errors.New("cloud workspace runtime is not configured")
 		}
 		return p.cloud, nil
+	case "lambda":
+		if p.lambda == nil {
+			return nil, errors.New("lambda workspace runtime is not configured")
+		}
+		return p.lambda, nil
 	default:
 		return nil, fmt.Errorf("unknown workspace runtime %q", provider)
 	}
@@ -315,6 +322,13 @@ func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
 			return nil, err
 		}
 		provider.cloud = cloud
+		return provider, nil
+	case "lambda":
+		lambda, err := newLambdaRuntime()
+		if err != nil {
+			return nil, err
+		}
+		provider.lambda = lambda
 		return provider, nil
 	default:
 		return nil, fmt.Errorf("workspace runtime %q is not supported", name)
@@ -347,4 +361,19 @@ func startExecutionWorker(ctx context.Context, store *workspace.Store) {
 	}
 	worker.SetLimits(workspace.ClaimLimits{MaxPerUser: 2, MaxPerWorkspace: 1, MaxGlobal: 64})
 	go execution.RunWorker(ctx, worker, 750*time.Millisecond)
+}
+
+// newLambdaRuntime wires the Lambda MicroVMs provider from the environment.
+// It fails fast when required Lambda configuration is missing.
+func newLambdaRuntime() (workspaceruntime.Runtime, error) {
+	config := environments.LoadLambdaConfig()
+	api, err := environments.NewAWSLambdaAPI(config.Region)
+	if err != nil {
+		return nil, err
+	}
+	manager, err := environments.NewManager(config, api)
+	if err != nil {
+		return nil, err
+	}
+	return workspaceruntime.NewLambda(manager)
 }

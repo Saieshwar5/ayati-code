@@ -94,3 +94,11 @@ func stringPointer(value string) *string {
 	}
 	return aws.String(value)
 }
+
+func (a *AWSLambdaAPI) CreateMicrovmImage(_ context.Context) (ImageRef, error) {
+	return ImageRef{}, fmt.Errorf("lambda image build not implemented by adapter yet")
+}
+
+func (a *AWSLambdaAPI) GetMicrovmImage(_ context.Context) (ImageRef, error) {
+	return ImageRef{}, fmt.Errorf("lambda image lookup not implemented by adapter yet")
+}

@@ -12,6 +12,14 @@ type fakeAPI struct {
 	endpoint string
 }
 
+func (f *fakeAPI) CreateMicrovmImage(_ context.Context) (ImageRef, error) {
+	return ImageRef{ImageARN: "arn:image", Version: "1.0", State: "CREATED"}, nil
+}
+
+func (f *fakeAPI) GetMicrovmImage(_ context.Context) (ImageRef, error) {
+	return ImageRef{ImageARN: "arn:image", Version: "1.0", State: "CREATED"}, nil
+}
+
 func (f *fakeAPI) RunMicrovm(_ context.Context, input RunMicrovmInput) (Instance, error) {
 	f.calls++
 	if f.active == nil {
