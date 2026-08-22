@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "../api/contracts";
 import { ChatPane } from "../chat/ChatPane";
+import { RunTimeline } from "../run/RunTimeline";
 import { EnvironmentsPage } from "../environments/EnvironmentsPage";
 import { useWorkspaceDetail } from "../hooks/useWorkspaceDetail";
 import { useServerEvents } from "../hooks/useServerEvents";
@@ -157,20 +158,23 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
               onDeleted={() => navigate("/workspaces")}
             />
           ) : route.page === "workspace-conversation" && workspace && session ? (
-            <ChatPane
-              workspace={workspace}
-              session={session}
-              workspaceSessions={controller.sessions[workspace.id] || []}
-              messages={detail.messages}
-              error={detail.messageError}
-              sending={detail.sending}
-              stopping={detail.stopping}
-              onSend={detail.sendMessage}
-              onStop={detail.stopRun}
-              onOpenWorkspace={() => navigate(workspacePath(workspace.id))}
-              onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}
-              onResumeWorkspace={() => void controller.workspaceAction(workspace.id, "resume")}
-            />
+            <div className="conversation-with-timeline">
+              <ChatPane
+                workspace={workspace}
+                session={session}
+                workspaceSessions={controller.sessions[workspace.id] || []}
+                messages={detail.messages}
+                error={detail.messageError}
+                sending={detail.sending}
+                stopping={detail.stopping}
+                onSend={detail.sendMessage}
+                onStop={detail.stopRun}
+                onOpenWorkspace={() => navigate(workspacePath(workspace.id))}
+                onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}
+                onResumeWorkspace={() => void controller.workspaceAction(workspace.id, "resume")}
+              />
+              <RunTimeline workspaceID={workspace.id} sessionID={session.id} />
+            </div>
           ) : route.page === "workspace-conversation" && workspace ? (
             <LoadingPage title="Opening conversation…" />
           ) : route.page === "environments" ? (
