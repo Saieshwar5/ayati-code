@@ -212,3 +212,37 @@ export interface PublishInput {
   title: string;
   body: string;
 }
+
+
+export type RunState = "queued" | "running" | "waiting_user" | "completed" | "failed" | "canceled";
+
+export interface Run {
+  id: string;
+  user_id: string;
+  workspace_id: string;
+  session_id: string;
+  state: RunState;
+  step_cursor: number;
+  max_steps: number;
+  deadline_at?: string;
+  current_command?: string;
+  result?: string;
+  error?: string;
+  created_at: string;
+  updated_at: string;
+  started_at?: string;
+  finished_at?: string;
+}
+
+export type RunStepKind = "model" | "shell" | "compact" | "pause";
+
+export interface RunStep {
+  run_id: string;
+  step_key: string;
+  kind: RunStepKind;
+  status: string;
+  input?: Record<string, unknown>;
+  output?: Record<string, unknown>;
+  created_at: string;
+  done_at?: string;
+}

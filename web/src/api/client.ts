@@ -9,6 +9,8 @@ import type {
   Message,
   PublishInput,
   Repository,
+  Run,
+  RunStep,
   SessionResponse,
   Workspace,
   WorkspaceSession,
@@ -94,6 +96,12 @@ export const api = {
     request<void>(`/api/workspaces/${workspaceID}/sessions/${sessionID}/runs/${runID}/cancel`, {
       method: "POST",
     }),
+  runs: (workspaceID: string) =>
+    request<Run[]>(`/api/workspaces/${workspaceID}/runs`),
+  runSteps: (runID: string) =>
+    request<RunStep[]>(`/api/runs/${runID}/steps`),
+  runAction: (runID: string, action: "stop" | "pause" | "continue") =>
+    request<Run>(`/api/runs/${runID}/${action}`, { method: "POST" }),
   changes: (workspaceID: string) =>
     request<Changes>(`/api/workspaces/${workspaceID}/changes`),
   environment: (workspaceID: string) =>

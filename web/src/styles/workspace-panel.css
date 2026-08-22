@@ -10,3 +10,98 @@
 .workspace-dialog { width: min(520px, 100%); max-height: calc(100vh - 36px); position: relative; overflow-y: auto; border: 1px solid var(--color-border-strong); border-radius: 10px; background: var(--color-surface); box-shadow: 0 20px 60px rgba(0, 0, 0, .2); }
 .workspace-dialog > .inspector-panel { display: block; padding: 20px; overflow: visible; }
 .dialog-close { width: 28px; min-height: 28px; position: absolute; z-index: 1; top: 9px; right: 9px; padding: 0; border: 0; background: transparent; font-size: 17px; }
+
+.run-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 320px;
+  max-width: 420px;
+  border-left: 1px solid var(--border, rgba(128,128,128,0.25));
+  padding: 1rem;
+  overflow: auto;
+  background: var(--panel, rgba(255,255,255,0.02));
+}
+
+.run-timeline-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.run-timeline-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.run-timeline-controls button {
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  border: 1px solid rgba(128,128,128,0.4);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.run-timeline-controls button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.run-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.run-step {
+  border: 1px solid rgba(128,128,128,0.2);
+  border-radius: 8px;
+  padding: 0.6rem;
+  font-size: 0.875rem;
+}
+
+.run-step-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.run-step-command,
+.run-step-output {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0.25rem 0 0;
+}
+
+.run-step-output {
+  color: rgba(128,128,128,0.9);
+}
+
+.run-step-error {
+  color: #e5484d;
+}
+
+.run-timeline-empty,
+.run-timeline-error {
+  color: rgba(128,128,128,0.9);
+  font-size: 0.875rem;
+}
+
+.run-state-pill {
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  background: rgba(128,128,128,0.15);
+}
+
+.conversation-with-timeline {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+}
