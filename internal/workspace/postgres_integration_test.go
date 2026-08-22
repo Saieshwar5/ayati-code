@@ -195,3 +195,95 @@ func TestPostgresWorkersClaimDistinctJobs(t *testing.T) {
 		}
 	}
 }
+
+// TestPostgresWorkersClaimDistinctRuns verifies execution rooms are claimed
+// exactly once when several workers race on Postgres.
+func TestPostgresWorkersClaimDistinctRuns(t *testing.T) {
+	dsn := os.Getenv("PERPETUAL_TEST_POSTGRES_URL")
+	if dsn == "" {
+		t.Skip("set PERPETUAL_TEST_POSTGRES_URL to run the Postgres integration test")
+	}
+	ctx := context.Background()
+	database, err := appdatabase.OpenConfigured(ctx, appdatabase.Config{
+		Provider: appdatabase.ProviderPostgres,
+		URL:      dsn,
+	})
+	if err != nil {
+		t.Fatalf("OpenConfigured: %v", err)
+	}
+	defer database.Close()
+
+	store, err := NewStore(database)
+	if err != nil {
+		t.Fatalf("NewStore: %v", err)
+	}
+	defer store.Close()
+
+	workspace, err := store.Create(ctx, Create{
+		UserID:     "run-worker-user",
+		Repository: "owner/runs",
+		CloneURL:   "https://github.com/owner/runs.git",
+		BaseBranch: "main",
+		Branch:     "main",
+		Path:       filepath.Join(t.TempDir(), "repo"),
+	})
+	if err != nil {
+		t.Fatalf("Create workspace: %v", err)
+	}
+	session, err := store.CreateSession(ctx, workspace.ID, "run claims")
+	if err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+
+	const runCount = 6
+	expected := make(map[string]bool, runCount)
+	for i := 0; i < runCount; i++ {
+		run, err := store.EnqueueRun(ctx, EnqueueRunInput{
+			UserID: "run-worker-user", WorkspaceID: workspace.ID, SessionID: session.ID,
+			MaxSteps: 50,
+		})
+		if err != nil {
+			t.Fatalf("EnqueueRun %d: %v", i, err)
+		}
+		expected[run.ID] = true
+	}
+
+	var (
+		mu      sync.Mutex
+		claimed = make(map[string]bool)
+		errs    = make(chan error, 4)
+		wg      sync.WaitGroup
+	)
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				run, err := store.ClaimNextRun(ctx)
+				if err != nil {
+					if errors.Is(err, ErrNoRuns) || errors.Is(err, sql.ErrNoRows) {
+						return
+					}
+					errs <- err
+					return
+				}
+				mu.Lock()
+				claimed[run.ID] = true
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("claim run error: %v", err)
+	}
+	if len(claimed) != runCount {
+		t.Fatalf("claimed %d runs, expected %d", len(claimed), runCount)
+	}
+	for id := range expected {
+		if !claimed[id] {
+			t.Fatalf("run %s was never claimed", id)
+		}
+	}
+}

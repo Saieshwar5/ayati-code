@@ -52,6 +52,9 @@ func (s *Store) configure() error {
 	if err := s.migrateEnvironmentVersions(context.Background()); err != nil {
 		return err
 	}
+	if err := s.createRunTables(); err != nil {
+		return err
+	}
 	if err := s.RecoverJobs(context.Background()); err != nil {
 		return err
 	}
