@@ -30,7 +30,7 @@ func (s *Store) migrateEnvironmentVersions(ctx context.Context) error {
 		ON environment_versions(environment_id, source_fingerprint, state)`); err != nil {
 		return fmt.Errorf("create environment version index: %w", err)
 	}
-	columns, err := databaseColumns(ctx, s.db, "workspaces")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspaces")
 	if err != nil {
 		return err
 	}
@@ -50,7 +50,7 @@ func (s *Store) migrateEnvironmentVersions(ctx context.Context) error {
 }
 
 func (s *Store) migrateEnvironmentSnapshotColumns(ctx context.Context) error {
-	columns, err := databaseColumns(ctx, s.db, "environment_versions")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "environment_versions")
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (s *Store) migrateEnvironmentSnapshotColumns(ctx context.Context) error {
 }
 
 func (s *Store) migrateProjectEnvironmentOwner(ctx context.Context) error {
-	columns, err := databaseColumns(ctx, s.db, "project_environments")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "project_environments")
 	if err != nil {
 		return err
 	}

@@ -121,7 +121,7 @@ func (s *Store) migrateWorkspaceUsers(ctx context.Context) error {
 		return fmt.Errorf("begin workspace owner migration: %w", err)
 	}
 	defer tx.Rollback()
-	columns, err := tableColumns(ctx, tx, "workspaces")
+	columns, err := tableColumns(ctx, tx, s.database.Dialect(), "workspaces")
 	if err != nil {
 		return err
 	}
@@ -146,7 +146,7 @@ func (s *Store) migrateWorkspaceRuntimeColumns(ctx context.Context) error {
 		return fmt.Errorf("begin workspace runtime migration: %w", err)
 	}
 	defer tx.Rollback()
-	columns, err := tableColumns(ctx, tx, "workspaces")
+	columns, err := tableColumns(ctx, tx, s.database.Dialect(), "workspaces")
 	if err != nil {
 		return err
 	}
@@ -190,7 +190,7 @@ func (s *Store) migrateSessions(ctx context.Context) error {
 	if err := seedWorkspaceSessions(ctx, tx); err != nil {
 		return err
 	}
-	columns, err := tableColumns(ctx, tx, "messages")
+	columns, err := tableColumns(ctx, tx, s.database.Dialect(), "messages")
 	if err != nil {
 		return err
 	}
@@ -319,23 +319,4 @@ func migrateWorkspaceMessages(ctx context.Context, tx *sql.Tx) error {
 		return fmt.Errorf("install migrated messages table: %w", err)
 	}
 	return nil
-}
-
-func tableColumns(ctx context.Context, tx *sql.Tx, table string) (map[string]bool, error) {
-	rows, err := tx.QueryContext(ctx, `PRAGMA table_info(`+table+`)`)
-	if err != nil {
-		return nil, fmt.Errorf("inspect %s schema: %w", table, err)
-	}
-	defer rows.Close()
-	columns := make(map[string]bool)
-	for rows.Next() {
-		var position, notNull, primaryKey int
-		var name, kind string
-		var defaultValue any
-		if err := rows.Scan(&position, &name, &kind, &notNull, &defaultValue, &primaryKey); err != nil {
-			return nil, err
-		}
-		columns[name] = true
-	}
-	return columns, rows.Err()
 }

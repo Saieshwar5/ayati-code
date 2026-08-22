@@ -109,15 +109,15 @@ func NewStore(database *appdatabase.Database) (*Store, error) {
 		return nil, errors.New("database is required")
 	}
 	db := database.SQL()
-	var schemaVersion int
-	if err := db.QueryRow(`PRAGMA user_version`).Scan(&schemaVersion); err != nil {
+	schemaVersion, err := database.SchemaVersion(context.Background())
+	if err != nil {
 		return nil, fmt.Errorf("inspect database version: %w", err)
 	}
 	sealer, err := newEnvironmentSealer(database.Path(), schemaVersion >= 2)
 	if err != nil {
 		return nil, err
 	}
-	store := &Store{db: db, sealer: sealer}
+	store := &Store{db: db, sealer: sealer, database: database}
 	if err := store.configure(); err != nil {
 		return nil, err
 	}

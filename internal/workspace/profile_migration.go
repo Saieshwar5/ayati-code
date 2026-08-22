@@ -31,7 +31,7 @@ func (s *Store) migrateProjectProfiles(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, projectProfileSchema); err != nil {
 		return fmt.Errorf("create workspace profiles: %w", err)
 	}
-	columns, err := databaseColumns(ctx, s.db, "workspace_profiles")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspace_profiles")
 	if err != nil {
 		return err
 	}

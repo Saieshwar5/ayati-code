@@ -6,7 +6,7 @@ import (
 )
 
 func (s *Store) migrateSingleWorkspaceMode(ctx context.Context) error {
-	columns, err := databaseColumns(ctx, s.db, "workspaces")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspaces")
 	if err != nil {
 		return err
 	}
