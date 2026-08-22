@@ -8,7 +8,7 @@ BINARY := $(BUILD_DIR)/perpetual
 BIN_DIR ?= $(HOME)/.local/bin
 ARGS ?=
 
-.PHONY: help fmt fmt-check test test-integration race vet web-install web-build web-test web-check go-build build check run install
+.PHONY: help fmt fmt-check test test-integration smoke race vet web-install web-build web-test web-check go-build build check run install
 
 help:
 	@echo "Perpetual development commands"
@@ -36,6 +36,9 @@ test:
 
 test-integration:
 	GOCACHE=$(GOCACHE) $(GO) test -buildvcs=false -tags integration ./internal/workspace ./internal/accounts
+
+smoke:
+	GOCACHE=$(GOCACHE) $(GO) test -buildvcs=false -run 'TestEndToEnd' -v ./internal/execution
 
 race:
 	GOCACHE=$(GOCACHE) $(GO) test -buildvcs=false -race ./...
