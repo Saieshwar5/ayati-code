@@ -12,9 +12,11 @@ import (
 // a time. Multiple Worker instances can share one store; SKIP LOCKED claims
 // keep them from executing the same run.
 type Worker struct {
-	store    *workspace.Store
-	provider ModelProvider
-	shell    ShellRunner
+	store     *workspace.Store
+	provider  ModelProvider
+	shell     ShellRunner
+	settings  Settings
+	compactor *Compactor
 }
 
 // NewWorker builds a run worker.
@@ -28,7 +30,11 @@ func NewWorker(store *workspace.Store, provider ModelProvider, shell ShellRunner
 	if shell == nil {
 		return nil, errors.New("execution worker shell is required")
 	}
-	return &Worker{store: store, provider: provider, shell: shell}, nil
+	compactor, err := NewCompactor(provider, DefaultSettings())
+	if err != nil {
+		return nil, err
+	}
+	return &Worker{store: store, provider: provider, shell: shell, settings: DefaultSettings(), compactor: compactor}, nil
 }
 
 // WorkOnce claims and executes one queued execution room. It returns ErrNoRuns
@@ -71,10 +77,30 @@ func (w *Worker) execute(ctx context.Context, run workspace.Run) error {
 		}
 		modelKey := fmt.Sprintf("step-%d", step)
 		if !done[modelKey] {
+			context, err := BuildContext(ctx, w.store, run)
+			if err != nil {
+				return err
+			}
+			if w.settings.Enabled {
+				if ShouldCompact(context.TokenCount(), 200_000, w.settings) && len(steps) > 0 {
+					keptSteps, summarized := CutSteps(steps, w.settings.KeepRecentTokens)
+					summary, err := w.compactor.Compact(ctx, summarized, previousSummary(steps))
+					if err != nil {
+						return err
+					}
+					if err := w.store.AppendRunStep(ctx, run.ID,
+						fmt.Sprintf("compact-%d", step), workspace.StepCompact, "done",
+						map[string]any{"summarized": len(summarized)},
+						map[string]any{"summary": summary}); err != nil {
+						return err
+					}
+					steps = keptSteps
+					context = context.WithSummary(summary)
+				}
+			}
 			request := ModelRequest{
-				System: "You are Perpetual's coding agent. You have exactly one tool: shell(command). " +
-					"Run commands to inspect the repository, install dependencies, and make changes.",
-				Messages:  []string{fmt.Sprintf("Run %s for workspace %s: continue the task.", run.ID, run.WorkspaceID)},
+				System:    context.System,
+				Messages:  context.Messages,
 				MaxTokens: 4096,
 				Tools:     []string{"shell"},
 			}
@@ -124,6 +150,17 @@ func (w *Worker) execute(ctx context.Context, run workspace.Run) error {
 		}
 	}
 	return w.store.FailRun(ctx, run.ID, "execution room reached max steps")
+}
+
+func previousSummary(steps []workspace.RunStep) string {
+	for i := len(steps) - 1; i >= 0; i-- {
+		if steps[i].Kind == workspace.StepCompact {
+			if summary, ok := steps[i].Output["summary"].(string); ok {
+				return summary
+			}
+		}
+	}
+	return ""
 }
 
 func commandFrom(arguments map[string]any) string {
