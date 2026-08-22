@@ -2,17 +2,17 @@
 
 ## Project scope
 
-Perpetual is a small local-first Go coding agent for one Linux machine. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, dependency initialization in a bounded local shell, durable browser chat (currently parked while a new agent is designed), diff review, and a draft pull request.
+Perpetual is a controller-led Go coding agent. Its product flow is GitHub App login, repository and branch selection, SQLite-backed workspace creation, dependency initialization through a bounded shell contract, durable browser chat (currently parked while a new agent is designed), execution-room agent work, diff review, and a draft pull request.
 
-Keep this boundary small. Do not add providers, Postgres, virtual machines, queues, worker fleets, multi-user tenancy, planners, or compatibility layers without explicit approval. The planned agent has one tool: `shell(command)` through `internal/exec`.
+Keep the control plane small. The approved cloud direction uses AWS Lambda MicroVMs behind the existing `internal/workspaceruntime.Runtime` seam and a bounded in-process durable worker model. Do not add Postgres, Kafka/Temporal, external queues, a separate worker fleet, or a full multi-tenant SaaS control plane without explicit approval. The planned agent has one tool: `shell(command)` through `internal/exec`. A future self-managed Firecracker provider is a separate later decision, not implied by the Lambda MicroVMs approval.
 
 ## Package ownership
 
 - `cmd/perpetual/`: process entry point and signal setup only.
 - `internal/database/`: the shared SQLite connection and connection-level safety configuration.
-- `internal/exec/`: bounded local shell execution and the shell contract for setup and the planned agent.
-- `internal/workspaceruntime/`: the workspace runtime contract and the local compatibility adapter.
-- `internal/webapp/`: local HTTP server, routes, embedded UI, and component wiring.
+- `internal/exec/`: bounded shell execution and the shell contract for setup, preparation, and the planned agent. The local shell is one implementation of this contract.
+- `internal/workspaceruntime/`: the workspace runtime contract, the local development adapter, and the cloud/Lambda MicroVMs provider implementation.
+- `internal/webapp/`: HTTP routes, embedded UI, control-plane wiring, and routing between the controller blocks.
 - `internal/workspace/`: SQLite state, lifecycle, sessions and stored conversation messages, deterministic project preparation, trusted Git, review, and publish.
 - `internal/githubapp/`: GitHub user authentication and repository operations.
 - `docs/`: architecture and important design decisions.
@@ -37,13 +37,13 @@ Colocate tests as `*_test.go` and name them `TestFeatureBehavior`. Cover changed
 
 ## Security and runtime rules
 
-The controller owns GitHub, Git, SQLite, and workspace execution. Never expose credentials to shell commands, repository URLs, messages, logs, or tests.
+The controller owns GitHub, Git, SQLite, scheduling, and workspace execution. Never expose credentials to shell commands, repository URLs, messages, logs, or tests. AWS credentials and AWS API auth tokens remain controller-only.
 
-Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, and best-effort redacted from shell results. A local shell command that receives a workspace value can read it; do not claim otherwise.
+Workspace environment values are separate user-provided development credentials. Keep them encrypted at rest, write-only through the API, and best-effort redacted from shell results. A shell command that receives a workspace value can read it; do not claim otherwise.
 
-Setup and agent commands run through the bounded local shell in `internal/exec` with a private per-workspace `HOME` and tool caches under the managed cache. Preserve command, output, timeout, working-directory, environment, and process-group cancellation bounds. The controller never places GitHub credentials in the shell environment.
+Setup and agent commands run through the bounded shell contract in `internal/exec`. Preserve command, output, timeout, working-directory, environment, and process-group cancellation bounds. The local runtime uses a private per-workspace `HOME` and managed tool caches; the cloud runtime executes the same contract inside a Lambda MicroVM and receives workspace values only over the authenticated data plane. The controller never places GitHub or AWS control-plane credentials in the shell environment.
 
-The agent backend (Fireworks, chat, provider config) was removed; the browser chat UI is parked until a new agent is designed. When it lands, the agent must never override controller credential and publishing rules; discussion must not modify files until the user explicitly authorizes agent work. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
+The Fireworks agent backend was removed; the browser chat UI is parked until the new execution-room agent is built. When it lands, the agent must never override controller credential and publishing rules; discussion must not modify files until the user explicitly authorizes agent work. Execution-room loops must be durable, user-scoped, bounded, and cancelable. Git commits, pushes, and pull requests remain controller-owned actions initiated from the UI.
 
 ## Git changes
 

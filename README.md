@@ -1,8 +1,8 @@
 # Perpetual
 
-Perpetual is a small local-first coding agent for Linux. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Perpetual initialize its dependencies locally, reviews the shared diff, and opens a draft pull request. A new built-in agent is planned; the current agent backend and its model provider were removed but the chat interface is kept for that future agent.
+Perpetual is a controller-led Go coding agent. A user signs in with GitHub, creates a workspace from an existing repository or a new GitHub project, lets Perpetual initialize its dependencies in an isolated execution environment, reviews the shared diff, and opens a draft pull request. A new built-in agent is planned; the current agent backend and its model provider were removed but the chat interface is kept for that future agent.
 
-The controller is one long-lived Go process on your machine or personal server. Workspace metadata, sessions, and complete conversations live in SQLite. The browser reconnects through one lightweight event stream and reloads authoritative state. There is no VM fleet, worker queue, Postgres server, or cloud orchestration layer.
+The controller is one long-lived Go process that owns authentication, Git, SQLite state, scheduling, and review/publish. Workspace metadata, sessions, and complete conversations live in SQLite. The browser reconnects through one lightweight event stream and reloads authoritative state. Workspace setup and agent commands execute through a bounded shell contract backed by a runtime provider: a local adapter for development and AWS Lambda MicroVMs as the first production execution substrate. The controller does not require an external workflow engine, Kafka, or a separate worker fleet; durable jobs and leases are controller-owned in SQLite.
 
 ## Requirements
 
@@ -11,6 +11,10 @@ The controller is one long-lived Go process on your machine or personal server. 
 - Node.js 22.12 or newer and npm (for interface development and builds)
 - Git
 - A GitHub App installed on the repositories Perpetual may access
+- For AWS Lambda MicroVMs environments: an AWS account, configured AWS
+  credentials, a supported Lambda MicroVMs region, an S3 bucket for image
+  artifacts, and the IAM build/execution roles described in
+  `docs/cloud-architecture.md`
 
 Install the locked React development dependencies once:
 
@@ -20,7 +24,7 @@ make web-install
 
 ## GitHub App
 
-Create a GitHub App for the local instance and give it these repository permissions:
+Create a GitHub App for the instance and give it these repository permissions:
 
 - Contents: read and write
 - Pull requests: read and write
@@ -121,18 +125,18 @@ Run `perpetual -h` for the full flag list.
 
 ## Compute environments
 
-The Docker sandbox backend was removed. Setup and agent commands now run in a bounded local shell inside the managed workspace, and virtual-machine compute is planned as its replacement. The Environments interface in the sidebar is kept as client code for that future backend; until a compute provider is available it reports that environment management is unavailable. The Fireworks-backed agent was also removed; the chat, sessions, and composer interface are kept as client code for the new agent, so sending a message currently reports that the agent is unavailable.
+The Docker sandbox backend was removed. Setup and agent commands run through the bounded shell contract in `internal/exec`, currently backed by the local compatibility runtime. AWS Lambda MicroVMs is the selected replacement production execution substrate; it is under implementation behind the existing `internal/workspaceruntime.Runtime` seam. The Environments interface in the sidebar is kept as client code for that backend. The Fireworks-backed agent was also removed; the chat, sessions, and composer interface are kept as client code for the new execution-room agent, and sending a message currently reports that the agent is unavailable.
 
 ## Workspace flow
 
 1. Sign in through the GitHub App.
-2. Choose an installed repository and create a new working branch, continue an existing branch, or explicitly work directly on a branch. New repositories are private by default, initialized with a README, and prepared on a new local working branch.
+2. Choose an installed repository and create a new working branch, continue an existing branch, or explicitly work directly on a branch. New repositories are private by default, initialized with a README, and prepared on a new working branch.
 3. Optionally add write-only workspace environment variables. Mark only the values needed by dependency installation as available during setup.
-4. Create the workspace. A live readiness screen follows clone, project analysis, dependency installation, baseline verification, and finalization. Perpetual encrypts its environment, deterministically records the project profile and Git baseline, creates requested working branches locally, and runs dependency setup in the writable workspace. If setup changes project files, those changes are recorded for review. If several applications are detected, preparation pauses for a project-root choice and continues after that choice.
-5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation history, while every session shares the repository, branch, cache, and uncommitted changes. The chat composer is currently disabled while a new agent is built; stored conversation history remains readable.
-8. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Pull-request publishing requires a working branch different from its base; direct branch work remains local until handled explicitly.
-9. Stop the workspace when finished. This marks the workspace stopped while preserving the cloned repository, cache, sessions, conversations, and SQLite record. Resume returns the workspace to ready without rerunning dependency setup or rejecting preserved changes.
-10. Delete the workspace only when its local clone and complete session history are no longer needed. This does not delete its GitHub branch or pull request.
+4. Create the workspace. A live readiness screen follows source acquisition, project analysis, dependency installation, baseline verification, and finalization. Perpetual encrypts its environment, deterministically records the project profile and Git baseline, creates requested working branches, and runs dependency setup through the selected runtime. In local mode the writable workspace is the managed clone; in cloud mode the working tree is synced into a workspace microVM. If setup changes project files, those changes are recorded for review. If several applications are detected, preparation pauses for a project-root choice and continues after that choice.
+5. Use the original chat session or create another focused session in the same workspace. Each session keeps separate conversation history, while every session shares the repository, branch, cache/working tree, and uncommitted changes. The chat composer is currently disabled while the execution-room agent is built; stored conversation history remains readable.
+8. Review workspace-wide Git status and the diff, provide a commit message and pull-request details, then create a draft pull request. Working-tree changes made inside an environment are synced back to the controller before review. Pull-request publishing requires a working branch different from its base; direct branch work remains unpublished until handled explicitly.
+9. Stop the workspace when finished. This marks the workspace stopped while preserving the repository working tree, cache/snapshot, sessions, conversations, and SQLite record. For the Lambda MicroVMs runtime this corresponds to suspending the microVM so compute stops while state is kept. Resume returns the workspace to ready without rerunning dependency setup or rejecting preserved changes.
+10. Delete the workspace only when its local working tree or suspended environment and complete session history are no longer needed. This terminates the microVM in cloud mode. It does not delete the GitHub branch or pull request.
 
 Project analysis covers Go modules, npm/pnpm/Yarn projects, and common Python project files. It records the project root, runtimes, package managers, lockfiles, useful verification commands, manifest fingerprint, setup result, and baseline commit in SQLite. One nested project root is selected automatically; multiple roots stop with an explicit selection requirement instead of guessing. A workspace can supply an explicit setup command instead. Rust preparation is reported as unsupported.
 
@@ -140,9 +144,9 @@ Preparation progress, the selected project root, actionable failure stage, and c
 
 If Perpetual itself stops during repository preparation, the next startup marks that workspace as interrupted and offers an explicit retry or deletion.
 
-For remote personal use, prefer an authenticated HTTPS reverse proxy, VPN, or SSH tunnel (see "Run Perpetual on a server" above). If you publish the HTTP port directly, you must use HTTPS (built-in TLS or a proxy) and set a strong `PERPETUAL_ACCESS_PASSWORD`; the current authentication and credential store are designed for one user, not a multi-tenant deployment.
+For remote use, prefer an authenticated HTTPS reverse proxy, VPN, or SSH tunnel (see "Run Perpetual on a server" above). If you publish the HTTP port directly, you must use HTTPS (built-in TLS or a proxy) and set a strong `PERPETUAL_ACCESS_PASSWORD`. The durable data model is user-scoped and is being extended toward multi-user execution rooms with bounded concurrency and per-user run quotas; a full multi-tenant SaaS control plane is still intentionally out of scope.
 
-## Local data and security
+## Data, compute, and security
 
 - SQLite: `$XDG_CONFIG_HOME/perpetual/perpetual.db` or `~/.config/perpetual/perpetual.db`
 - workspace environment key: `$XDG_CONFIG_HOME/perpetual/environment.key` or `~/.config/perpetual/environment.key`
@@ -151,11 +155,11 @@ For remote personal use, prefer an authenticated HTTPS reverse proxy, VPN, or SS
 
 Git uses a temporary `GIT_ASKPASS` helper for authenticated clone and push; tokens are not placed in repository URLs, chat history, or shell environments.
 
-Workspace environment values are encrypted in SQLite with a private local key. APIs return names and scope but never stored values. Values are supplied only to the bounded shell that runs each setup or agent command, are not stored in the repository, and are best-effort redacted from captured output. A command that is allowed to use a value can still read or transmit it; use narrowly scoped development credentials, especially because workspace network access is enabled.
+Workspace environment values are encrypted in SQLite with a private local key. APIs return names and scope but never stored values. Values are supplied only to the bounded shell that runs each setup or agent command, are not stored in the repository, and are best-effort redacted from captured output. In cloud mode they are sent only over the authenticated microVM data plane and purged on suspend. A command that is allowed to use a value can still read or transmit it; use narrowly scoped development credentials, especially because workspace network access is enabled.
 
 Back up `perpetual.db` and `environment.key` together. Perpetual refuses to replace a missing key for a database that already uses encrypted workspace environments.
 
-Setup and agent commands run on the controller machine in a bounded local shell with a two-minute timeout, 64 KiB command limit, and 32 KiB per-stream output bounds. Each workspace gets a private home directory and tool caches under its managed cache path, so host configuration and controller credentials are never visible to commands. Tool caches survive Stop and Resume. This is an intermediate execution mode while virtual-machine compute is designed; it runs with host user privileges and is not a hostile-code sandbox.
+Setup and agent commands run through the bounded shell contract with a two-minute timeout, 64 KiB command limit, and 32 KiB per-stream output bounds. In local mode they execute on the controller machine with a private home directory and tool caches under the managed cache; this runs with host user privileges and is not a hostile-code sandbox. The Lambda MicroVMs runtime executes the same contract inside an isolated Firecracker-based microVM, and its working-tree tarballs enter and leave the VM only through the authenticated VM endpoint. Tool caches or snapshots survive Stop and Resume in whichever runtime produced them.
 
 Authenticated clone and push use host Git with a short-lived private askpass helper; tokens are never exposed to shell commands. Workspace deletion is restricted to the managed data root. It removes the local workspace directory (including the tool cache) before cascading the workspace's sessions and messages from SQLite. Remote GitHub data is outside this action.
 
@@ -165,7 +169,7 @@ New-project creation is also controller-owned. Perpetual creates the remote repo
 
 The browser interface lives in `web/` and uses React, TypeScript, and Vite. Vite writes the
 production bundle to `internal/webapp/dist/`; that bundle is committed and embedded into the Go
-binary, so production still runs as one local process with no Node.js server.
+binary, so production still runs as one Go process with no Node.js server.
 
 ```bash
 make web-check
@@ -176,4 +180,5 @@ make check
 
 `make check` type-checks, tests, and builds the React interface, then verifies Go formatting,
 tests, race behavior, vet, and a CGO-disabled build. See
-[docs/architecture.md](docs/architecture.md) for component ownership and lifecycle details.
+[docs/architecture.md](docs/architecture.md) for component ownership and lifecycle details,
+and [docs/cloud-architecture.md](docs/cloud-architecture.md) for the cloud execution plan.
