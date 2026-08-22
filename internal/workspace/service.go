@@ -38,6 +38,12 @@ type ImageBuilder interface {
 	Build(context.Context) (environments.ImageRef, error)
 }
 
+// RepoSyncer pushes the controller working tree into a workspace runtime (used
+// for lambda microVM instances). Nil for local-only controllers.
+type RepoSyncer interface {
+	Push(ctx context.Context, workspaceID, tree string) error
+}
+
 // Service coordinates workspace lifecycle with the controller's Git and the
 // workspace runtime that executes setup and agent commands. The runtime is the
 // only execution seam; the service never opens a shell directly on the host.
@@ -46,6 +52,7 @@ type Service struct {
 	runtime      workspaceruntime.Runtime
 	provider     RuntimeProvider
 	imageBuilder ImageBuilder
+	reposyncer   RepoSyncer
 	git          gitClient
 	credentials  GitHubTokenProvider
 	root         string
@@ -160,6 +167,11 @@ func (s *Service) openShell(ctx context.Context, value Workspace, setupOnly bool
 // SetImageBuilder injects the Lambda image builder used by lambda workspaces.
 func (s *Service) SetImageBuilder(builder ImageBuilder) {
 	s.imageBuilder = builder
+}
+
+// SetRepoSyncer injects the lambda repo syncer used during preparation.
+func (s *Service) SetRepoSyncer(syncer RepoSyncer) {
+	s.reposyncer = syncer
 }
 
 // runtimeFor returns the runtime selected for value's provider, falling back

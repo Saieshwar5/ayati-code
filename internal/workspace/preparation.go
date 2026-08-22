@@ -37,6 +37,11 @@ func (s *Service) Initialize(ctx context.Context, id string) error {
 	if err := runtime.Start(ctx, runtimeRef(value)); err != nil {
 		return s.fail(ctx, id, fmt.Errorf("start workspace runtime: %w", err))
 	}
+	if value.RuntimeProvider == "lambda" && s.reposyncer != nil {
+		if err := s.reposyncer.Push(ctx, value.ID, value.Path); err != nil {
+			return s.fail(ctx, id, fmt.Errorf("sync repository to runtime: %w", err))
+		}
+	}
 	if err := s.store.UpdatePreparation(ctx, id, PreparationCloning,
 		value.Repository+" · "+value.Branch); err != nil {
 		return s.fail(ctx, id, err)
