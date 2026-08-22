@@ -3,11 +3,13 @@
 package lambdaruntime
 
 import (
+	"bytes"
 	"context"
 	"errors"
 
 	"github.com/Saieshwar5/perpetual/internal/environments"
 	"github.com/Saieshwar5/perpetual/internal/exec"
+	"github.com/Saieshwar5/perpetual/internal/vmagent"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
@@ -138,4 +140,25 @@ func (r *LambdaRuntime) Reconcile(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+// PushRepo serializes the controller working tree and uploads it into the
+// workspace microVM working root through the authenticated data plane.
+func (r *LambdaRuntime) PushRepo(ctx context.Context, workspaceID, tree string) error {
+	stored, err := r.store.RuntimeInstance(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	client, err := r.manager.Shell(ctx, environments.Instance{
+		MicrovmID: stored.InstanceID,
+		Endpoint:  stored.Endpoint,
+	})
+	if err != nil {
+		return err
+	}
+	data, err := vmagent.TarTree(tree)
+	if err != nil {
+		return err
+	}
+	return client.Bootstrap(ctx, bytes.NewReader(data))
 }

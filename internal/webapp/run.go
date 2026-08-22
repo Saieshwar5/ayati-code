@@ -105,6 +105,9 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 			log.Printf("perpetual: lambda image builder unavailable: %v", err)
 		}
 	}
+	if strings.TrimSpace(*runtime) == "lambda" {
+		wireLambdaRepoSync(runtimeProvider, workspaces)
+	}
 	if err := workspaces.Recover(ctx); err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: recover workspaces: %v\n", err)
 		return 1
@@ -453,4 +456,27 @@ func wireLambdaImageBuilder(workspaces *workspace.Service) error {
 	}
 	workspaces.SetImageBuilder(builder)
 	return nil
+}
+
+type lambdaRepoSyncer struct{ runtime *lambdaruntime.LambdaRuntime }
+
+func (s lambdaRepoSyncer) Push(ctx context.Context, workspaceID, tree string) error {
+	return s.runtime.PushRepo(ctx, workspaceID, tree)
+}
+
+// wireLambdaRepoSync exposes the lambda runtime to the workspace service so
+// preparation can push the repo into microVMs. Local mode stays unaffected.
+func wireLambdaRepoSync(provider workspace.RuntimeProvider, service *workspace.Service) {
+	if provider == nil || service == nil {
+		return
+	}
+	runtime, err := provider.RuntimeFor("lambda")
+	if err != nil {
+		return
+	}
+	lambda, ok := runtime.(*lambdaruntime.LambdaRuntime)
+	if !ok {
+		return
+	}
+	service.SetRepoSyncer(lambdaRepoSyncer{runtime: lambda})
 }
