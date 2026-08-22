@@ -162,3 +162,24 @@ func (r *LambdaRuntime) PushRepo(ctx context.Context, workspaceID, tree string) 
 	}
 	return client.Bootstrap(ctx, bytes.NewReader(data))
 }
+
+// PullRepo downloads the microVM working tree into scratch and extracts it.
+func (r *LambdaRuntime) PullRepo(ctx context.Context, workspaceID, scratch string) error {
+	stored, err := r.store.RuntimeInstance(ctx, workspaceID)
+	if err != nil {
+		return err
+	}
+	client, err := r.manager.Shell(ctx, environments.Instance{
+		MicrovmID: stored.InstanceID,
+		Endpoint:  stored.Endpoint,
+	})
+	if err != nil {
+		return err
+	}
+	reader, err := client.FetchTar(ctx)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	return vmagent.ExtractTree(reader, scratch)
+}
