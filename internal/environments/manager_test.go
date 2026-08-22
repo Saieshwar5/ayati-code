@@ -6,9 +6,10 @@ import (
 )
 
 type fakeAPI struct {
-	calls  int
-	token  string
-	active map[string]bool
+	calls    int
+	token    string
+	active   map[string]bool
+	endpoint string
 }
 
 func (f *fakeAPI) RunMicrovm(_ context.Context, input RunMicrovmInput) (Instance, error) {
@@ -17,7 +18,11 @@ func (f *fakeAPI) RunMicrovm(_ context.Context, input RunMicrovmInput) (Instance
 		f.active = make(map[string]bool)
 	}
 	f.active["vm-1"] = true
-	return Instance{MicrovmID: "vm-1", Endpoint: "example.test", State: "RUNNING", ImageARN: input.ImageARN}, nil
+	endpoint := f.endpoint
+	if endpoint == "" {
+		endpoint = "example.test"
+	}
+	return Instance{MicrovmID: "vm-1", Endpoint: endpoint, State: "RUNNING", ImageARN: input.ImageARN}, nil
 }
 
 func (f *fakeAPI) AuthToken(_ context.Context, id string) (string, error) {
@@ -41,7 +46,11 @@ func (f *fakeAPI) TerminateMicrovm(_ context.Context, id string) error {
 }
 
 func (f *fakeAPI) GetMicrovm(_ context.Context, id string) (Instance, error) {
-	return Instance{MicrovmID: id, Endpoint: "example.test", State: "RUNNING"}, nil
+	endpoint := f.endpoint
+	if endpoint == "" {
+		endpoint = "example.test"
+	}
+	return Instance{MicrovmID: id, Endpoint: endpoint, State: "RUNNING"}, nil
 }
 
 func TestManagerCreateAndShell(t *testing.T) {
