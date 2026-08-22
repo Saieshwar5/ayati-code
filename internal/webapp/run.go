@@ -19,6 +19,7 @@ import (
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
 	"github.com/Saieshwar5/perpetual/internal/execution"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/model"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
@@ -324,7 +325,12 @@ func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
 // A real model provider will replace the stub once provider configuration
 // lands; the loop, store, quotas, and shell factory are already in place.
 func startExecutionWorker(ctx context.Context, store *workspace.Store) {
-	worker, err := execution.NewWorkerWithFactory(store, execution.StubProvider{}, func(run workspace.Run) (execution.ShellRunner, error) {
+	provider, providerErr := model.NewFromConfig(model.LoadFromEnv())
+	if providerErr != nil {
+		log.Printf("perpetual: model provider unavailable (%v); using stub provider", providerErr)
+		provider = execution.StubProvider{}
+	}
+	worker, err := execution.NewWorkerWithFactory(store, provider, func(run workspace.Run) (execution.ShellRunner, error) {
 		ws, err := store.Get(context.Background(), run.WorkspaceID)
 		if err != nil {
 			return nil, err
