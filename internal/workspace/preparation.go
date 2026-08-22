@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Saieshwar5/perpetual/internal/environments"
 	"github.com/Saieshwar5/perpetual/internal/exec"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
 )
@@ -320,6 +321,11 @@ func shellEnvironment(cachePath string, values map[string]string) map[string]str
 // buildLambdaImage builds/reuses a Lambda MicroVM image for the workspace and
 // records the image reference on the bound environment version.
 func (s *Service) buildLambdaImage(ctx context.Context, value Workspace, version EnvironmentVersion) error {
+	// Reuse an already-built image recorded on this version.
+	if image, versionString, ok := environments.ParseImageRef(version.ArtifactRef); ok &&
+		image != "" && versionString != "" {
+		return nil
+	}
 	image, err := s.imageBuilder.Build(ctx)
 	if err != nil {
 		_ = s.store.SetEnvironmentVersionState(ctx, version.ID,

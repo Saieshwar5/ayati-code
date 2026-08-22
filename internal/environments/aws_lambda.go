@@ -139,3 +139,11 @@ func (a *AWSLambdaAPI) GetMicrovmImage(ctx context.Context) (ImageRef, error) {
 		State:    string(out.State),
 	}, nil
 }
+
+func (a *AWSLambdaAPI) DeleteMicrovmImageVersion(ctx context.Context, imageARN, version string) error {
+	_, err := a.client.DeleteMicrovmImageVersion(ctx, &mvms.DeleteMicrovmImageVersionInput{
+		ImageIdentifier: aws.String(imageARN),
+		ImageVersion:    aws.String(version),
+	})
+	return err
+}

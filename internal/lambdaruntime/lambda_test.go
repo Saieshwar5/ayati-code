@@ -12,6 +12,8 @@ import (
 
 type fakeAPI struct{}
 
+func (fakeAPI) DeleteMicrovmImageVersion(_ context.Context, _ string, _ string) error { return nil }
+
 func (fakeAPI) CreateMicrovmImage(_ context.Context, _ environments.ImageBuildInput) (environments.ImageRef, error) {
 	return environments.ImageRef{ImageARN: "arn:image", Version: "1.0", State: "CREATED"}, nil
 }

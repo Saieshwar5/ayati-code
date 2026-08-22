@@ -15,6 +15,10 @@ type stateFakeAPI struct{ state string }
 func (f stateFakeAPI) CreateMicrovmImage(_ context.Context, _ environments.ImageBuildInput) (environments.ImageRef, error) {
 	return environments.ImageRef{}, nil
 }
+func (f stateFakeAPI) DeleteMicrovmImageVersion(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 func (f stateFakeAPI) GetMicrovmImage(_ context.Context) (environments.ImageRef, error) {
 	return environments.ImageRef{}, nil
 }
