@@ -39,7 +39,7 @@ const workspaceColumnsWithoutSandbox = `id, repository, clone_url, base_branch, 
 // drops the legacy workspaces.sandbox_name column. Fresh databases skip the
 // rebuild; existing sandbox-era databases are migrated without losing records.
 func (s *Store) migrateRemoveComputeSandbox(ctx context.Context) error {
-	columns, err := databaseColumns(ctx, s.db, "workspaces")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspaces")
 	if err != nil {
 		return err
 	}

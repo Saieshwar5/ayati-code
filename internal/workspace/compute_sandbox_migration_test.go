@@ -61,7 +61,7 @@ func TestMigrationRemovesComputeEnvironmentSandboxSchema(t *testing.T) {
 		'workspaces_prevent_active_lease_delete')`).Scan(&triggers); err != nil || triggers != 0 {
 		t.Fatalf("legacy triggers still present: %#v, error = %v", triggers, err)
 	}
-	columns, err := databaseColumns(context.Background(), store.db, "workspaces")
+	columns, err := databaseColumns(context.Background(), store.db, store.database.Dialect(), "workspaces")
 	if err != nil {
 		t.Fatalf("databaseColumns: %v", err)
 	}

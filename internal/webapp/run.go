@@ -29,7 +29,9 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 	flags.SetOutput(errorOutput)
 	address := flags.String("address", envOr("PERPETUAL_ADDRESS", "127.0.0.1:8080"), "web listen address")
 	publicURL := flags.String("public-url", os.Getenv("PERPETUAL_PUBLIC_URL"), "public base URL for remote access")
-	databasePath := flags.String("database", "", "SQLite database path")
+	databasePath := flags.String("database", "", "database path or DSN (see -database-provider)")
+	databaseProvider := flags.String("database-provider", envOr("PERPETUAL_DATABASE_PROVIDER", "sqlite"), "database provider (sqlite or postgres)")
+	databaseURL := flags.String("database-url", os.Getenv("PERPETUAL_DATABASE_URL"), "Postgres connection string when -database-provider is postgres")
 	dataRoot := flags.String("data-root", "", "workspace data directory")
 	clientID := flags.String("github-client-id", os.Getenv("PERPETUAL_GITHUB_CLIENT_ID"), "GitHub App client ID")
 	clientSecret := flags.String("github-client-secret", os.Getenv("PERPETUAL_GITHUB_CLIENT_SECRET"), "GitHub App client secret")
@@ -63,7 +65,11 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	database, err := appdatabase.Open(paths.database)
+	database, err := appdatabase.OpenConfigured(ctx, appdatabase.Config{
+		Provider: appdatabase.Provider(strings.ToLower(strings.TrimSpace(*databaseProvider))),
+		URL:      strings.TrimSpace(*databaseURL),
+		Path:     paths.database,
+	})
 	if err != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1

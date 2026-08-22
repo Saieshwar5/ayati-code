@@ -52,7 +52,7 @@ func TestSingleWorkspaceModeMigrationPreservesWorkspaceConversation(t *testing.T
 	if err != nil || len(messages) != 1 || messages[0].Content != "preserve this" {
 		t.Fatalf("messages = %#v, error = %v", messages, err)
 	}
-	columns, err := databaseColumns(context.Background(), store.db, "workspaces")
+	columns, err := databaseColumns(context.Background(), store.db, store.database.Dialect(), "workspaces")
 	if err != nil {
 		t.Fatalf("databaseColumns: %v", err)
 	}

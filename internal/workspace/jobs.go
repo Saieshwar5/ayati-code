@@ -75,7 +75,7 @@ func (s *Store) migrateWorkspaceJobs(ctx context.Context) error {
 	if _, err := s.db.ExecContext(ctx, workspaceJobSchema); err != nil {
 		return fmt.Errorf("create workspace jobs: %w", err)
 	}
-	columns, err := databaseColumns(ctx, s.db, "workspace_jobs")
+	columns, err := databaseColumns(ctx, s.db, s.database.Dialect(), "workspace_jobs")
 	if err != nil {
 		return err
 	}
