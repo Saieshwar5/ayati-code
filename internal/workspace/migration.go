@@ -55,6 +55,9 @@ func (s *Store) configure() error {
 	if err := s.createRunTables(); err != nil {
 		return err
 	}
+	if err := s.createRuntimeInstanceTable(); err != nil {
+		return err
+	}
 	if err := s.RecoverJobs(context.Background()); err != nil {
 		return err
 	}

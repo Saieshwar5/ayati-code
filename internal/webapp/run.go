@@ -20,6 +20,7 @@ import (
 	"github.com/Saieshwar5/perpetual/internal/environments"
 	"github.com/Saieshwar5/perpetual/internal/execution"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
+	"github.com/Saieshwar5/perpetual/internal/lambdaruntime"
 	"github.com/Saieshwar5/perpetual/internal/model"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
@@ -88,7 +89,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", err)
 		return 1
 	}
-	runtimeProvider, runtimeErr := selectWorkspaceRuntime(*runtime)
+	runtimeProvider, runtimeErr := selectWorkspaceRuntime(*runtime, store)
 	if runtimeErr != nil {
 		fmt.Fprintf(errorOutput, "perpetual: %v\n", runtimeErr)
 		return 1
@@ -307,7 +308,7 @@ func (p *workspaceRuntimeProvider) RuntimeFor(provider string) (workspaceruntime
 // selectWorkspaceRuntime builds the runtime provider for the configured
 // runtime name. Local is the default; cloud validates its config up front so
 // misconfiguration fails at startup instead of inside a workspace job.
-func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
+func selectWorkspaceRuntime(name string, stores ...*workspace.Store) (workspace.RuntimeProvider, error) {
 	provider := &workspaceRuntimeProvider{local: workspaceruntime.NewLocal()}
 	switch strings.TrimSpace(name) {
 	case "", "local":
@@ -324,7 +325,11 @@ func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
 		provider.cloud = cloud
 		return provider, nil
 	case "lambda":
-		lambda, err := newLambdaRuntime()
+		var store *workspace.Store
+		if len(stores) > 0 {
+			store = stores[0]
+		}
+		lambda, err := newLambdaRuntime(store)
 		if err != nil {
 			return nil, err
 		}
@@ -365,7 +370,7 @@ func startExecutionWorker(ctx context.Context, store *workspace.Store) {
 
 // newLambdaRuntime wires the Lambda MicroVMs provider from the environment.
 // It fails fast when required Lambda configuration is missing.
-func newLambdaRuntime() (workspaceruntime.Runtime, error) {
+func newLambdaRuntime(store *workspace.Store) (workspaceruntime.Runtime, error) {
 	config := environments.LoadLambdaConfig()
 	api, err := environments.NewAWSLambdaAPI(config.Region)
 	if err != nil {
@@ -375,5 +380,5 @@ func newLambdaRuntime() (workspaceruntime.Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
-	return workspaceruntime.NewLambda(manager)
+	return lambdaruntime.NewLambda(manager, store)
 }
