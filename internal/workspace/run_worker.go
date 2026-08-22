@@ -216,3 +216,19 @@ func (s *Store) WorkMemory(ctx context.Context, runID string) (WorkMemory, error
 	value.UpdatedAt = parsed
 	return value, nil
 }
+
+// RecoverRuns interrupts runs whose worker lease has expired. This makes
+// horizontal worker pools safe: a crashed worker's runs are reclaimed instead
+// of running forever.
+func (s *Store) RecoverRuns(ctx context.Context) error {
+	now := formatTime(time.Now().UTC())
+	_, err := s.execContext(ctx, `UPDATE agent_runs SET state = ?, error = ?,
+		finished_at = ?, updated_at = ?, lease_owner = '', lease_expires_at = ''
+		WHERE state = ? AND lease_expires_at != '' AND lease_expires_at <= ?`,
+		RunFailed, "Execution room interrupted; lease expired", now, now,
+		RunRunning, now)
+	if err != nil {
+		return fmt.Errorf("recover execution rooms: %w", err)
+	}
+	return nil
+}
