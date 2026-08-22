@@ -16,6 +16,7 @@ func (s *Server) enqueueRun(writer http.ResponseWriter, request *http.Request) {
 	}
 	var input struct {
 		SessionID string `json:"session_id"`
+		Prompt    string `json:"prompt"`
 	}
 	if !s.decode(writer, request, &input) {
 		return
@@ -39,7 +40,7 @@ func (s *Server) enqueueRun(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 	run, err := s.store.EnqueueRun(request.Context(), workspace.EnqueueRunInput{
-		UserID: userID, WorkspaceID: workspaceID, SessionID: sessionID,
+		UserID: userID, WorkspaceID: workspaceID, SessionID: sessionID, Prompt: input.Prompt,
 	})
 	if err != nil {
 		s.writeError(writer, http.StatusConflict, err.Error())

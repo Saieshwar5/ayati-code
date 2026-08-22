@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "../api/contracts";
+import { api } from "../api/client";
 import { ChatPane } from "../chat/ChatPane";
 import { RunTimeline } from "../run/RunTimeline";
 import { EnvironmentsPage } from "../environments/EnvironmentsPage";
@@ -167,7 +168,14 @@ export function WorkspaceApplication({ user }: WorkspaceApplicationProps) {
                 error={detail.messageError}
                 sending={detail.sending}
                 stopping={detail.stopping}
-                onSend={detail.sendMessage}
+                onSend={async (text) => {
+                  try {
+                    await api.enqueueRun(workspace.id, session.id, text);
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                }}
                 onStop={detail.stopRun}
                 onOpenWorkspace={() => navigate(workspacePath(workspace.id))}
                 onCreateTask={(request) => createTask(workspace.id, taskMarkdownFromRequest(request))}

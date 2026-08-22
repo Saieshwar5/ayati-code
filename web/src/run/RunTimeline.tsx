@@ -1,13 +1,12 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
 import type { Run, RunState, RunStep } from "../api/contracts";
+import { useRunEvents } from "./useRunEvents";
 
 interface RunTimelineProps {
   workspaceID: string;
   sessionID: string;
 }
-
-const refreshIntervalMS = 3000;
 
 export function RunTimeline({ workspaceID, sessionID }: RunTimelineProps) {
   const [runs, setRuns] = useState<Run[]>([]);
@@ -16,35 +15,31 @@ export function RunTimeline({ workspaceID, sessionID }: RunTimelineProps) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
-    let current = true;
-    async function load() {
-      try {
-        const values = await api.runs(workspaceID);
-        if (!current) return;
-        const scoped = values.filter((run) => run.session_id === sessionID);
-        setRuns(scoped);
-        const active = scoped.find((run) => run.state === "queued" || run.state === "running" || run.state === "waiting_user")
-          || scoped[0];
-        setActiveRun(active);
-        setError("");
-        if (active) {
-          const activeSteps = await api.runSteps(active.id);
-          if (current) setSteps(activeSteps);
-        } else if (current) {
-          setSteps([]);
-        }
-      } catch (reason) {
-        if (current) setError((reason as Error).message);
+  const load = useCallback(async () => {
+    try {
+      const values = await api.runs(workspaceID);
+      const scoped = values.filter((run) => run.session_id === sessionID);
+      setRuns(scoped);
+      const active = scoped.find((run) => run.state === "queued" || run.state === "running" || run.state === "waiting_user")
+        || scoped[0];
+      setActiveRun(active);
+      setError("");
+      if (active) {
+        const activeSteps = await api.runSteps(active.id);
+        setSteps(activeSteps);
+      } else {
+        setSteps([]);
       }
+    } catch (reason) {
+      setError((reason as Error).message);
     }
-    void load();
-    const timer = window.setInterval(() => void load(), refreshIntervalMS);
-    return () => {
-      current = false;
-      window.clearInterval(timer);
-    };
   }, [workspaceID, sessionID]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  useRunEvents(workspaceID, () => void load());
 
   async function act(action: "stop" | "pause" | "continue") {
     if (!activeRun || busy) return;
@@ -89,6 +84,9 @@ export function RunTimeline({ workspaceID, sessionID }: RunTimelineProps) {
             <button type="button" disabled={busy} onClick={() => void act("continue")}>Continue</button>
           ) : null}
         </div>
+      )}
+      {activeRun?.prompt && (
+        <div className="run-prompt">User: {activeRun.prompt}</div>
       )}
       {activeRun && (
         <ol className="run-steps" aria-label="Run steps">

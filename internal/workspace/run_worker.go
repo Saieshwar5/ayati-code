@@ -43,7 +43,7 @@ func (s *Store) ClaimNextRunWithLimits(ctx context.Context, limits ClaimLimits) 
 	}
 	defer tx.Rollback()
 	claimQuery := `SELECT id, user_id, workspace_id, session_id, state,
-		step_cursor, max_steps, deadline_at, lease_owner, lease_expires_at,
+		step_cursor, max_steps, prompt, deadline_at, lease_owner, lease_expires_at,
 		heartbeat_at, current_command, result, error, created_at, updated_at,
 		started_at, finished_at FROM agent_runs WHERE state = ? ORDER BY created_at LIMIT 1`
 	if s.dialect == appdatabase.ProviderPostgres {

@@ -224,6 +224,7 @@ export interface Run {
   state: RunState;
   step_cursor: number;
   max_steps: number;
+  prompt?: string;
   deadline_at?: string;
   current_command?: string;
   result?: string;

@@ -30,7 +30,7 @@ func TestRunLifecycleOnSQLite(t *testing.T) {
 
 	run, err := store.EnqueueRun(context.Background(), EnqueueRunInput{
 		UserID: "user-1", WorkspaceID: workspace.ID, SessionID: session.ID,
-		MaxSteps: 50, Deadline: time.Now().UTC().Add(time.Hour),
+		Prompt: "Fix the failing test", MaxSteps: 50, Deadline: time.Now().UTC().Add(time.Hour),
 	})
 	if err != nil {
 		t.Fatalf("EnqueueRun: %v", err)
@@ -45,6 +45,9 @@ func TestRunLifecycleOnSQLite(t *testing.T) {
 	}
 	if got.SessionID != session.ID {
 		t.Fatalf("session = %q", got.SessionID)
+	}
+	if got.Prompt != "Fix the failing test" {
+		t.Fatalf("prompt = %q", got.Prompt)
 	}
 
 	claimed, err := store.ClaimNextRun(context.Background())
