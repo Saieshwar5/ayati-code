@@ -15,9 +15,27 @@ import (
 // ErrNoRuns is returned when no queued execution room is available.
 var ErrNoRuns = errors.New("no queued execution rooms")
 
-// ClaimNextRun claims one queued execution room for a worker. Postgres uses
-// FOR UPDATE SKIP LOCKED so concurrent workers never claim the same run.
+// ClaimLimits bounds how many runs one claim pass may activate. Zero values
+// mean no limit.
+type ClaimLimits struct {
+	MaxPerUser      int64
+	MaxPerWorkspace int64
+	MaxGlobal       int64
+}
+
+// ErrQuotaReached is returned when the next queued run is blocked by a limit.
+var ErrQuotaReached = errors.New("execution room quota reached")
+
+// ClaimNextRun claims one queued execution room with no quota limits.
 func (s *Store) ClaimNextRun(ctx context.Context) (Run, error) {
+	return s.ClaimNextRunWithLimits(ctx, ClaimLimits{})
+}
+
+// ClaimNextRunWithLimits claims one queued execution room for a worker. Postgres
+// uses FOR UPDATE SKIP LOCKED so concurrent workers never claim the same run.
+// When limits are set, the candidate run is checked against per-user, per
+// workspace, and global active-run counts before it is claimed.
+func (s *Store) ClaimNextRunWithLimits(ctx context.Context, limits ClaimLimits) (Run, error) {
 	now := time.Now().UTC()
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -37,6 +55,37 @@ func (s *Store) ClaimNextRun(ctx context.Context) (Run, error) {
 			return Run{}, ErrNoRuns
 		}
 		return Run{}, err
+	}
+	if limits.MaxPerUser > 0 {
+		count, err := s.countRunsTx(ctx, tx, `user_id = ? AND state IN (?, ?)`,
+			value.UserID, RunQueued, RunRunning)
+		if err != nil {
+			return Run{}, err
+		}
+		if count-1 >= limits.MaxPerUser {
+			return Run{}, ErrQuotaReached
+		}
+	}
+	if limits.MaxPerWorkspace > 0 {
+		// Only running runs occupy the workspace execution slot; extra queued
+		// runs wait for the slot instead of being rejected.
+		count, err := s.countRunsTx(ctx, tx, `workspace_id = ? AND state = ?`,
+			value.WorkspaceID, RunRunning)
+		if err != nil {
+			return Run{}, err
+		}
+		if count >= limits.MaxPerWorkspace {
+			return Run{}, ErrQuotaReached
+		}
+	}
+	if limits.MaxGlobal > 0 {
+		count, err := s.countRunsTx(ctx, tx, `state = ?`, RunRunning)
+		if err != nil {
+			return Run{}, err
+		}
+		if count >= limits.MaxGlobal {
+			return Run{}, ErrQuotaReached
+		}
 	}
 	nowText := formatTime(now)
 	leaseText := formatTime(now.Add(runLeaseDuration))
@@ -60,6 +109,17 @@ func (s *Store) ClaimNextRun(ctx context.Context) (Run, error) {
 	value.HeartbeatAt = now
 	value.StartedAt = now
 	return value, nil
+}
+
+// countRunsTx counts agent_runs matching a WHERE fragment using the active
+// placeholder dialect.
+func (s *Store) countRunsTx(ctx context.Context, tx *sql.Tx, where string, args ...any) (int64, error) {
+	query := `SELECT COUNT(*) FROM agent_runs WHERE ` + where
+	var count int64
+	if err := s.queryRowTx(ctx, tx, query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count execution rooms: %w", err)
+	}
+	return count, nil
 }
 
 // TouchRunLease extends the lease and records a heartbeat. Workers call this

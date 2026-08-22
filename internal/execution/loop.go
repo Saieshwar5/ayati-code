@@ -12,11 +12,13 @@ import (
 // a time. Multiple Worker instances can share one store; SKIP LOCKED claims
 // keep them from executing the same run.
 type Worker struct {
-	store     *workspace.Store
-	provider  ModelProvider
-	shell     ShellRunner
-	settings  Settings
-	compactor *Compactor
+	store        *workspace.Store
+	provider     ModelProvider
+	shell        ShellRunner
+	shellFactory func(workspace.Run) (ShellRunner, error)
+	limits       workspace.ClaimLimits
+	settings     Settings
+	compactor    *Compactor
 }
 
 // NewWorker builds a run worker.
@@ -37,13 +39,40 @@ func NewWorker(store *workspace.Store, provider ModelProvider, shell ShellRunner
 	return &Worker{store: store, provider: provider, shell: shell, settings: DefaultSettings(), compactor: compactor}, nil
 }
 
+// NewWorkerWithFactory builds a run worker that resolves a fresh ShellRunner
+// for every run, enabling multi-workspace execution.
+func NewWorkerWithFactory(store *workspace.Store, provider ModelProvider, factory func(workspace.Run) (ShellRunner, error)) (*Worker, error) {
+	if store == nil {
+		return nil, errors.New("execution worker store is required")
+	}
+	if provider == nil {
+		return nil, errors.New("execution worker model provider is required")
+	}
+	if factory == nil {
+		return nil, errors.New("execution worker shell factory is required")
+	}
+	compactor, err := NewCompactor(provider, DefaultSettings())
+	if err != nil {
+		return nil, err
+	}
+	return &Worker{store: store, provider: provider, shellFactory: factory, settings: DefaultSettings(), compactor: compactor}, nil
+}
+
+// SetLimits applies per-user/workspace/global quota limits to future claims.
+func (w *Worker) SetLimits(limits workspace.ClaimLimits) {
+	w.limits = limits
+}
+
 // WorkOnce claims and executes one queued execution room. It returns ErrNoRuns
 // when the queue is empty and records run failures durably before returning
 // per-run errors.
 func (w *Worker) WorkOnce(ctx context.Context) error {
-	run, err := w.store.ClaimNextRun(ctx)
+	run, err := w.store.ClaimNextRunWithLimits(ctx, w.limits)
 	if err != nil {
 		if errors.Is(err, workspace.ErrNoRuns) {
+			return errNoRuns
+		}
+		if errors.Is(err, workspace.ErrQuotaReached) {
 			return errNoRuns
 		}
 		return err
@@ -63,6 +92,16 @@ func (w *Worker) execute(ctx context.Context, run workspace.Run) error {
 		if step.Status == "done" {
 			done[step.StepKey] = true
 		}
+	}
+	var shell ShellRunner
+	if w.shellFactory != nil {
+		shell, err = w.shellFactory(run)
+		if err != nil {
+			_ = w.store.FailRun(ctx, run.ID, "shell factory failed")
+			return err
+		}
+	} else {
+		shell = w.shell
 	}
 	version := int64(0)
 	for step := run.StepCursor; step < run.MaxSteps; step++ {
@@ -126,7 +165,7 @@ func (w *Worker) execute(ctx context.Context, run workspace.Run) error {
 				if done[shellKey] {
 					continue
 				}
-				result, err := w.shell.Run(ctx, command)
+				result, err := shell.Run(ctx, command)
 				if err != nil {
 					_ = w.store.FailRun(ctx, run.ID, "shell execution failed")
 					return err
