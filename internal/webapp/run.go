@@ -17,6 +17,7 @@ import (
 
 	"github.com/Saieshwar5/perpetual/internal/accounts"
 	appdatabase "github.com/Saieshwar5/perpetual/internal/database"
+	"github.com/Saieshwar5/perpetual/internal/execution"
 	"github.com/Saieshwar5/perpetual/internal/githubapp"
 	"github.com/Saieshwar5/perpetual/internal/workspace"
 	"github.com/Saieshwar5/perpetual/internal/workspaceruntime"
@@ -100,6 +101,7 @@ func Run(ctx context.Context, args []string, output, errorOutput io.Writer) int 
 		return 1
 	}
 	go workspaces.RunWorker(ctx)
+	go startExecutionWorker(ctx, store)
 	go runSessionCleanup(ctx, accountStore)
 	github, err := optionalGitHub(*clientID, *clientSecret, *callback, *address, *publicURL)
 	if err != nil {
@@ -316,4 +318,27 @@ func selectWorkspaceRuntime(name string) (workspace.RuntimeProvider, error) {
 	default:
 		return nil, fmt.Errorf("workspace runtime %q is not supported", name)
 	}
+}
+
+// startExecutionWorker runs the execution-room worker with the stub provider.
+// A real model provider will replace the stub once provider configuration
+// lands; the loop, store, quotas, and shell factory are already in place.
+func startExecutionWorker(ctx context.Context, store *workspace.Store) {
+	worker, err := execution.NewWorkerWithFactory(store, execution.StubProvider{}, func(run workspace.Run) (execution.ShellRunner, error) {
+		ws, err := store.Get(context.Background(), run.WorkspaceID)
+		if err != nil {
+			return nil, err
+		}
+		return execution.NewRuntimeShell(
+			workspaceruntime.NewLocal(),
+			workspaceruntime.Ref{ID: ws.ID, Directory: ws.Path},
+			map[string]string{"PATH": os.Getenv("PATH")},
+		)
+	})
+	if err != nil {
+		log.Printf("perpetual: execution worker unavailable: %v", err)
+		return
+	}
+	worker.SetLimits(workspace.ClaimLimits{MaxPerUser: 2, MaxPerWorkspace: 1, MaxGlobal: 64})
+	go execution.RunWorker(ctx, worker, 750*time.Millisecond)
 }
